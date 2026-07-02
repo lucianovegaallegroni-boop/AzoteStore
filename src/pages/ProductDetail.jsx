@@ -1,10 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { getProductById } from '../data/products';
-
-export default function ProductDetail({ onAddToCart, onAddToWishlist, wishlistItems }) {
+export default function ProductDetail({ products, onAddToCart, onAddToWishlist, wishlistItems }) {
   const { id } = useParams();
-  const product = getProductById(id);
+  const product = products.find(p => p.id === id);
 
   // Gallery States
   const [activeImageIndex, setActiveImageIndex] = useState(0);

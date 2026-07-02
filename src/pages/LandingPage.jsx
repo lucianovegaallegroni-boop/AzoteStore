@@ -1,8 +1,6 @@
 import React from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { products } from '../data/products';
-
-export default function LandingPage() {
+export default function LandingPage({ products }) {
   const navigate = useNavigate();
 
   // Get some products to display as featured

@@ -1,8 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
-import { products } from '../data/products';
-
-export default function ProductCatalog() {
+export default function ProductCatalog({ products }) {
   const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
 

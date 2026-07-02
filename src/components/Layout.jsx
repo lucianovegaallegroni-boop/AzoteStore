@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
 import { Link, useNavigate, Outlet } from 'react-router-dom';
 
-export default function Layout({ cartCount, wishlistCount, onOpenCart, onOpenWishlist }) {
+export default function Layout({ cartCount, wishlistCount, currentUser, onLogout, onOpenCart, onOpenWishlist }) {
   const [searchQuery, setSearchQuery] = useState('');
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [userMenuOpen, setUserMenuOpen] = useState(false);
   const navigate = useNavigate();
 
   const handleSearchSubmit = (e) => {
@@ -12,6 +13,12 @@ export default function Layout({ cartCount, wishlistCount, onOpenCart, onOpenWis
       navigate(`/catalog?q=${encodeURIComponent(searchQuery.trim())}`);
       setSearchQuery('');
     }
+  };
+
+  const handleLogoutClick = () => {
+    onLogout();
+    setUserMenuOpen(false);
+    navigate('/');
   };
 
   return (
@@ -65,10 +72,21 @@ export default function Layout({ cartCount, wishlistCount, onOpenCart, onOpenWis
               <Link to="/catalog?category=board-games" className="text-on-surface-variant dark:text-outline-variant font-body-md text-body-md hover:text-primary dark:hover:text-primary-fixed hover:scale-105 transition-all">
                 Board Games
               </Link>
+              
+              {/* Add Product Button (Visible only to logged in users) */}
+              {currentUser && (
+                <Link 
+                  to="/admin" 
+                  className="text-secondary dark:text-secondary-fixed font-bold text-body-md hover:text-primary hover:scale-105 transition-all flex items-center gap-1 border-l border-outline-variant/30 pl-4 ml-1"
+                >
+                  <span className="material-symbols-outlined text-[1.2em]">add_box</span>
+                  Agregar productos
+                </Link>
+              )}
             </div>
 
             {/* Icons */}
-            <div className="flex items-center gap-sm">
+            <div className="flex items-center gap-sm relative">
               
               {/* Search Toggle for Mobile */}
               <button 
@@ -96,14 +114,63 @@ export default function Layout({ cartCount, wishlistCount, onOpenCart, onOpenWis
                 )}
               </button>
 
-              {/* Account (Mock) */}
-              <button 
-                onClick={() => alert('¡Cuenta de usuario! (Simulación)')}
-                className="p-2 text-on-surface-variant hover:text-primary hover:scale-105 active:scale-95 transition-all rounded-full hover:bg-surface-container-high"
-                aria-label="Account"
-              >
-                <span className="material-symbols-outlined">account_circle</span>
-              </button>
+              {/* Account Dropdown or Login Button */}
+              {currentUser ? (
+                <div className="relative">
+                  <button 
+                    onClick={() => setUserMenuOpen(!userMenuOpen)}
+                    className="flex items-center gap-1.5 p-1.5 pr-3 text-on-surface-variant hover:text-primary hover:bg-surface-container-high rounded-full transition-all border border-outline-variant/30 active:scale-95"
+                    aria-label="User Menu"
+                  >
+                    <div className="w-7 h-7 rounded-full bg-primary text-on-primary font-bold text-xs flex items-center justify-center shadow-sm">
+                      {currentUser.name.charAt(0).toUpperCase()}
+                    </div>
+                    <span className="text-xs font-semibold hidden md:inline max-w-[80px] truncate">{currentUser.name}</span>
+                    <span className="material-symbols-outlined text-[16px]">
+                      {userMenuOpen ? 'expand_less' : 'expand_more'}
+                    </span>
+                  </button>
+
+                  {/* Dropdown Menu */}
+                  {userMenuOpen && (
+                    <div className="absolute right-0 mt-2 w-56 bg-surface border border-outline-variant/40 rounded-xl shadow-lg z-50 py-2">
+                      <div className="px-4 py-2 border-b border-outline-variant/20">
+                        <p className="text-xs font-semibold text-outline">Conectado como</p>
+                        <p className="font-label-md text-sm text-on-background truncate mt-0.5">{currentUser.name}</p>
+                        <p className="text-xs text-on-surface-variant truncate">{currentUser.email}</p>
+                      </div>
+                      
+                      {/* Mobile-only Admin Link inside dropdown */}
+                      {currentUser && (
+                        <Link
+                          to="/admin"
+                          onClick={() => setUserMenuOpen(false)}
+                          className="md:hidden w-full text-left px-4 py-2 text-sm text-on-surface hover:bg-surface-container-high transition-colors flex items-center gap-2 mt-1"
+                        >
+                          <span className="material-symbols-outlined text-[18px]">add_box</span>
+                          Agregar productos
+                        </Link>
+                      )}
+
+                      <button 
+                        onClick={handleLogoutClick}
+                        className="w-full text-left px-4 py-2 text-sm text-on-surface-variant hover:bg-surface-container-high hover:text-error transition-colors flex items-center gap-2 mt-0.5"
+                      >
+                        <span className="material-symbols-outlined text-[18px]">logout</span>
+                        Cerrar Sesión
+                      </button>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <button 
+                  onClick={() => navigate('/login')}
+                  className="p-2 text-on-surface-variant hover:text-primary hover:scale-105 active:scale-95 transition-all rounded-full hover:bg-surface-container-high"
+                  aria-label="Login"
+                >
+                  <span className="material-symbols-outlined">account_circle</span>
+                </button>
+              )}
 
               {/* Cart Button */}
               <button 
@@ -165,6 +232,17 @@ export default function Layout({ cartCount, wishlistCount, onOpenCart, onOpenWis
             >
               Board Games
             </Link>
+            
+            {currentUser && (
+              <Link 
+                to="/admin" 
+                onClick={() => setMobileMenuOpen(false)}
+                className="py-2 text-secondary font-bold hover:text-primary flex items-center gap-1 border-t border-outline-variant/20 pt-3 mt-1"
+              >
+                <span className="material-symbols-outlined text-[1.2em]">add_box</span>
+                Agregar productos
+              </Link>
+            )}
           </div>
         )}
       </nav>
