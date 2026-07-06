@@ -28,35 +28,41 @@ export default function App() {
   const [isWishlistOpen, setIsWishlistOpen] = useState(false);
 
   // Cart operations
-  const handleAddToCart = (product) => {
+  const handleAddToCart = (product, color = null) => {
     setCartItems((prevItems) => {
-      const existing = prevItems.find((item) => item.product.id === product.id);
+      const existing = prevItems.find((item) => 
+        item.product.id === product.id && item.color?.id === color?.id
+      );
       if (existing) {
         return prevItems.map((item) => 
-          item.product.id === product.id 
+          item.product.id === product.id && item.color?.id === color?.id
             ? { ...item, quantity: item.quantity + 1 } 
             : item
         );
       }
-      return [...prevItems, { product, quantity: 1 }];
+      return [...prevItems, { product, quantity: 1, color }];
     });
     setIsCartOpen(true); // Open cart automatically when adding item
   };
 
-  const handleUpdateCartQuantity = (productId, newQty) => {
+  const handleUpdateCartQuantity = (productId, newQty, colorId = null) => {
     if (newQty <= 0) {
-      handleRemoveFromCart(productId);
+      handleRemoveFromCart(productId, colorId);
       return;
     }
     setCartItems((prevItems) =>
       prevItems.map((item) =>
-        item.product.id === productId ? { ...item, quantity: newQty } : item
+        item.product.id === productId && item.color?.id === colorId
+          ? { ...item, quantity: newQty }
+          : item
       )
     );
   };
 
-  const handleRemoveFromCart = (productId) => {
-    setCartItems((prevItems) => prevItems.filter((item) => item.product.id !== productId));
+  const handleRemoveFromCart = (productId, colorId = null) => {
+    setCartItems((prevItems) => 
+      prevItems.filter((item) => !(item.product.id === productId && item.color?.id === colorId))
+    );
   };
 
   const handlePlaceOrder = (orderData) => {
@@ -131,8 +137,8 @@ export default function App() {
       subtitle: `${productData.category} Collectible Item`,
       price: parseFloat(productData.price),
       originalPrice: null,
-      image: imageMap[productData.category] || imageMap['Board Games'],
-      gallery: [imageMap[productData.category] || imageMap['Board Games']],
+      image: productData.image || imageMap[productData.category] || imageMap['Board Games'],
+      gallery: [productData.image || imageMap[productData.category] || imageMap['Board Games']],
       category: productData.category,
       categorySlug: productData.category.toLowerCase().replace(/\s+/g, '-'),
       inStock: parseInt(productData.stock) > 0,
@@ -146,6 +152,42 @@ export default function App() {
     };
 
     setProductList((prevList) => [newProduct, ...prevList]);
+  };
+
+  const handleUpdateStock = (productId, amountToAdd, colorId = null) => {
+    setProductList((prevList) =>
+      prevList.map((p) => {
+        if (p.id === productId) {
+          if (colorId && p.colors) {
+            const updatedColors = p.colors.map((c) => {
+              if (c.id === colorId) {
+                const currentStock = c.stock !== undefined ? c.stock : (c.inStock ? 20 : 0);
+                const newStock = Math.max(0, currentStock + amountToAdd);
+                return { ...c, stock: newStock, inStock: newStock > 0 };
+              }
+              return c;
+            });
+            return {
+              ...p,
+              colors: updatedColors,
+              inStock: updatedColors.some((c) => c.inStock)
+            };
+          } else {
+            const currentStock = p.specifications?.Stock ? parseInt(p.specifications.Stock) : (p.inStock ? 20 : 0);
+            const newStock = Math.max(0, currentStock + amountToAdd);
+            return {
+              ...p,
+              inStock: newStock > 0,
+              specifications: {
+                ...p.specifications,
+                Stock: String(newStock)
+              }
+            };
+          }
+        }
+        return p;
+      })
+    );
   };
 
   // Calculate total items in cart
@@ -183,7 +225,7 @@ export default function App() {
           />
           <Route path="login" element={<LoginPage onLogin={handleLogin} />} />
           <Route path="register" element={<RegisterPage onRegister={handleRegister} />} />
-          <Route path="admin" element={<AdminPage products={productList} onCreateProduct={handleCreateProduct} orders={orders} setOrders={setOrders} />} />
+          <Route path="admin" element={<AdminPage products={productList} onCreateProduct={handleCreateProduct} onUpdateStock={handleUpdateStock} orders={orders} setOrders={setOrders} />} />
         </Route>
       </Routes>
 

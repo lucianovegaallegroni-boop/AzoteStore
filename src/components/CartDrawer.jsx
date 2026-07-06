@@ -117,45 +117,54 @@ export default function CartDrawer({
                     ) : (
                       <div className="space-y-4">
                         {cartItems.map((item) => (
-                          <div key={item.product.id} className="flex gap-4 p-3 bg-surface-container-lowest rounded-xl border border-outline-variant/20 card-shadow transition-all hover:scale-[1.01]">
-                            <img 
-                              src={item.product.image} 
-                              alt={item.product.name} 
-                              className="w-20 h-20 rounded-lg object-cover bg-surface-container-low" 
-                            />
-                            <div className="flex-1 flex flex-col justify-between">
-                              <div>
-                                <h4 className="font-label-md text-on-background line-clamp-1">{item.product.name}</h4>
-                                <p className="text-xs text-on-surface-variant">{item.product.subtitle}</p>
-                              </div>
-                              <div className="flex justify-between items-center mt-2">
-                                <span className="font-label-md text-primary font-semibold">${(item.product.price * item.quantity).toFixed(2)}</span>
-                                
-                                {/* Quantity Controls */}
-                                <div className="flex items-center bg-surface-container-high rounded-full overflow-hidden border border-outline-variant/30">
-                                  <button 
-                                    onClick={() => onUpdateQuantity(item.product.id, item.quantity - 1)}
-                                    className="px-2.5 py-1 text-on-surface hover:bg-surface-container-highest transition-colors"
-                                  >
-                                    <span className="material-symbols-outlined text-[14px]">remove</span>
-                                  </button>
-                                  <span className="px-3 py-1 text-sm font-semibold font-body-md text-on-surface">{item.quantity}</span>
-                                  <button 
-                                    onClick={() => onUpdateQuantity(item.product.id, item.quantity + 1)}
-                                    className="px-2.5 py-1 text-on-surface hover:bg-surface-container-highest transition-colors"
-                                  >
-                                    <span className="material-symbols-outlined text-[14px]">add</span>
-                                  </button>
-                                </div>
-                              </div>
-                            </div>
-                            <button 
-                              onClick={() => onRemoveItem(item.product.id)}
-                              className="text-on-surface-variant hover:text-error self-start p-1 rounded-full hover:bg-surface-container-high transition-colors"
-                            >
-                              <span className="material-symbols-outlined text-[20px]">delete</span>
-                            </button>
-                          </div>
+                           <div key={`${item.product.id}-${item.color ? item.color.id : 'default'}`} className="flex gap-4 p-3 bg-surface-container-lowest rounded-xl border border-outline-variant/20 card-shadow transition-all hover:scale-[1.01]">
+                             <img 
+                               src={item.color ? item.color.image : item.product.image} 
+                               alt={item.product.name} 
+                               className="w-20 h-20 rounded-lg object-cover bg-surface-container-low" 
+                             />
+                             <div className="flex-1 flex flex-col justify-between">
+                               <div>
+                                 <h4 className="font-label-md text-on-background line-clamp-1">{item.product.name}</h4>
+                                 <p className="text-xs text-on-surface-variant">{item.product.subtitle}</p>
+                                 {item.color && (
+                                   <div className="flex items-center gap-1.5 mt-1">
+                                     <div 
+                                       className={`w-3 h-3 rounded border border-outline-variant/40 shrink-0 ${item.color.id === 'clear-gloss' ? 'bg-[linear-gradient(45deg,#ccc_25%,transparent_25%),linear-gradient(-45deg,#ccc_25%,transparent_25%),linear-gradient(45deg,transparent_75%,#ccc_75%),linear-gradient(-45deg,transparent_75%,#ccc_75%)] bg-[size:4px_4px]' : ''}`}
+                                       style={item.color.id !== 'clear-gloss' ? { backgroundColor: item.color.hex } : {}}
+                                     ></div>
+                                     <span className="text-[10px] font-bold text-on-surface-variant">Color: {item.color.name}</span>
+                                   </div>
+                                 )}
+                               </div>
+                               <div className="flex justify-between items-center mt-2">
+                                 <span className="font-label-md text-primary font-semibold">${(item.product.price * item.quantity).toFixed(2)}</span>
+                                 
+                                 {/* Quantity Controls */}
+                                 <div className="flex items-center bg-surface-container-high rounded-full overflow-hidden border border-outline-variant/30">
+                                   <button 
+                                     onClick={() => onUpdateQuantity(item.product.id, item.quantity - 1, item.color ? item.color.id : null)}
+                                     className="px-2.5 py-1 text-on-surface hover:bg-surface-container-highest transition-colors"
+                                   >
+                                     <span className="material-symbols-outlined text-[14px]">remove</span>
+                                   </button>
+                                   <span className="px-3 py-1 text-sm font-semibold font-body-md text-on-surface">{item.quantity}</span>
+                                   <button 
+                                     onClick={() => onUpdateQuantity(item.product.id, item.quantity + 1, item.color ? item.color.id : null)}
+                                     className="px-2.5 py-1 text-on-surface hover:bg-surface-container-highest transition-colors"
+                                   >
+                                     <span className="material-symbols-outlined text-[14px]">add</span>
+                                   </button>
+                                 </div>
+                               </div>
+                             </div>
+                             <button 
+                               onClick={() => onRemoveItem(item.product.id, item.color ? item.color.id : null)}
+                               className="text-on-surface-variant hover:text-error self-start p-1 rounded-full hover:bg-surface-container-high transition-colors"
+                             >
+                               <span className="material-symbols-outlined text-[20px]">delete</span>
+                             </button>
+                           </div>
                         ))}
                       </div>
                     )}

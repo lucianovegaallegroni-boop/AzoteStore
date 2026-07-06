@@ -6,25 +6,23 @@ export default function ProductDetail({ products, onAddToCart, onAddToWishlist, 
   const navigate = useNavigate();
   
   const [isColorMenuOpen, setIsColorMenuOpen] = useState(false);
-
-  const sleevesColors = [
-    { id: 'sleeves-matte-black', name: 'Negro Mate', hex: '#111827' },
-    { id: 'sleeves-clear-gloss', name: 'Transparente Brillante', hex: '#f3f4f6' },
-    { id: 'sleeves-matte-red', name: 'Rojo Mate', hex: '#dc2626' },
-    { id: 'sleeves-matte-blue', name: 'Azul Mate', hex: '#2563eb' }
-  ];
-
-  const currentSleeveColor = sleevesColors.find(c => c.id === product?.id);
+  const [selectedColor, setSelectedColor] = useState(null);
+  const isCurrentColorInStock = selectedColor ? selectedColor.inStock : (product ? product.inStock : false);
 
   // Gallery States
   const [activeImageIndex, setActiveImageIndex] = useState(0);
   const [isVideoOpen, setIsVideoOpen] = useState(false);
 
-  // Reset active image index when product changes
+  // Reset states when product changes
   useEffect(() => {
     setActiveImageIndex(0);
     setIsVideoOpen(false);
-  }, [id]);
+    if (product && product.colors) {
+      setSelectedColor(product.colors[0]);
+    } else {
+      setSelectedColor(null);
+    }
+  }, [id, product]);
 
   if (!product) {
     return (
@@ -101,6 +99,9 @@ export default function ProductDetail({ products, onAddToCart, onAddToWishlist, 
                       } else {
                         setIsVideoOpen(false);
                         setActiveImageIndex(index);
+                        if (product.colors && product.colors[index]) {
+                          setSelectedColor(product.colors[index]);
+                        }
                       }
                     }}
                     className={`rounded-lg overflow-hidden shadow-sm h-16 sm:h-24 cursor-pointer border-2 transition-all relative ${
@@ -131,7 +132,7 @@ export default function ProductDetail({ products, onAddToCart, onAddToWishlist, 
         {/* Right: Product Details (4 columns) */}
         <div className="lg:col-span-4 flex flex-col pt-md lg:pt-0">
           <div className="flex items-center gap-2 mb-sm">
-            {product.inStock ? (
+            {isCurrentColorInStock ? (
               <span className="bg-primary-container/20 text-primary-container px-3 py-1 rounded-full font-label-sm text-label-sm uppercase tracking-wider flex items-center gap-1">
                 <span className="material-symbols-outlined text-[16px]">check_circle</span> En Stock
               </span>
@@ -160,7 +161,7 @@ export default function ProductDetail({ products, onAddToCart, onAddToWishlist, 
           </div>
 
           {/* Sleeves Color Dropdown Variation */}
-          {product.categorySlug === 'sleeves' && currentSleeveColor && (
+          {product.categorySlug === 'sleeves' && product.colors && selectedColor && (
             <div className="mb-lg relative">
               <label className="block font-label-md text-on-surface-variant text-xs uppercase tracking-wider mb-2 ml-1 font-semibold">
                 Color del Protector
@@ -175,10 +176,10 @@ export default function ProductDetail({ products, onAddToCart, onAddToWishlist, 
                 <div className="flex items-center gap-3">
                   <div 
                     className="w-5 h-5 rounded border border-outline-variant/40 shadow-sm shrink-0" 
-                    style={{ backgroundColor: currentSleeveColor.hex }}
-                    {...(product.id === 'sleeves-clear-gloss' ? { className: "w-5 h-5 rounded border border-outline-variant/40 shadow-sm shrink-0 bg-[linear-gradient(45deg,#ccc_25%,transparent_25%),linear-gradient(-45deg,#ccc_25%,transparent_25%),linear-gradient(45deg,transparent_75%,#ccc_75%),linear-gradient(-45deg,transparent_75%,#ccc_75%)] bg-[size:6px_6px]" } : {})}
+                    style={{ backgroundColor: selectedColor.hex }}
+                    {...(selectedColor.id === 'clear-gloss' ? { className: "w-5 h-5 rounded border border-outline-variant/40 shadow-sm shrink-0 bg-[linear-gradient(45deg,#ccc_25%,transparent_25%),linear-gradient(-45deg,#ccc_25%,transparent_25%),linear-gradient(45deg,transparent_75%,#ccc_75%),linear-gradient(-45deg,transparent_75%,#ccc_75%)] bg-[size:6px_6px]" } : {})}
                   ></div>
-                  <span className="font-bold text-on-surface">{currentSleeveColor.name}</span>
+                  <span className="font-bold text-on-surface">{selectedColor.name}</span>
                 </div>
                 <span className={`material-symbols-outlined text-outline transition-transform duration-200 ${isColorMenuOpen ? 'rotate-180' : ''}`}>
                   expand_more
@@ -196,18 +197,18 @@ export default function ProductDetail({ products, onAddToCart, onAddToWishlist, 
               {/* Dropdown Options Menu */}
               {isColorMenuOpen && (
                 <div className="absolute left-0 top-full mt-1.5 w-full md:max-w-xs bg-surface dark:bg-inverse-surface border border-outline-variant/30 rounded-xl shadow-lg z-30 py-1.5 flex flex-col gap-0.5 card-shadow">
-                  {sleevesColors.map((color) => {
-                    const isSelected = color.id === product.id;
-                    const targetProduct = products.find(p => p.id === color.id);
-                    const isInStock = targetProduct ? targetProduct.inStock : true;
+                  {product.colors.map((color, idx) => {
+                    const isSelected = color.id === selectedColor.id;
+                    const isInStock = color.inStock;
                     
                     return (
                       <button
                         key={color.id}
                         type="button"
                         onClick={() => {
+                          setSelectedColor(color);
+                          setActiveImageIndex(idx);
                           setIsColorMenuOpen(false);
-                          navigate(`/product/${color.id}`);
                         }}
                         className={`w-full text-left px-4 py-2.5 hover:bg-surface-container-low transition-colors flex items-center justify-between ${
                           isSelected ? 'bg-primary/5 text-primary' : 'text-on-surface'
@@ -217,7 +218,7 @@ export default function ProductDetail({ products, onAddToCart, onAddToWishlist, 
                           <div 
                             className="w-5 h-5 rounded border border-outline-variant/30 shadow-sm shrink-0" 
                             style={{ backgroundColor: color.hex }}
-                            {...(color.id === 'sleeves-clear-gloss' ? { className: "w-5 h-5 rounded border border-outline-variant/30 shadow-sm shrink-0 bg-[linear-gradient(45deg,#ccc_25%,transparent_25%),linear-gradient(-45deg,#ccc_25%,transparent_25%),linear-gradient(45deg,transparent_75%,#ccc_75%),linear-gradient(-45deg,transparent_75%,#ccc_75%)] bg-[size:6px_6px]" } : {})}
+                            {...(color.id === 'clear-gloss' ? { className: "w-5 h-5 rounded border border-outline-variant/30 shadow-sm shrink-0 bg-[linear-gradient(45deg,#ccc_25%,transparent_25%),linear-gradient(-45deg,#ccc_25%,transparent_25%),linear-gradient(45deg,transparent_75%,#ccc_75%),linear-gradient(-45deg,transparent_75%,#ccc_75%)] bg-[size:6px_6px]" } : {})}
                           ></div>
                           <span className="text-xs font-bold truncate">{color.name}</span>
                         </div>
@@ -261,9 +262,9 @@ export default function ProductDetail({ products, onAddToCart, onAddToWishlist, 
 
           {/* Actions */}
           <div className="flex flex-col gap-sm mt-auto">
-            {product.inStock ? (
+            {isCurrentColorInStock ? (
               <button 
-                onClick={() => onAddToCart(product)}
+                onClick={() => onAddToCart(product, selectedColor)}
                 className="w-full bg-primary text-on-primary font-headline-md text-headline-md py-4 rounded-xl shadow-[0_4px_14px_0_rgba(37,99,235,0.39)] hover:shadow-[0_6px_20px_rgba(37,99,235,0.23)] hover:-translate-y-1 transition-all duration-200 flex items-center justify-center gap-2"
               >
                 <span className="material-symbols-outlined">shopping_cart_checkout</span>
