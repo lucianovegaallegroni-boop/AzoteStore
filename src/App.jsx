@@ -148,7 +148,19 @@ export default function App() {
         Stock: productData.stock,
         Category: productData.category,
         Status: parseInt(productData.stock) > 0 ? 'Disponible' : 'Agotado'
-      }
+      },
+      // Attach color/variant array if the product was created with multiple types
+      ...(productData.variants && productData.variants.length > 0 && {
+        colors: productData.variants.map(v => ({
+          id: v.id,
+          name: v.name,
+          hex: '#888888',
+          image: v.image,
+          stock: v.stock,
+          inStock: v.inStock,
+          price: v.price,
+        }))
+      })
     };
 
     setProductList((prevList) => [newProduct, ...prevList]);

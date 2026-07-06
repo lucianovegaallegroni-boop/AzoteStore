@@ -5,6 +5,7 @@ export default function Layout({ cartCount, wishlistCount, currentUser, onLogout
   const [searchQuery, setSearchQuery] = useState('');
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
+  const [tcgOpen, setTcgOpen] = useState(false);
   const navigate = useNavigate();
 
   const handleSearchSubmit = (e) => {
@@ -40,7 +41,7 @@ export default function Layout({ cartCount, wishlistCount, currentUser, onLogout
           </Link>
 
           {/* Search (Center, Desktop) */}
-          <form onSubmit={handleSearchSubmit} className="hidden lg:flex flex-1 max-w-md mx-gutter">
+          <form onSubmit={handleSearchSubmit} className="hidden">
             <div className="relative w-full group">
               <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant group-focus-within:text-primary transition-colors">
                 search
@@ -58,8 +59,8 @@ export default function Layout({ cartCount, wishlistCount, currentUser, onLogout
           {/* Navigation Links & Actions */}
           <div className="flex items-center gap-md">
             
-            {/* Desktop Categories */}
-            <div className="hidden md:flex items-center gap-md">
+            {/* Desktop Categories - hidden, navigation via mobile drawer */}
+            <div className="hidden">
               {/* TCG Dropdown */}
               <div className="relative group py-2">
                 <button className="text-on-surface-variant dark:text-outline-variant font-body-md text-body-md hover:text-primary dark:hover:text-primary-fixed flex items-center gap-1 transition-all cursor-pointer">
@@ -72,11 +73,11 @@ export default function Layout({ cartCount, wishlistCount, currentUser, onLogout
                 {/* Dropdown Menu */}
                 <div className="absolute top-full left-0 mt-1 bg-surface dark:bg-inverse-surface border border-outline-variant/30 rounded-xl shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50 py-2 w-44 flex flex-col gap-1 card-shadow">
                   <Link 
-                    to="/catalog?category=magic" 
+                    to="/catalog?category=yu-gi-oh" 
                     className="px-4 py-2 text-xs font-semibold text-on-surface hover:bg-surface-container-low hover:text-primary transition-colors flex items-center gap-2"
                   >
-                    <span className="material-symbols-outlined text-[16px] text-outline">auto_awesome</span>
-                    Magic
+                    <span className="material-symbols-outlined text-[16px] text-outline">style</span>
+                    Yu-Gi-Oh
                   </Link>
                   <Link 
                     to="/catalog?category=pokemon" 
@@ -86,11 +87,11 @@ export default function Layout({ cartCount, wishlistCount, currentUser, onLogout
                     Pokemon
                   </Link>
                   <Link 
-                    to="/catalog?category=yu-gi-oh" 
+                    to="/catalog?category=magic" 
                     className="px-4 py-2 text-xs font-semibold text-on-surface hover:bg-surface-container-low hover:text-primary transition-colors flex items-center gap-2"
                   >
-                    <span className="material-symbols-outlined text-[16px] text-outline">style</span>
-                    Yu-Gi-Oh
+                    <span className="material-symbols-outlined text-[16px] text-outline">auto_awesome</span>
+                    Magic
                   </Link>
                 </div>
               </div>
@@ -221,7 +222,7 @@ export default function Layout({ cartCount, wishlistCount, currentUser, onLogout
               {/* Mobile Menu Toggle */}
               <button 
                 onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-                className="p-2 md:hidden text-on-surface-variant hover:text-primary rounded-full hover:bg-surface-container-high"
+                className="p-2 text-on-surface-variant hover:text-primary rounded-full hover:bg-surface-container-high"
                 aria-label="Menu"
               >
                 <span className="material-symbols-outlined">
@@ -234,7 +235,7 @@ export default function Layout({ cartCount, wishlistCount, currentUser, onLogout
         </div>
 
         {/* Mobile Navigation Drawer (Slide from Left) */}
-        <div className={`fixed inset-0 z-50 md:hidden transition-all duration-300 ${mobileMenuOpen ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'}`}>
+        <div className={`fixed inset-0 z-50 transition-all duration-300 ${mobileMenuOpen ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'}`}>
           {/* Blurred Backdrop */}
           <div 
             className="absolute inset-0 bg-on-background/40 backdrop-blur-sm transition-opacity"
@@ -242,7 +243,7 @@ export default function Layout({ cartCount, wishlistCount, currentUser, onLogout
           ></div>
 
           {/* Drawer Body (slides left-to-right) */}
-          <div className={`absolute inset-y-0 left-0 w-72 max-w-xs bg-surface border-r border-outline-variant/30 shadow-2xl p-6 flex flex-col gap-6 transform transition-transform duration-300 ease-in-out ${mobileMenuOpen ? 'translate-x-0' : '-translate-x-full'}`}>
+          <div className={`absolute inset-y-0 right-0 w-72 max-w-xs bg-surface border-l border-outline-variant/30 shadow-2xl p-6 flex flex-col gap-6 transform transition-transform duration-300 ease-in-out ${mobileMenuOpen ? 'translate-x-0' : 'translate-x-full'}`}>
             
             {/* Drawer Header */}
             <div className="flex items-center justify-between pb-4 border-b border-outline-variant/20">
@@ -262,29 +263,58 @@ export default function Layout({ cartCount, wishlistCount, currentUser, onLogout
             {/* Links */}
             <nav className="flex flex-col gap-2 flex-grow">
               <div className="text-[10px] text-outline uppercase tracking-wider font-bold mb-2 ml-3">Categorías</div>
+
+              {/* TCG Accordion */}
+              <div>
+                <button
+                  onClick={() => setTcgOpen(!tcgOpen)}
+                  className="w-full py-2.5 px-3 rounded-lg text-on-surface font-body-md hover:bg-surface-container-low transition-colors flex items-center gap-3 font-semibold"
+                >
+                  <span className="material-symbols-outlined text-outline">playing_cards</span>
+                  TCG
+                  <span className={`material-symbols-outlined text-[18px] text-outline ml-auto transition-transform duration-200 ${tcgOpen ? 'rotate-180' : ''}`}>
+                    expand_more
+                  </span>
+                </button>
+
+                {/* Sub-items */}
+                <div className={`overflow-hidden transition-all duration-200 ${tcgOpen ? 'max-h-48 opacity-100' : 'max-h-0 opacity-0'}`}>
+                  <div className="flex flex-col gap-1 pl-4 mt-1 border-l-2 border-outline-variant/30 ml-5">
+                    <Link
+                      to="/catalog?category=yu-gi-oh"
+                      onClick={() => { setMobileMenuOpen(false); setTcgOpen(false); }}
+                      className="py-2 px-3 rounded-lg text-on-surface-variant font-semibold text-sm hover:bg-surface-container-low hover:text-primary transition-colors flex items-center gap-2"
+                    >
+                      <span className="material-symbols-outlined text-[18px] text-outline">style</span>
+                      Yu-Gi-Oh
+                    </Link>
+                    <Link
+                      to="/catalog?category=pokemon"
+                      onClick={() => { setMobileMenuOpen(false); setTcgOpen(false); }}
+                      className="py-2 px-3 rounded-lg text-on-surface-variant font-semibold text-sm hover:bg-surface-container-low hover:text-primary transition-colors flex items-center gap-2"
+                    >
+                      <span className="material-symbols-outlined text-[18px] text-outline">pets</span>
+                      Pokemon
+                    </Link>
+                    <Link
+                      to="/catalog?category=magic"
+                      onClick={() => { setMobileMenuOpen(false); setTcgOpen(false); }}
+                      className="py-2 px-3 rounded-lg text-on-surface-variant font-semibold text-sm hover:bg-surface-container-low hover:text-primary transition-colors flex items-center gap-2"
+                    >
+                      <span className="material-symbols-outlined text-[18px] text-outline">auto_awesome</span>
+                      Magic
+                    </Link>
+                  </div>
+                </div>
+              </div>
+
               <Link 
-                to="/catalog?category=yu-gi-oh" 
+                to="/catalog?category=sleeves" 
                 onClick={() => setMobileMenuOpen(false)}
                 className="py-2.5 px-3 rounded-lg text-on-surface font-body-md hover:bg-surface-container-low transition-colors flex items-center gap-3 font-semibold"
               >
-                <span className="material-symbols-outlined text-outline">style</span>
-                Yu-Gi-Oh
-              </Link>
-              <Link 
-                to="/catalog?category=pokemon" 
-                onClick={() => setMobileMenuOpen(false)}
-                className="py-2.5 px-3 rounded-lg text-on-surface font-body-md hover:bg-surface-container-low transition-colors flex items-center gap-3 font-semibold"
-              >
-                <span className="material-symbols-outlined text-outline">pets</span>
-                Pokemon
-              </Link>
-              <Link 
-                to="/catalog?category=magic" 
-                onClick={() => setMobileMenuOpen(false)}
-                className="py-2.5 px-3 rounded-lg text-on-surface font-body-md hover:bg-surface-container-low transition-colors flex items-center gap-3 font-semibold"
-              >
-                <span className="material-symbols-outlined text-outline">auto_awesome</span>
-                Magic
+                <span className="material-symbols-outlined text-outline">layers</span>
+                Sleeves
               </Link>
               <Link 
                 to="/catalog?category=board-games" 

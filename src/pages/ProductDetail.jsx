@@ -79,44 +79,35 @@ export default function ProductDetail({ products, onAddToCart, onAddToWishlist, 
             ) : (
               <img 
                 className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-102"
-                src={product.gallery && product.gallery[activeImageIndex] ? product.gallery[activeImageIndex] : product.image}
+                src={
+                  selectedColor?.image ||
+                  (product.gallery && product.gallery[activeImageIndex]) ||
+                  product.image
+                }
                 alt={product.name}
               />
             )}
           </div>
 
-          {/* Gallery Thumbnails */}
-          {product.gallery && product.gallery.length > 1 && (
+          {/* Gallery Thumbnails — only for non-variant products with multi-image galleries */}
+          {!product.colors && product.gallery && product.gallery.length > 1 && (
             <div className="grid grid-cols-5 gap-base mt-sm">
               {product.gallery.map((imgUrl, index) => {
                 const isVideo = isVideoIndex(index);
+                const isActive = !isVideoOpen && activeImageIndex === index && !isVideo;
                 return (
-                  <div 
+                  <div
                     key={index}
                     onClick={() => {
-                      if (isVideo) {
-                        setIsVideoOpen(true);
-                      } else {
-                        setIsVideoOpen(false);
-                        setActiveImageIndex(index);
-                        if (product.colors && product.colors[index]) {
-                          setSelectedColor(product.colors[index]);
-                        }
-                      }
+                      if (isVideo) { setIsVideoOpen(true); }
+                      else { setIsVideoOpen(false); setActiveImageIndex(index); }
                     }}
                     className={`rounded-lg overflow-hidden shadow-sm h-16 sm:h-24 cursor-pointer border-2 transition-all relative ${
-                      !isVideoOpen && activeImageIndex === index && !isVideo
-                        ? 'border-primary scale-[0.98]'
-                        : isVideoOpen && isVideo 
-                        ? 'border-primary scale-[0.98]'
-                        : 'border-transparent hover:opacity-85'
+                      isActive ? 'border-primary scale-[0.98]'
+                        : (isVideoOpen && isVideo ? 'border-primary scale-[0.98]' : 'border-transparent hover:opacity-85')
                     }`}
                   >
-                    <img 
-                      src={imgUrl} 
-                      alt={`${product.name} gallery ${index + 1}`} 
-                      className={`w-full h-full object-cover ${isVideo ? 'opacity-65' : ''}`}
-                    />
+                    <img src={imgUrl} alt={`${product.name} ${index + 1}`} className={`w-full h-full object-cover ${isVideo ? 'opacity-65' : ''}`} />
                     {isVideo && (
                       <span className="absolute inset-0 flex items-center justify-center bg-black/20 text-white hover:text-primary transition-colors">
                         <span className="material-symbols-outlined text-3xl md:text-4xl">play_circle</span>
@@ -154,17 +145,19 @@ export default function ProductDetail({ products, onAddToCart, onAddToWishlist, 
           <p className="font-body-lg text-body-lg text-on-surface-variant mb-md">{product.subtitle}</p>
           
           <div className="flex items-baseline gap-sm mb-lg">
-            <span className="font-headline-lg text-headline-lg text-primary">${product.price.toFixed(2)}</span>
+            <span className="font-headline-lg text-headline-lg text-primary">
+              ${(selectedColor?.price ?? product.price).toFixed(2)}
+            </span>
             {product.originalPrice && (
               <span className="font-body-md text-body-md text-outline line-through">${product.originalPrice.toFixed(2)}</span>
             )}
           </div>
 
-          {/* Sleeves Color Dropdown Variation */}
-          {product.categorySlug === 'sleeves' && product.colors && selectedColor && (
+          {/* Variant / Color Selector — shown for any product with a colors array */}
+          {product.colors && selectedColor && (
             <div className="mb-lg relative">
               <label className="block font-label-md text-on-surface-variant text-xs uppercase tracking-wider mb-2 ml-1 font-semibold">
-                Color del Protector
+                {product.categorySlug === 'sleeves' ? 'Color del Protector' : 'Seleccionar Tipo'}
               </label>
               
               {/* Dropdown Trigger Button */}
@@ -174,11 +167,21 @@ export default function ProductDetail({ products, onAddToCart, onAddToWishlist, 
                 className="w-full md:max-w-xs flex items-center justify-between bg-surface-container-low border border-outline-variant/40 hover:border-primary rounded-xl px-4 py-3.5 text-sm transition-all focus:ring-2 focus:ring-primary outline-none card-shadow"
               >
                 <div className="flex items-center gap-3">
-                  <div 
-                    className="w-5 h-5 rounded border border-outline-variant/40 shadow-sm shrink-0" 
-                    style={{ backgroundColor: selectedColor.hex }}
-                    {...(selectedColor.id === 'clear-gloss' ? { className: "w-5 h-5 rounded border border-outline-variant/40 shadow-sm shrink-0 bg-[linear-gradient(45deg,#ccc_25%,transparent_25%),linear-gradient(-45deg,#ccc_25%,transparent_25%),linear-gradient(45deg,transparent_75%,#ccc_75%),linear-gradient(-45deg,transparent_75%,#ccc_75%)] bg-[size:6px_6px]" } : {})}
-                  ></div>
+                  {selectedColor.image ? (
+                    <div className="w-10 h-10 rounded-lg overflow-hidden border border-outline-variant/30 shrink-0 bg-surface-container-low">
+                      <img src={selectedColor.image} alt={selectedColor.name} className="w-full h-full object-cover" />
+                    </div>
+                  ) : selectedColor.hex && selectedColor.hex !== '#888888' ? (
+                    <div 
+                      className="w-10 h-10 rounded-lg border border-outline-variant/40 shadow-sm shrink-0" 
+                      style={{ backgroundColor: selectedColor.hex }}
+                      {...(selectedColor.id === 'clear-gloss' ? { className: "w-10 h-10 rounded-lg border border-outline-variant/40 shadow-sm shrink-0 bg-[linear-gradient(45deg,#ccc_25%,transparent_25%),linear-gradient(-45deg,#ccc_25%,transparent_25%),linear-gradient(45deg,transparent_75%,#ccc_75%),linear-gradient(-45deg,transparent_75%,#ccc_75%)] bg-[size:6px_6px]" } : {})}
+                    ></div>
+                  ) : (
+                    <div className="w-10 h-10 rounded-lg border border-outline-variant/20 bg-surface-container shrink-0 flex items-center justify-center">
+                      <span className="material-symbols-outlined text-[18px] text-outline">inventory_2</span>
+                    </div>
+                  )}
                   <span className="font-bold text-on-surface">{selectedColor.name}</span>
                 </div>
                 <span className={`material-symbols-outlined text-outline transition-transform duration-200 ${isColorMenuOpen ? 'rotate-180' : ''}`}>
@@ -210,17 +213,32 @@ export default function ProductDetail({ products, onAddToCart, onAddToWishlist, 
                           setActiveImageIndex(idx);
                           setIsColorMenuOpen(false);
                         }}
-                        className={`w-full text-left px-4 py-2.5 hover:bg-surface-container-low transition-colors flex items-center justify-between ${
+                        className={`w-full text-left px-3 py-2 hover:bg-surface-container-low transition-colors flex items-center justify-between gap-3 ${
                           isSelected ? 'bg-primary/5 text-primary' : 'text-on-surface'
                         }`}
                       >
-                        <div className="flex items-center gap-3 min-w-0">
-                          <div 
-                            className="w-5 h-5 rounded border border-outline-variant/30 shadow-sm shrink-0" 
-                            style={{ backgroundColor: color.hex }}
-                            {...(color.id === 'clear-gloss' ? { className: "w-5 h-5 rounded border border-outline-variant/30 shadow-sm shrink-0 bg-[linear-gradient(45deg,#ccc_25%,transparent_25%),linear-gradient(-45deg,#ccc_25%,transparent_25%),linear-gradient(45deg,transparent_75%,#ccc_75%),linear-gradient(-45deg,transparent_75%,#ccc_75%)] bg-[size:6px_6px]" } : {})}
-                          ></div>
-                          <span className="text-xs font-bold truncate">{color.name}</span>
+                        <div className="flex items-center gap-2.5 min-w-0">
+                          {/* Variant image thumbnail */}
+                          {color.image ? (
+                            <div className="w-10 h-10 rounded-lg overflow-hidden border border-outline-variant/20 shrink-0 bg-surface-container-low">
+                              <img src={color.image} alt={color.name} className="w-full h-full object-cover" />
+                            </div>
+                          ) : color.hex && color.hex !== '#888888' ? (
+                            <div 
+                              className="w-10 h-10 rounded-lg border border-outline-variant/30 shadow-sm shrink-0" 
+                              style={{ backgroundColor: color.hex }}
+                            ></div>
+                          ) : (
+                            <div className="w-10 h-10 rounded-lg border border-outline-variant/20 bg-surface-container-low shrink-0 flex items-center justify-center">
+                              <span className="material-symbols-outlined text-[18px] text-outline">inventory_2</span>
+                            </div>
+                          )}
+                          <div className="min-w-0">
+                            <span className="text-xs font-bold block truncate">{color.name}</span>
+                            {color.price && color.price !== product.price && (
+                              <span className="text-xs text-primary font-bold">${color.price.toFixed(2)}</span>
+                            )}
+                          </div>
                         </div>
                         
                         {!isInStock && (
@@ -245,17 +263,23 @@ export default function ProductDetail({ products, onAddToCart, onAddToWishlist, 
             <div className="bg-surface-container-low border border-outline-variant/30 rounded-xl p-md mb-lg">
               <h3 className="font-label-md text-label-md text-on-surface mb-sm uppercase tracking-widest text-outline">Especificaciones</h3>
               <ul className="space-y-2 font-body-md text-body-md text-on-surface-variant">
-                {Object.entries(product.specifications).map(([key, val], idx, arr) => (
-                  <li 
-                    key={key} 
-                    className={`flex justify-between pb-2 ${
-                      idx < arr.length - 1 ? 'border-b border-outline-variant/30' : ''
-                    }`}
-                  >
-                    <span className="capitalize">{key}</span> 
-                    <span className="font-medium text-on-surface">{val}</span>
-                  </li>
-                ))}
+                {Object.entries(product.specifications).map(([key, val], idx, arr) => {
+                  // For the Stock row, show the live per-variant count when a color is selected
+                  const displayVal = (key === 'Stock' && selectedColor?.stock !== undefined)
+                    ? selectedColor.stock
+                    : val;
+                  return (
+                    <li
+                      key={key}
+                      className={`flex justify-between pb-2 ${
+                        idx < arr.length - 1 ? 'border-b border-outline-variant/30' : ''
+                      }`}
+                    >
+                      <span className="capitalize">{key}</span>
+                      <span className="font-medium text-on-surface">{displayVal}</span>
+                    </li>
+                  );
+                })}
               </ul>
             </div>
           )}
