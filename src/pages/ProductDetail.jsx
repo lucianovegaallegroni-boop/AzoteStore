@@ -1,8 +1,20 @@
 import React, { useState, useEffect } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, Link, useNavigate } from 'react-router-dom';
 export default function ProductDetail({ products, onAddToCart, onAddToWishlist, wishlistItems }) {
   const { id } = useParams();
   const product = products.find(p => p.id === id);
+  const navigate = useNavigate();
+  
+  const [isColorMenuOpen, setIsColorMenuOpen] = useState(false);
+
+  const sleevesColors = [
+    { id: 'sleeves-matte-black', name: 'Negro Mate', hex: '#111827' },
+    { id: 'sleeves-clear-gloss', name: 'Transparente Brillante', hex: '#f3f4f6' },
+    { id: 'sleeves-matte-red', name: 'Rojo Mate', hex: '#dc2626' },
+    { id: 'sleeves-matte-blue', name: 'Azul Mate', hex: '#2563eb' }
+  ];
+
+  const currentSleeveColor = sleevesColors.find(c => c.id === product?.id);
 
   // Gallery States
   const [activeImageIndex, setActiveImageIndex] = useState(0);
@@ -146,6 +158,82 @@ export default function ProductDetail({ products, onAddToCart, onAddToWishlist, 
               <span className="font-body-md text-body-md text-outline line-through">${product.originalPrice.toFixed(2)}</span>
             )}
           </div>
+
+          {/* Sleeves Color Dropdown Variation */}
+          {product.categorySlug === 'sleeves' && currentSleeveColor && (
+            <div className="mb-lg relative">
+              <label className="block font-label-md text-on-surface-variant text-xs uppercase tracking-wider mb-2 ml-1 font-semibold">
+                Color del Protector
+              </label>
+              
+              {/* Dropdown Trigger Button */}
+              <button
+                type="button"
+                onClick={() => setIsColorMenuOpen(!isColorMenuOpen)}
+                className="w-full md:max-w-xs flex items-center justify-between bg-surface-container-low border border-outline-variant/40 hover:border-primary rounded-xl px-4 py-3.5 text-sm transition-all focus:ring-2 focus:ring-primary outline-none card-shadow"
+              >
+                <div className="flex items-center gap-3">
+                  <div 
+                    className="w-5 h-5 rounded border border-outline-variant/40 shadow-sm shrink-0" 
+                    style={{ backgroundColor: currentSleeveColor.hex }}
+                    {...(product.id === 'sleeves-clear-gloss' ? { className: "w-5 h-5 rounded border border-outline-variant/40 shadow-sm shrink-0 bg-[linear-gradient(45deg,#ccc_25%,transparent_25%),linear-gradient(-45deg,#ccc_25%,transparent_25%),linear-gradient(45deg,transparent_75%,#ccc_75%),linear-gradient(-45deg,transparent_75%,#ccc_75%)] bg-[size:6px_6px]" } : {})}
+                  ></div>
+                  <span className="font-bold text-on-surface">{currentSleeveColor.name}</span>
+                </div>
+                <span className={`material-symbols-outlined text-outline transition-transform duration-200 ${isColorMenuOpen ? 'rotate-180' : ''}`}>
+                  expand_more
+                </span>
+              </button>
+
+              {/* Click-outside backdrop */}
+              {isColorMenuOpen && (
+                <div 
+                  className="fixed inset-0 z-20" 
+                  onClick={() => setIsColorMenuOpen(false)}
+                ></div>
+              )}
+
+              {/* Dropdown Options Menu */}
+              {isColorMenuOpen && (
+                <div className="absolute left-0 top-full mt-1.5 w-full md:max-w-xs bg-surface dark:bg-inverse-surface border border-outline-variant/30 rounded-xl shadow-lg z-30 py-1.5 flex flex-col gap-0.5 card-shadow">
+                  {sleevesColors.map((color) => {
+                    const isSelected = color.id === product.id;
+                    const targetProduct = products.find(p => p.id === color.id);
+                    const isInStock = targetProduct ? targetProduct.inStock : true;
+                    
+                    return (
+                      <button
+                        key={color.id}
+                        type="button"
+                        onClick={() => {
+                          setIsColorMenuOpen(false);
+                          navigate(`/product/${color.id}`);
+                        }}
+                        className={`w-full text-left px-4 py-2.5 hover:bg-surface-container-low transition-colors flex items-center justify-between ${
+                          isSelected ? 'bg-primary/5 text-primary' : 'text-on-surface'
+                        }`}
+                      >
+                        <div className="flex items-center gap-3 min-w-0">
+                          <div 
+                            className="w-5 h-5 rounded border border-outline-variant/30 shadow-sm shrink-0" 
+                            style={{ backgroundColor: color.hex }}
+                            {...(color.id === 'sleeves-clear-gloss' ? { className: "w-5 h-5 rounded border border-outline-variant/30 shadow-sm shrink-0 bg-[linear-gradient(45deg,#ccc_25%,transparent_25%),linear-gradient(-45deg,#ccc_25%,transparent_25%),linear-gradient(45deg,transparent_75%,#ccc_75%),linear-gradient(-45deg,transparent_75%,#ccc_75%)] bg-[size:6px_6px]" } : {})}
+                          ></div>
+                          <span className="text-xs font-bold truncate">{color.name}</span>
+                        </div>
+                        
+                        {!isInStock && (
+                          <span className="text-[9px] font-bold text-error bg-error/10 px-2 py-0.5 rounded-full shrink-0">
+                            Agotado
+                          </span>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          )}
 
           <p className="font-body-md text-body-md text-on-surface-variant mb-lg leading-relaxed">
             {product.description}
