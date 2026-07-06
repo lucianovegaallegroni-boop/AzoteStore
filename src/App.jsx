@@ -22,6 +22,7 @@ export default function App() {
   const [cartItems, setCartItems] = useState([]);
   const [wishlistItems, setWishlistItems] = useState([]);
   const [currentUser, setCurrentUser] = useState(null); // Mock user session state
+  const [orders, setOrders] = useState([]); // Mock orders state
   
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [isWishlistOpen, setIsWishlistOpen] = useState(false);
@@ -56,6 +57,34 @@ export default function App() {
 
   const handleRemoveFromCart = (productId) => {
     setCartItems((prevItems) => prevItems.filter((item) => item.product.id !== productId));
+  };
+
+  const handlePlaceOrder = (orderData) => {
+    const newOrder = {
+      id: `ORD-${Date.now().toString().slice(-6)}`,
+      date: new Date().toLocaleString('es-ES', {
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit'
+      }),
+      clientName: currentUser ? currentUser.name : 'Invitado',
+      clientEmail: currentUser ? currentUser.email : 'invitado@azotestore.com',
+      items: [...cartItems],
+      total: cartItems.reduce((sum, item) => sum + item.product.price * item.quantity, 0),
+      pickupLocation: orderData.pickupLocation,
+      paymentProofName: orderData.paymentProofName,
+      paymentProofPreview: orderData.paymentProofPreview,
+      status: 'Pendiente'
+    };
+    setOrders((prevOrders) => [newOrder, ...prevOrders]);
+    return newOrder;
+  };
+
+  const handleClearCart = () => {
+    setCartItems([]);
   };
 
   // Wishlist operations
@@ -154,7 +183,7 @@ export default function App() {
           />
           <Route path="login" element={<LoginPage onLogin={handleLogin} />} />
           <Route path="register" element={<RegisterPage onRegister={handleRegister} />} />
-          <Route path="admin" element={<AdminPage products={productList} onCreateProduct={handleCreateProduct} />} />
+          <Route path="admin" element={<AdminPage products={productList} onCreateProduct={handleCreateProduct} orders={orders} setOrders={setOrders} />} />
         </Route>
       </Routes>
 
@@ -165,6 +194,8 @@ export default function App() {
         cartItems={cartItems}
         onUpdateQuantity={handleUpdateCartQuantity}
         onRemoveItem={handleRemoveFromCart}
+        onPlaceOrder={handlePlaceOrder}
+        onClearCart={handleClearCart}
       />
 
       <WishlistDrawer 

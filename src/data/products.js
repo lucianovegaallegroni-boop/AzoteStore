@@ -178,6 +178,86 @@ export const products = [
       Language: "English",
       SetCode: "MH3"
     }
+  },
+  {
+    id: "sleeves-matte-black",
+    name: "Matte Black Card Sleeves Pack",
+    subtitle: "Standard Size 100-Pack",
+    price: 9.99,
+    originalPrice: 12.99,
+    image: "/sleeves_matte_black.png",
+    gallery: ["/sleeves_matte_black.png"],
+    category: "Sleeves",
+    categorySlug: "sleeves",
+    inStock: true,
+    grade: "Premium Grade",
+    description: "Protect your valuable cards with these premium matte black sleeves. Features non-slip textured back for professional shuffling and high-clarity front for optimal visibility. Fits standard TCGs like Magic and Pokémon.",
+    specifications: {
+      Size: "Standard (66 x 91 mm)",
+      Quantity: "100 Sleeves",
+      Finish: "Matte Back, Glossy Front",
+      Material: "Acid-free, PVC-free Polypropylene"
+    }
+  },
+  {
+    id: "sleeves-clear-gloss",
+    name: "Clear Glossy Card Sleeves Pack",
+    subtitle: "Standard Size 100-Pack",
+    price: 8.99,
+    originalPrice: null,
+    image: "/sleeves_clear_gloss.png",
+    gallery: ["/sleeves_clear_gloss.png"],
+    category: "Sleeves",
+    categorySlug: "sleeves",
+    inStock: true,
+    grade: "Standard Grade",
+    description: "Display the beautiful artwork on both sides of your cards with these ultra-clear glossy protective sleeves. Durable seal prevents splitting and protects against bent corners and scratches.",
+    specifications: {
+      Size: "Standard (66 x 91 mm)",
+      Quantity: "100 Sleeves",
+      Finish: "Double-sided Glossy Clear",
+      Material: "Acid-free, PVC-free Polypropylene"
+    }
+  },
+  {
+    id: "sleeves-matte-red",
+    name: "Matte Red Card Sleeves Pack",
+    subtitle: "Standard Size 100-Pack",
+    price: 9.99,
+    originalPrice: null,
+    image: "/sleeves_matte_red.png",
+    gallery: ["/sleeves_matte_red.png"],
+    category: "Sleeves",
+    categorySlug: "sleeves",
+    inStock: false,
+    grade: "Premium Grade",
+    description: "Protect your valuable cards with these premium matte red sleeves. Standard size with non-slip texture for shuffling. (Temporalmente Agotado).",
+    specifications: {
+      Size: "Standard (66 x 91 mm)",
+      Quantity: "100 Sleeves",
+      Finish: "Matte Back, Glossy Front",
+      Material: "Acid-free, PVC-free Polypropylene"
+    }
+  },
+  {
+    id: "sleeves-matte-blue",
+    name: "Matte Blue Card Sleeves Pack",
+    subtitle: "Standard Size 100-Pack",
+    price: 9.99,
+    originalPrice: null,
+    image: "/sleeves_matte_blue.png",
+    gallery: ["/sleeves_matte_blue.png"],
+    category: "Sleeves",
+    categorySlug: "sleeves",
+    inStock: false,
+    grade: "Premium Grade",
+    description: "Protect your valuable cards with these premium matte blue sleeves. Standard size with non-slip texture for shuffling. (Temporalmente Agotado).",
+    specifications: {
+      Size: "Standard (66 x 91 mm)",
+      Quantity: "100 Sleeves",
+      Finish: "Matte Back, Glossy Front",
+      Material: "Acid-free, PVC-free Polypropylene"
+    }
   }
 ];
 

@@ -26,7 +26,8 @@ export default function ProductCatalog({ products }) {
     { name: "Pokemon", slug: "pokemon" },
     { name: "Magic", slug: "magic" },
     { name: "Board Games", slug: "board-games" },
-    { name: "Mecha Kits", slug: "mecha-kits" }
+    { name: "Mecha Kits", slug: "mecha-kits" },
+    { name: "Sleeves", slug: "sleeves" }
   ];
 
   // Handler for category click
@@ -194,20 +195,15 @@ export default function ProductCatalog({ products }) {
                     <img 
                       src={product.image} 
                       alt={product.name} 
-                      className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+                      className={`w-full h-full object-cover transition-transform duration-500 group-hover:scale-105 ${!product.inStock ? 'grayscale opacity-60' : ''}`}
                     />
-                    <div className="absolute top-3 left-3 flex flex-col gap-1">
-                      {product.inStock ? (
-                        <span className="chip chip-instock">En stock</span>
-                      ) : (
-                        <span className="bg-error-container/85 text-error text-[10px] uppercase font-bold tracking-wider px-3 py-1 rounded-full backdrop-blur-sm">
-                          Agotado
+                    {!product.inStock && (
+                      <div className="absolute inset-0 bg-black/40 backdrop-blur-[1px] flex items-center justify-center transition-all duration-300 group-hover:bg-black/45">
+                        <span className="border-2 border-error text-error bg-error/10 font-headline-md text-xs font-bold uppercase tracking-widest px-4 py-2 rounded-lg shadow-sm">
+                          Sin Stock
                         </span>
-                      )}
-                      {product.grade === 'Premium Grade' && (
-                        <span className="chip chip-rare">Premium</span>
-                      )}
-                    </div>
+                      </div>
+                    )}
                   </div>
 
                   <div className="p-sm flex flex-col flex-1 justify-between">

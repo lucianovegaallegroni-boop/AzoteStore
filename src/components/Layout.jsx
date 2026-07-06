@@ -60,15 +60,47 @@ export default function Layout({ cartCount, wishlistCount, currentUser, onLogout
             
             {/* Desktop Categories */}
             <div className="hidden md:flex items-center gap-md">
-              <Link to="/catalog?category=yu-gi-oh" className="text-on-surface-variant dark:text-outline-variant font-body-md text-body-md hover:text-primary dark:hover:text-primary-fixed hover:scale-105 transition-all">
-                Yu-Gi-Oh
+              {/* TCG Dropdown */}
+              <div className="relative group py-2">
+                <button className="text-on-surface-variant dark:text-outline-variant font-body-md text-body-md hover:text-primary dark:hover:text-primary-fixed flex items-center gap-1 transition-all cursor-pointer">
+                  TCG
+                  <span className="material-symbols-outlined text-[16px] group-hover:rotate-180 transition-transform duration-200">
+                    expand_more
+                  </span>
+                </button>
+                
+                {/* Dropdown Menu */}
+                <div className="absolute top-full left-0 mt-1 bg-surface dark:bg-inverse-surface border border-outline-variant/30 rounded-xl shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50 py-2 w-44 flex flex-col gap-1 card-shadow">
+                  <Link 
+                    to="/catalog?category=magic" 
+                    className="px-4 py-2 text-xs font-semibold text-on-surface hover:bg-surface-container-low hover:text-primary transition-colors flex items-center gap-2"
+                  >
+                    <span className="material-symbols-outlined text-[16px] text-outline">auto_awesome</span>
+                    Magic
+                  </Link>
+                  <Link 
+                    to="/catalog?category=pokemon" 
+                    className="px-4 py-2 text-xs font-semibold text-on-surface hover:bg-surface-container-low hover:text-primary transition-colors flex items-center gap-2"
+                  >
+                    <span className="material-symbols-outlined text-[16px] text-outline">pets</span>
+                    Pokemon
+                  </Link>
+                  <Link 
+                    to="/catalog?category=yu-gi-oh" 
+                    className="px-4 py-2 text-xs font-semibold text-on-surface hover:bg-surface-container-low hover:text-primary transition-colors flex items-center gap-2"
+                  >
+                    <span className="material-symbols-outlined text-[16px] text-outline">style</span>
+                    Yu-Gi-Oh
+                  </Link>
+                </div>
+              </div>
+
+              {/* Sleeves Link */}
+              <Link to="/catalog?category=sleeves" className="text-on-surface-variant dark:text-outline-variant font-body-md text-body-md hover:text-primary dark:hover:text-primary-fixed hover:scale-105 transition-all">
+                Sleeves
               </Link>
-              <Link to="/catalog?category=pokemon" className="text-on-surface-variant dark:text-outline-variant font-body-md text-body-md hover:text-primary dark:hover:text-primary-fixed hover:scale-105 transition-all">
-                Pokemon
-              </Link>
-              <Link to="/catalog?category=magic" className="text-on-surface-variant dark:text-outline-variant font-body-md text-body-md hover:text-primary dark:hover:text-primary-fixed hover:scale-105 transition-all">
-                Magic
-              </Link>
+
+              {/* Board Games Link */}
               <Link to="/catalog?category=board-games" className="text-on-surface-variant dark:text-outline-variant font-body-md text-body-md hover:text-primary dark:hover:text-primary-fixed hover:scale-105 transition-all">
                 Board Games
               </Link>
@@ -201,50 +233,100 @@ export default function Layout({ cartCount, wishlistCount, currentUser, onLogout
           </div>
         </div>
 
-        {/* Mobile Navigation Drawer */}
-        {mobileMenuOpen && (
-          <div className="md:hidden px-margin-mobile pb-4 bg-surface border-t border-outline-variant/30 flex flex-col gap-sm">
-            <Link 
-              to="/catalog?category=yu-gi-oh" 
-              onClick={() => setMobileMenuOpen(false)}
-              className="py-2 text-on-surface font-body-md hover:text-primary"
-            >
-              Yu-Gi-Oh
-            </Link>
-            <Link 
-              to="/catalog?category=pokemon" 
-              onClick={() => setMobileMenuOpen(false)}
-              className="py-2 text-on-surface font-body-md hover:text-primary"
-            >
-              Pokemon
-            </Link>
-            <Link 
-              to="/catalog?category=magic" 
-              onClick={() => setMobileMenuOpen(false)}
-              className="py-2 text-on-surface font-body-md hover:text-primary"
-            >
-              Magic
-            </Link>
-            <Link 
-              to="/catalog?category=board-games" 
-              onClick={() => setMobileMenuOpen(false)}
-              className="py-2 text-on-surface font-body-md hover:text-primary"
-            >
-              Board Games
-            </Link>
+        {/* Mobile Navigation Drawer (Slide from Left) */}
+        <div className={`fixed inset-0 z-50 md:hidden transition-all duration-300 ${mobileMenuOpen ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'}`}>
+          {/* Blurred Backdrop */}
+          <div 
+            className="absolute inset-0 bg-on-background/40 backdrop-blur-sm transition-opacity"
+            onClick={() => setMobileMenuOpen(false)}
+          ></div>
+
+          {/* Drawer Body (slides left-to-right) */}
+          <div className={`absolute inset-y-0 left-0 w-72 max-w-xs bg-surface border-r border-outline-variant/30 shadow-2xl p-6 flex flex-col gap-6 transform transition-transform duration-300 ease-in-out ${mobileMenuOpen ? 'translate-x-0' : '-translate-x-full'}`}>
             
-            {currentUser && (
-              <Link 
-                to="/admin" 
+            {/* Drawer Header */}
+            <div className="flex items-center justify-between pb-4 border-b border-outline-variant/20">
+              <span className="font-display-lg-mobile text-primary tracking-tighter flex items-center gap-2 font-bold">
+                <span className="material-symbols-outlined text-[1.2em]">deployed_code</span> 
+                Azote Store
+              </span>
+              <button 
                 onClick={() => setMobileMenuOpen(false)}
-                className="py-2 text-secondary font-bold hover:text-primary flex items-center gap-1 border-t border-outline-variant/20 pt-3 mt-1"
+                className="rounded-full p-2 text-on-surface-variant hover:bg-surface-container-high transition-colors"
+                aria-label="Cerrar menú"
               >
-                <span className="material-symbols-outlined text-[1.2em]">add_box</span>
-                Agregar productos
+                <span className="material-symbols-outlined">close</span>
+              </button>
+            </div>
+
+            {/* Links */}
+            <nav className="flex flex-col gap-2 flex-grow">
+              <div className="text-[10px] text-outline uppercase tracking-wider font-bold mb-2 ml-3">Categorías</div>
+              <Link 
+                to="/catalog?category=yu-gi-oh" 
+                onClick={() => setMobileMenuOpen(false)}
+                className="py-2.5 px-3 rounded-lg text-on-surface font-body-md hover:bg-surface-container-low transition-colors flex items-center gap-3 font-semibold"
+              >
+                <span className="material-symbols-outlined text-outline">style</span>
+                Yu-Gi-Oh
               </Link>
+              <Link 
+                to="/catalog?category=pokemon" 
+                onClick={() => setMobileMenuOpen(false)}
+                className="py-2.5 px-3 rounded-lg text-on-surface font-body-md hover:bg-surface-container-low transition-colors flex items-center gap-3 font-semibold"
+              >
+                <span className="material-symbols-outlined text-outline">pets</span>
+                Pokemon
+              </Link>
+              <Link 
+                to="/catalog?category=magic" 
+                onClick={() => setMobileMenuOpen(false)}
+                className="py-2.5 px-3 rounded-lg text-on-surface font-body-md hover:bg-surface-container-low transition-colors flex items-center gap-3 font-semibold"
+              >
+                <span className="material-symbols-outlined text-outline">auto_awesome</span>
+                Magic
+              </Link>
+              <Link 
+                to="/catalog?category=board-games" 
+                onClick={() => setMobileMenuOpen(false)}
+                className="py-2.5 px-3 rounded-lg text-on-surface font-body-md hover:bg-surface-container-low transition-colors flex items-center gap-3 font-semibold"
+              >
+                <span className="material-symbols-outlined text-outline">casino</span>
+                Board Games
+              </Link>
+              
+              {currentUser && (
+                <>
+                  <div className="border-t border-outline-variant/20 my-3"></div>
+                  <div className="text-[10px] text-outline uppercase tracking-wider font-bold mb-2 ml-3">Administración</div>
+                  <Link 
+                    to="/admin" 
+                    onClick={() => setMobileMenuOpen(false)}
+                    className="py-2.5 px-3 rounded-lg text-secondary font-bold hover:bg-secondary/5 transition-colors flex items-center gap-3"
+                  >
+                    <span className="material-symbols-outlined">add_box</span>
+                    Agregar productos
+                  </Link>
+                </>
+              )}
+            </nav>
+
+            {/* User Session Info in Drawer Footer */}
+            {currentUser && (
+              <div className="border-t border-outline-variant/20 pt-4 mt-auto">
+                <div className="flex items-center gap-3">
+                  <div className="w-9 h-9 rounded-full bg-primary text-on-primary font-bold text-sm flex items-center justify-center shadow-sm">
+                    {currentUser.name.charAt(0).toUpperCase()}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="font-bold text-xs text-on-background truncate">{currentUser.name}</p>
+                    <p className="text-[10px] text-outline truncate">{currentUser.email}</p>
+                  </div>
+                </div>
+              </div>
             )}
           </div>
-        )}
+        </div>
       </nav>
 
       {/* Main Content Area */}
