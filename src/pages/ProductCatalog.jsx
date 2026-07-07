@@ -10,6 +10,9 @@ export default function ProductCatalog({ products }) {
   const [sortBy, setSortBy] = useState('featured');
   const [searchQuery, setSearchQuery] = useState('');
 
+  const [dbProducts, setDbProducts] = useState([]);
+  const [loading, setLoading] = useState(false);
+
   // Sync state with URL Search Params
   useEffect(() => {
     const categoryParam = searchParams.get('category') || '';
@@ -18,6 +21,53 @@ export default function ProductCatalog({ products }) {
     setSelectedCategory(categoryParam);
     setSearchQuery(qParam);
   }, [searchParams]);
+
+  // Load products from Supabase on mount
+  useEffect(() => {
+    (async () => {
+      setLoading(true);
+      try {
+        const { supabase } = await import('../supabaseClient');
+        const { data: prods, error } = await supabase
+          .from('products')
+          .select('*, product_variants(*)');
+
+        if (error) throw error;
+
+        if (prods) {
+          const formatted = prods.map(p => ({
+            id: p.id,
+            name: p.name,
+            subtitle: `${p.category} Collectible Item`,
+            price: parseFloat(p.price),
+            originalPrice: null,
+            image: p.image,
+            category: p.category,
+            categorySlug: p.category.toLowerCase().replace(/\s+/g, '-'),
+            inStock: p.stock > 0,
+            description: p.description,
+            colors: p.product_variants && p.product_variants.length > 0 ? p.product_variants.map(v => ({
+              id: v.id,
+              name: v.title,
+              hex: '#888888',
+              image: v.image,
+              stock: v.stock,
+              inStock: v.stock > 0,
+              price: parseFloat(v.price || p.price)
+            })) : null
+          }));
+          setDbProducts(formatted);
+        }
+      } catch (err) {
+        console.error('Error cargando catálogo desde Supabase:', err);
+      } finally {
+        setLoading(false);
+      }
+    })();
+  }, []);
+
+  // Use DB products if available, fallback to props
+  const activeProducts = dbProducts.length > 0 ? dbProducts : products;
 
   // Categories list based on our product data
   const categories = [
@@ -49,7 +99,7 @@ export default function ProductCatalog({ products }) {
   };
 
   // Process Products: Filter & Sort
-  let filteredProducts = products.filter(product => {
+  let filteredProducts = activeProducts.filter(product => {
     // 1. Category Filter
     if (selectedCategory) {
       const matchCategory = product.categorySlug === selectedCategory || 
@@ -169,7 +219,15 @@ export default function ProductCatalog({ products }) {
 
         {/* Product Grid */}
         <div className="lg:col-span-3">
-          {filteredProducts.length === 0 ? (
+          {loading ? (
+            <div className="flex flex-col items-center justify-center py-20 text-primary gap-4">
+              <svg className="animate-spin h-10 w-10 text-primary" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+              </svg>
+              <p className="font-headline-md text-sm text-on-surface-variant animate-pulse font-semibold">Abriendo la Bóveda...</p>
+            </div>
+          ) : filteredProducts.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-20 text-on-surface-variant gap-4 bg-surface border border-outline-variant/20 rounded-xl card-shadow">
               <span className="material-symbols-outlined text-[5rem] text-outline/30">search_off</span>
               <h3 className="font-headline-md text-headline-md">Sin resultados</h3>

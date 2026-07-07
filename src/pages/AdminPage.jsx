@@ -1,7 +1,97 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 
-export default function AdminPage({ products, onCreateProduct, onUpdateStock, orders = [], setOrders }) {
+export default function AdminPage({ products: initialProducts, onCreateProduct, onUpdateStock, orders = [], setOrders }) {
+  const [dbProducts, setDbProducts] = useState([]);
+  const [loadingDb, setLoadingDb] = useState(false);
+  const [reloadTrigger, setReloadTrigger] = useState(0);
+
+  // Sync Supabase products on mount or reloadTrigger change
+  useEffect(() => {
+    (async () => {
+      setLoadingDb(true);
+      try {
+        const { supabase } = await import('../supabaseClient');
+        // Fetch products and their variants
+        const { data: prods, error: pErr } = await supabase
+          .from('products')
+          .select('*, product_variants(*)');
+        
+        if (pErr) throw pErr;
+
+        if (prods) {
+          // Format them like the local items so components work seamlessly
+          const formatted = prods.map(p => ({
+            id: p.id,
+            name: p.name,
+            price: parseFloat(p.price),
+            description: p.description,
+            image: p.image,
+            category: p.category,
+            categorySlug: p.category.toLowerCase().replace(/\s+/g, '-'),
+            inStock: p.stock > 0,
+            featured: !!p.featured,
+            specifications: {
+              Stock: String(p.stock),
+              Category: p.category,
+              Status: p.stock > 0 ? 'Disponible' : 'Agotado'
+            },
+            colors: p.product_variants && p.product_variants.length > 0 ? p.product_variants.map(v => ({
+              id: v.id,
+              name: v.title,
+              hex: '#888888',
+              image: v.image,
+              stock: v.stock,
+              inStock: v.stock > 0,
+              price: parseFloat(v.price || p.price)
+            })) : null
+          }));
+          setDbProducts(formatted);
+        }
+
+        // Fetch orders from Supabase
+        const { data: dbOrders, error: oErr } = await supabase
+          .from('orders')
+          .select('*, order_items(*)');
+
+        if (!oErr && dbOrders) {
+          const formattedOrders = dbOrders.map(o => ({
+            id: o.id,
+            date: new Date(o.date).toLocaleString('es-ES'),
+            clientName: o.client_name,
+            clientEmail: o.client_email,
+            total: parseFloat(o.total),
+            pickupLocation: o.pickup_location,
+            paymentProofName: o.payment_proof_name,
+            paymentProofPreview: o.payment_proof_preview,
+            status: o.status,
+            items: o.order_items ? o.order_items.map(oi => ({
+              product: {
+                id: oi.product_id,
+                name: oi.product_name,
+                price: parseFloat(oi.price)
+              },
+              quantity: oi.quantity,
+              color: oi.color_id ? {
+                id: oi.color_id,
+                name: oi.color_name
+              } : null
+            })) : []
+          }));
+          // Sort by date descending
+          formattedOrders.sort((a, b) => b.id.localeCompare(a.id));
+          setOrders(formattedOrders);
+        }
+      } catch (err) {
+        console.error('Error fetching from Supabase:', err);
+      } finally {
+        setLoadingDb(false);
+      }
+    })();
+  }, [reloadTrigger]);
+
+  const triggerReload = () => setReloadTrigger(prev => prev + 1);
+
   const [name, setName] = useState('');
   const [category, setCategory] = useState('Yu-Gi-Oh');
   const [price, setPrice] = useState('');
@@ -36,8 +126,8 @@ export default function AdminPage({ products, onCreateProduct, onUpdateStock, or
 
   const navigate = useNavigate();
 
-  // Filter products for restocking
-  const filteredRestockProducts = products.filter((p) => {
+  // Filter products for restocking (from dbProducts instead of prop products)
+  const filteredRestockProducts = dbProducts.filter((p) => {
     const matchesSearch = p.name.toLowerCase().includes(restockSearch.toLowerCase());
     const matchesCategory = restockCategory ? p.categorySlug === restockCategory : true;
     return matchesSearch && matchesCategory;
@@ -82,10 +172,74 @@ export default function AdminPage({ products, onCreateProduct, onUpdateStock, or
       alert('Por favor, ingresa una cantidad válida mayor a cero.');
       return;
     }
-    onUpdateStock(productId, qty, colorId);
-    const key = colorId ? `${productId}-${colorId}` : productId;
-    setRestockAmount(prev => ({ ...prev, [key]: '' }));
-    alert('Stock actualizado correctamente.');
+
+    (async () => {
+      try {
+        const { supabase } = await import('../supabaseClient');
+
+        if (colorId) {
+          // It's a variant update
+          // First fetch current variant stock
+          const { data: currentVar, error: getErr } = await supabase
+            .from('product_variants')
+            .select('stock, product_id')
+            .eq('id', colorId)
+            .single();
+
+          if (getErr) throw getErr;
+
+          const newStock = (currentVar.stock || 0) + qty;
+          const { error: updateErr } = await supabase
+            .from('product_variants')
+            .update({ stock: newStock })
+            .eq('id', colorId);
+
+          if (updateErr) throw updateErr;
+
+          // Also update base product stock (sum of all variants or add to base)
+          const { data: variantsList, error: listErr } = await supabase
+            .from('product_variants')
+            .select('stock')
+            .eq('product_id', currentVar.product_id);
+
+          if (!listErr && variantsList) {
+            const totalStock = variantsList.reduce((sum, v) => sum + (v.stock || 0), 0);
+            await supabase
+              .from('products')
+              .update({ stock: totalStock })
+              .eq('id', currentVar.product_id);
+          }
+
+        } else {
+          // Base product update
+          const { data: currentProd, error: getErr } = await supabase
+            .from('products')
+            .select('stock')
+            .eq('id', productId)
+            .single();
+
+          if (getErr) throw getErr;
+
+          const newStock = (currentProd.stock || 0) + qty;
+          const { error: updateErr } = await supabase
+            .from('products')
+            .update({ stock: newStock })
+            .eq('id', productId);
+
+          if (updateErr) throw updateErr;
+        }
+
+        onUpdateStock(productId, qty, colorId);
+        const key = colorId ? `${productId}-${colorId}` : productId;
+        setRestockAmount(prev => ({ ...prev, [key]: '' }));
+        triggerReload();
+        alert('Stock actualizado correctamente en base de datos.');
+
+      } catch (err) {
+        console.error('Error al actualizar stock en Supabase:', err);
+        alert('Error al conectar con la base de datos: ' + err.message);
+      }
+    })();
   };
 
   const handleSubmit = (e) => {
@@ -127,47 +281,106 @@ export default function AdminPage({ products, onCreateProduct, onUpdateStock, or
     setIsSubmitting(true);
     setBtnText('Publicando...');
 
-    setTimeout(() => {
-      if (hasVariants) {
-        onCreateProduct({
+    // Save to Supabase using a separate async function to avoid inline complexity
+    (async () => {
+      try {
+        const { supabase } = await import('../supabaseClient');
+
+        // 1. Insert base product
+        const baseProduct = {
           name,
           category,
-          price: samePrice ? price : variants[0].price,
-          stock: variants.reduce((sum, v) => sum + parseInt(v.stock || 0), 0).toString(),
+          price: hasVariants && samePrice ? parseFloat(price) : (!hasVariants ? parseFloat(price) : parseFloat(variants[0].price || 0)),
+          stock: hasVariants ? variants.reduce((sum, v) => sum + parseInt(v.stock || 0), 0) : parseInt(stock),
           description,
-          image: variants[0].imagePreview,
-          variants: variants.map(v => ({
-            id: v.title.toLowerCase().trim().replace(/[^a-z0-9]+/g, '-'),
-            name: v.title,
-            stock: parseInt(v.stock),
-            inStock: parseInt(v.stock) > 0,
+          image: hasVariants ? variants[0].imagePreview : imagePreview,
+          division: null // optional field
+        };
+
+        const { data: insertedProduct, error: insertError } = await supabase
+          .from('products')
+          .insert([baseProduct])
+          .select()
+          .single();
+
+        if (insertError) throw insertError;
+
+        // 2. Insert variants if product has variants
+        if (hasVariants && insertedProduct) {
+          const variantsToInsert = variants.map(v => ({
+            product_id: insertedProduct.id,
+            title: v.title,
+            stock: parseInt(v.stock || 0),
             price: samePrice ? parseFloat(price) : parseFloat(v.price),
-            image: v.imagePreview,
-          }))
-        });
-      } else {
-        onCreateProduct({ name, category, price, stock, description, image: imagePreview });
-      }
+            image: v.imagePreview
+          }));
 
-      setIsSubmitting(false);
-      setIsPublished(true);
-      setBtnText('¡Publicado!');
+          const { error: variantsError } = await supabase
+            .from('product_variants')
+            .insert(variantsToInsert);
 
-      setTimeout(() => {
-        setIsPublished(false);
+          if (variantsError) throw variantsError;
+        }
+
+        // Trigger local callback for UI compatibility
+        if (hasVariants) {
+          onCreateProduct({
+            id: insertedProduct.id,
+            name,
+            category,
+            price: baseProduct.price,
+            stock: baseProduct.stock.toString(),
+            description,
+            image: baseProduct.image,
+            variants: variants.map(v => ({
+              id: v.title.toLowerCase().trim().replace(/[^a-z0-9]+/g, '-'),
+              name: v.title,
+              stock: parseInt(v.stock),
+              inStock: parseInt(v.stock) > 0,
+              price: samePrice ? parseFloat(price) : parseFloat(v.price),
+              image: v.imagePreview,
+            }))
+          });
+        } else {
+          onCreateProduct({
+            id: insertedProduct.id,
+            name,
+            category,
+            price,
+            stock,
+            description,
+            image: imagePreview
+          });
+        }
+
+        triggerReload();
+
+        setIsSubmitting(false);
+        setIsPublished(true);
+        setBtnText('¡Publicado!');
+
+        setTimeout(() => {
+          setIsPublished(false);
+          setBtnText('Publicar Producto');
+          setName('');
+          setCategory('Yu-Gi-Oh');
+          setPrice('');
+          setStock('');
+          setDescription('');
+          setImageFile(null);
+          setImagePreview('');
+          setHasVariants(false);
+          setSamePrice(true);
+          setVariants([{ id: 1, title: '', stock: '', price: '', image: '', imagePreview: '' }]);
+        }, 2000);
+
+      } catch (err) {
+        console.error('Error al subir el producto a Supabase:', err);
+        setError('Error al conectar con la base de datos: ' + err.message);
+        setIsSubmitting(false);
         setBtnText('Publicar Producto');
-        setName('');
-        setCategory('Yu-Gi-Oh');
-        setPrice('');
-        setStock('');
-        setDescription('');
-        setImageFile(null);
-        setImagePreview('');
-        setHasVariants(false);
-        setSamePrice(true);
-        setVariants([{ id: 1, title: '', stock: '', price: '', image: '', imagePreview: '' }]);
-      }, 2000);
-    }, 1200);
+      }
+    })();
   };
 
   const getStockBadgeClass = (qty) => {
@@ -181,6 +394,23 @@ export default function AdminPage({ products, onCreateProduct, onUpdateStock, or
     }
   };
 
+  const handleToggleFeatured = async (productId, currentVal) => {
+    try {
+      const { supabase } = await import('../supabaseClient');
+      const newVal = !currentVal;
+      const { error } = await supabase
+        .from('products')
+        .update({ featured: newVal })
+        .eq('id', productId);
+
+      if (error) throw error;
+      triggerReload();
+    } catch (err) {
+      console.error('Error toggling featured status in Supabase:', err);
+      alert('Error al actualizar estado destacado: ' + err.message);
+    }
+  };
+
   const getStockStatusText = (qty) => {
     const quantity = parseInt(qty);
     if (quantity === 0) return 'Out of Stock';
@@ -189,21 +419,33 @@ export default function AdminPage({ products, onCreateProduct, onUpdateStock, or
   };
 
   const handleStatusChange = (orderId, newStatus) => {
-    setOrders((prevOrders) =>
-      prevOrders.map((order) =>
-        order.id === orderId ? { ...order, status: newStatus } : order
-      )
-    );
+    (async () => {
+      try {
+        const { supabase } = await import('../supabaseClient');
+        const { error } = await supabase
+          .from('orders')
+          .update({ status: newStatus })
+          .eq('id', orderId);
+
+        if (error) throw error;
+
+        setOrders((prevOrders) =>
+          prevOrders.map((order) =>
+            order.id === orderId ? { ...order, status: newStatus } : order
+          )
+        );
+        alert(`Pedido ${orderId} actualizado a ${newStatus} en la base de datos.`);
+      } catch (err) {
+        console.error('Error al cambiar estado del pedido:', err);
+        alert('Error al conectar con la base de datos: ' + err.message);
+      }
+    })();
   };
 
   const getStatusBadgeClass = (status) => {
     switch (status) {
-      case 'Pendiente':
-        return 'bg-secondary/10 text-secondary';
-      case 'Aprobado':
-        return 'bg-tertiary-container text-on-tertiary-container';
-      case 'Listo para Recojo':
-        return 'bg-primary-fixed text-on-primary-fixed-variant';
+      case 'Realizado':
+        return 'bg-primary/10 text-primary';
       case 'Entregado':
         return 'bg-tertiary/15 text-tertiary';
       case 'Cancelado':
@@ -287,56 +529,29 @@ export default function AdminPage({ products, onCreateProduct, onUpdateStock, or
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-gutter items-start">
 
-        {/* Side Navigation or Stats — hidden on inventory & restock tabs */}
-        <aside className={`lg:col-span-3 flex flex-col gap-base bg-surface-container-low dark:bg-surface-container-highest p-md rounded-xl collector-card-shadow border border-outline-variant/30 animate-fade-in ${
-          (activeTab === 'inventory' || activeTab === 'restock') ? 'hidden' : 'hidden lg:flex'
-        }`}>
-
+        {/* Main Content Area */}
+        <section className="lg:col-span-12 space-y-xl">
 
           {activeTab === 'orders' && (
-            <>
-              <div className="mb-base">
-                <h2 className="font-headline-md text-headline-md text-on-surface">Resumen de Ventas</h2>
-                <p className="text-on-surface-variant text-label-sm">Métricas de la sesión actual</p>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-base animate-fade-in mb-md">
+              <div className="bg-surface-container-low p-md rounded-xl border border-outline-variant/30 shadow-sm flex flex-col justify-between">
+                <span className="text-[11px] text-outline uppercase tracking-wider font-bold">Ventas de la Sesión</span>
+                <span className="text-2xl font-black text-primary font-sans mt-2">
+                  ${orders.reduce((sum, o) => sum + o.total, 0).toFixed(2)}
+                </span>
               </div>
-              <div className="space-y-4">
-                <div className="bg-surface-container-lowest p-3 rounded-lg border border-outline-variant/20">
-                  <div className="text-[10px] text-outline uppercase tracking-wider font-bold">Ventas de la Sesión</div>
-                  <div className="text-xl font-bold text-primary font-sans mt-0.5">
-                    ${orders.reduce((sum, o) => sum + o.total, 0).toFixed(2)}
-                  </div>
-                </div>
-                <div className="bg-surface-container-lowest p-3 rounded-lg border border-outline-variant/20 flex justify-between gap-2">
-                  <div>
-                    <div className="text-[10px] text-outline uppercase tracking-wider font-semibold">Total Pedidos</div>
-                    <div className="text-sm font-bold text-on-surface mt-0.5">{orders.length}</div>
-                  </div>
-                  <div className="text-right">
-                    <div className="text-[10px] text-outline uppercase tracking-wider font-semibold">Pendientes</div>
-                    <div className="text-sm font-bold text-secondary mt-0.5">
-                      {orders.filter(o => o.status === 'Pendiente').length}
-                    </div>
-                  </div>
-                </div>
+              <div className="bg-surface-container-low p-md rounded-xl border border-outline-variant/30 shadow-sm flex flex-col justify-between">
+                <span className="text-[11px] text-outline uppercase tracking-wider font-bold">Total Pedidos</span>
+                <span className="text-2xl font-black text-on-surface mt-2">{orders.length}</span>
               </div>
-            </>
+              <div className="bg-surface-container-low p-md rounded-xl border border-outline-variant/30 shadow-sm flex flex-col justify-between">
+                <span className="text-[11px] text-outline uppercase tracking-wider font-bold">Pedidos Realizados / Activos</span>
+                <span className="text-2xl font-black text-secondary mt-2">
+                  {orders.filter(o => o.status === 'Realizado').length}
+                </span>
+              </div>
+            </div>
           )}
-
-          {(activeTab === 'presale' || activeTab === 'rare') && (
-            <>
-              <div className="mb-base">
-                <h2 className="font-headline-md text-headline-md text-on-surface">Módulo Temporal</h2>
-                <p className="text-on-surface-variant text-label-sm">Sección en mantenimiento</p>
-              </div>
-              <div className="bg-surface-container-lowest p-3 rounded-lg border border-outline-variant/20 text-xs text-on-surface-variant leading-relaxed">
-                Esta sección está reservada para futuras expansiones del panel. Si tienes sugerencias sobre estas herramientas, ponte en contacto con soporte.
-              </div>
-            </>
-          )}
-        </aside>
-
-        {/* Main Content Area */}
-        <section className={(activeTab === 'inventory' || activeTab === 'restock') ? 'lg:col-span-12 space-y-xl' : 'lg:col-span-9 space-y-xl'}>
 
           {activeTab === 'inventory' && (
             <>
@@ -703,6 +918,7 @@ export default function AdminPage({ products, onCreateProduct, onUpdateStock, or
                         <th className="px-md py-4">Artículo / Variante</th>
                         <th className="px-md py-4">Categoría</th>
                         <th className="px-md py-4 text-center">Stock Actual</th>
+                        <th className="px-md py-4 text-center">Destacado</th>
                         <th className="px-md py-4 text-center">Añadir Unidades</th>
                         <th className="px-md py-4 text-right">Acción</th>
                       </tr>
@@ -746,6 +962,14 @@ export default function AdminPage({ products, onCreateProduct, onUpdateStock, or
                                     </span>
                                   </td>
                                   <td className="px-md py-4 text-center">
+                                    <input 
+                                      type="checkbox"
+                                      checked={p.featured}
+                                      onChange={() => handleToggleFeatured(p.id, p.featured)}
+                                      className="w-4 h-4 rounded text-primary focus:ring-primary border-outline-variant/50 focus:ring-offset-background cursor-pointer"
+                                    />
+                                  </td>
+                                  <td className="px-md py-4 text-center">
                                     <input
                                       type="number"
                                       min="1"
@@ -785,6 +1009,14 @@ export default function AdminPage({ products, onCreateProduct, onUpdateStock, or
                                 <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${getStockBadgeClass(currentStock)}`}>
                                   {currentStock} ({getStockStatusText(currentStock)})
                                 </span>
+                              </td>
+                              <td className="px-md py-4 text-center">
+                                <input 
+                                  type="checkbox"
+                                  checked={p.featured}
+                                  onChange={() => handleToggleFeatured(p.id, p.featured)}
+                                  className="w-4 h-4 rounded text-primary focus:ring-primary border-outline-variant/50 focus:ring-offset-background cursor-pointer"
+                                />
                               </td>
                               <td className="px-md py-4 text-center">
                                 <input
@@ -899,9 +1131,7 @@ export default function AdminPage({ products, onCreateProduct, onUpdateStock, or
                                   onChange={(e) => handleStatusChange(order.id, e.target.value)}
                                   className={`w-full text-xs font-bold py-2 px-3 rounded-lg border-0 appearance-none focus:ring-2 focus:ring-primary outline-none transition-colors text-center cursor-pointer ${getStatusBadgeClass(order.status)}`}
                                 >
-                                  <option value="Pendiente">⏳ Pendiente</option>
-                                  <option value="Aprobado">✅ Aprobado</option>
-                                  <option value="Listo para Recojo">📦 Listo para Recojo</option>
+                                  <option value="Realizado">🛍️ Realizado</option>
                                   <option value="Entregado">🏪 Entregado</option>
                                   <option value="Cancelado">❌ Cancelado</option>
                                 </select>

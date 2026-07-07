@@ -1,20 +1,37 @@
 import React from 'react';
 
-export default function WishlistDrawer({ isOpen, onClose, wishlistItems, onRemoveFromWishlist, onAddToCart }) {
-  if (!isOpen) return null;
+export default function WishlistDrawer({ isOpen, onClose, wishlistItems, onAddToCart, onRemoveFromWishlist }) {
+  const [animateClose, setAnimateClose] = React.useState(true);
+  const [shouldRender, setShouldRender] = React.useState(isOpen);
+
+  React.useEffect(() => {
+    if (isOpen) {
+      setShouldRender(true);
+      const timer = setTimeout(() => {
+        setAnimateClose(false);
+      }, 25);
+      return () => clearTimeout(timer);
+    } else {
+      setAnimateClose(true);
+      const timer = setTimeout(() => {
+        setShouldRender(false);
+      }, 300);
+      return () => clearTimeout(timer);
+    }
+  }, [isOpen]);
+
+  if (!shouldRender) return null;
 
   return (
-    <div className="fixed inset-0 z-50 overflow-hidden" aria-labelledby="slide-over-title" role="dialog" aria-modal="true">
-      <div className="absolute inset-0 overflow-hidden">
-        {/* Overlay backdrop */}
-        <div 
-          className="absolute inset-0 bg-on-background/40 backdrop-blur-sm transition-opacity" 
-          onClick={onClose}
-        ></div>
+    <div className={`fixed inset-0 z-50 transition-all duration-300 ${!animateClose ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'}`}>
+      {/* Blurred Backdrop */}
+      <div 
+        className="absolute inset-0 bg-on-background/40 backdrop-blur-sm transition-opacity"
+        onClick={onClose}
+      ></div>
 
-        <div className="pointer-events-none fixed inset-y-0 right-0 flex max-w-full pl-10">
-          <div className="pointer-events-auto w-screen max-w-md transform transition-all duration-300 ease-in-out">
-            <div className="flex h-full flex-col bg-surface shadow-2xl border-l border-outline-variant/30">
+      {/* Drawer Body */}
+      <div className={`absolute inset-y-0 right-0 w-[448px] max-w-[448px] bg-surface border-l border-outline-variant/30 shadow-2xl p-6 flex flex-col gap-6 transform transition-transform duration-300 ease-in-out ${!animateClose ? 'translate-x-0' : 'translate-x-full'}`}>
               
               {/* Header */}
               <div className="px-6 py-6 border-b border-outline-variant/30 flex items-center justify-between">
@@ -85,9 +102,6 @@ export default function WishlistDrawer({ isOpen, onClose, wishlistItems, onRemov
                 )}
               </div>
 
-            </div>
-          </div>
-        </div>
       </div>
     </div>
   );

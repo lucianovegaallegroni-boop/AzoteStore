@@ -21,7 +21,10 @@ export default function App() {
   const [productList, setProductList] = useState(initialProducts); // Dynamic products state
   const [cartItems, setCartItems] = useState([]);
   const [wishlistItems, setWishlistItems] = useState([]);
-  const [currentUser, setCurrentUser] = useState(null); // Mock user session state
+  const [currentUser, setCurrentUser] = useState(() => {
+    const saved = localStorage.getItem('azote_user_session');
+    return saved ? JSON.parse(saved) : null;
+  }); // Persistent user session state
   const [orders, setOrders] = useState([]); // Mock orders state
   
   const [isCartOpen, setIsCartOpen] = useState(false);
@@ -29,6 +32,9 @@ export default function App() {
 
   // Cart operations
   const handleAddToCart = (product, color = null) => {
+    // Get max available stock
+    const maxStock = color ? (color.stock !== undefined ? color.stock : 20) : (product.specifications?.Stock ? parseInt(product.specifications.Stock) : 20);
+
     setCartItems((prevItems) => {
       const existing = prevItems.find((item) => 
         item.product.id === product.id && item.color?.id === color?.id
@@ -36,7 +42,7 @@ export default function App() {
       if (existing) {
         return prevItems.map((item) => 
           item.product.id === product.id && item.color?.id === color?.id
-            ? { ...item, quantity: item.quantity + 1 } 
+            ? { ...item, quantity: Math.min(maxStock, item.quantity + 1) } 
             : item
         );
       }
@@ -51,40 +57,136 @@ export default function App() {
       return;
     }
     setCartItems((prevItems) =>
-      prevItems.map((item) =>
-        item.product.id === productId && item.color?.id === colorId
-          ? { ...item, quantity: newQty }
-          : item
-      )
+      prevItems.map((item) => {
+        const itemColorId = item.color?.id || null;
+        const targetColorId = colorId || null;
+        if (item.product.id === productId && itemColorId === targetColorId) {
+          const maxStock = item.color ? (item.color.stock !== undefined ? item.color.stock : 20) : (item.product.specifications?.Stock ? parseInt(item.product.specifications.Stock) : 20);
+          return { ...item, quantity: Math.min(maxStock, newQty) };
+        }
+        return item;
+      })
     );
   };
 
   const handleRemoveFromCart = (productId, colorId = null) => {
     setCartItems((prevItems) => 
-      prevItems.filter((item) => !(item.product.id === productId && item.color?.id === colorId))
+      prevItems.filter((item) => {
+        const itemColorId = item.color?.id || null;
+        const targetColorId = colorId || null;
+        return !(item.product.id === productId && itemColorId === targetColorId);
+      })
     );
   };
 
   const handlePlaceOrder = (orderData) => {
+    const orderId = `ORD-${Date.now().toString().slice(-6)}`;
+    const totalAmount = cartItems.reduce((sum, item) => sum + item.product.price * item.quantity, 0);
+
     const newOrder = {
-      id: `ORD-${Date.now().toString().slice(-6)}`,
-      date: new Date().toLocaleString('es-ES', {
-        year: 'numeric',
-        month: '2-digit',
-        day: '2-digit',
-        hour: '2-digit',
-        minute: '2-digit',
-        second: '2-digit'
-      }),
+      id: orderId,
+      date: new Date().toISOString(),
       clientName: currentUser ? currentUser.name : 'Invitado',
       clientEmail: currentUser ? currentUser.email : 'invitado@azotestore.com',
       items: [...cartItems],
-      total: cartItems.reduce((sum, item) => sum + item.product.price * item.quantity, 0),
+      total: totalAmount,
       pickupLocation: orderData.pickupLocation,
       paymentProofName: orderData.paymentProofName,
       paymentProofPreview: orderData.paymentProofPreview,
-      status: 'Pendiente'
+      status: 'Realizado'
     };
+
+    // Save to Supabase and discount stock asynchronously
+    (async () => {
+      try {
+        const { supabase } = await import('./supabaseClient');
+
+        // 1. Insert order
+        const { error: orderError } = await supabase
+          .from('orders')
+          .insert([{
+            id: newOrder.id,
+            user_id: currentUser ? currentUser.id : null,
+            client_name: newOrder.clientName,
+            client_email: newOrder.clientEmail,
+            total: newOrder.total,
+            pickup_location: newOrder.pickupLocation,
+            payment_proof_name: newOrder.paymentProofName,
+            payment_proof_preview: newOrder.paymentProofPreview,
+            status: 'Realizado'
+          }]);
+
+        if (orderError) throw orderError;
+
+        // 2. Insert order items and discount stock
+        for (const item of cartItems) {
+          const { error: itemError } = await supabase
+            .from('order_items')
+            .insert([{
+              order_id: newOrder.id,
+              product_id: String(item.product.id),
+              product_name: item.product.name,
+              color_id: item.color ? String(item.color.id) : null,
+              color_name: item.color ? item.color.name : null,
+              quantity: item.quantity,
+              price: item.product.price
+            }]);
+
+          if (itemError) throw itemError;
+
+          // Discount stock
+          if (item.color) {
+            // Discount variant stock
+            const { data: variantData, error: varGetErr } = await supabase
+              .from('product_variants')
+              .select('stock, product_id')
+              .eq('id', item.color.id)
+              .single();
+
+            if (!varGetErr && variantData) {
+              const newVarStock = Math.max(0, (variantData.stock || 0) - item.quantity);
+              await supabase
+                .from('product_variants')
+                .update({ stock: newVarStock })
+                .eq('id', item.color.id);
+
+              // Update base product total stock
+              const { data: variantsList } = await supabase
+                .from('product_variants')
+                .select('stock')
+                .eq('product_id', variantData.product_id);
+
+              if (variantsList) {
+                const totalStock = variantsList.reduce((sum, v) => sum + (v.stock || 0), 0);
+                await supabase
+                  .from('products')
+                  .update({ stock: totalStock })
+                  .eq('id', variantData.product_id);
+              }
+            }
+          } else {
+            // Discount standard product stock
+            const { data: prodData, error: prodGetErr } = await supabase
+              .from('products')
+              .select('stock')
+              .eq('id', item.product.id)
+              .single();
+
+            if (!prodGetErr && prodData) {
+              const newProdStock = Math.max(0, (prodData.stock || 0) - item.quantity);
+              await supabase
+                .from('products')
+                .update({ stock: newProdStock })
+                .eq('id', item.product.id);
+            }
+          }
+        }
+
+      } catch (err) {
+        console.error('Error saving order/discounting stock in Supabase:', err);
+      }
+    })();
+
     setOrders((prevOrders) => [newOrder, ...prevOrders]);
     return newOrder;
   };
@@ -111,14 +213,17 @@ export default function App() {
   // Authentication operations
   const handleLogin = (user) => {
     setCurrentUser(user);
+    localStorage.setItem('azote_user_session', JSON.stringify(user));
   };
 
   const handleRegister = (user) => {
     setCurrentUser(user);
+    localStorage.setItem('azote_user_session', JSON.stringify(user));
   };
 
   const handleLogout = () => {
     setCurrentUser(null);
+    localStorage.removeItem('azote_user_session');
   };
 
   // Admin inventory operations
@@ -237,7 +342,18 @@ export default function App() {
           />
           <Route path="login" element={<LoginPage onLogin={handleLogin} />} />
           <Route path="register" element={<RegisterPage onRegister={handleRegister} />} />
-          <Route path="admin" element={<AdminPage products={productList} onCreateProduct={handleCreateProduct} onUpdateStock={handleUpdateStock} orders={orders} setOrders={setOrders} />} />
+          <Route path="admin" element={
+            currentUser && currentUser.role === 'admin' ? (
+              <AdminPage products={productList} onCreateProduct={handleCreateProduct} onUpdateStock={handleUpdateStock} orders={orders} setOrders={setOrders} />
+            ) : (
+              <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4">
+                <span className="material-symbols-outlined text-[4rem] text-error">lock</span>
+                <h2 className="text-xl font-bold text-on-background">Acceso Restringido</h2>
+                <p className="text-sm text-on-surface-variant">No tienes permisos para ver esta sección.</p>
+                <a href="/" className="bg-primary text-on-primary px-6 py-2 rounded-full text-xs font-bold">Volver al Inicio</a>
+              </div>
+            )
+          } />
         </Route>
       </Routes>
 
@@ -250,6 +366,7 @@ export default function App() {
         onRemoveItem={handleRemoveFromCart}
         onPlaceOrder={handlePlaceOrder}
         onClearCart={handleClearCart}
+        currentUser={currentUser}
       />
 
       <WishlistDrawer 

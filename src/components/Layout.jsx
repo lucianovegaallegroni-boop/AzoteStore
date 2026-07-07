@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate, Outlet } from 'react-router-dom';
 
 export default function Layout({ cartCount, wishlistCount, currentUser, onLogout, onOpenCart, onOpenWishlist }) {
@@ -7,6 +7,22 @@ export default function Layout({ cartCount, wishlistCount, currentUser, onLogout
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const [tcgOpen, setTcgOpen] = useState(false);
   const navigate = useNavigate();
+  const userMenuRef = useRef(null);
+
+  // Close user menu on clicking outside
+  useEffect(() => {
+    function handleClickOutside(event) {
+      if (userMenuRef.current && !userMenuRef.current.contains(event.target)) {
+        setUserMenuOpen(false);
+      }
+    }
+    if (userMenuOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [userMenuOpen]);
 
   const handleSearchSubmit = (e) => {
     e.preventDefault();
@@ -106,8 +122,8 @@ export default function Layout({ cartCount, wishlistCount, currentUser, onLogout
                 Board Games
               </Link>
               
-              {/* Add Product Button (Visible only to logged in users) */}
-              {currentUser && (
+              {/* Add Product Button (Visible only to admin users) */}
+              {currentUser && currentUser.role === 'admin' && (
                 <Link 
                   to="/admin" 
                   className="text-secondary dark:text-secondary-fixed font-bold text-body-md hover:text-primary hover:scale-105 transition-all flex items-center gap-1 border-l border-outline-variant/30 pl-4 ml-1"
@@ -149,7 +165,7 @@ export default function Layout({ cartCount, wishlistCount, currentUser, onLogout
 
               {/* Account Dropdown or Login Button */}
               {currentUser ? (
-                <div className="relative">
+                <div className="relative" ref={userMenuRef}>
                   <button 
                     onClick={() => setUserMenuOpen(!userMenuOpen)}
                     className="flex items-center gap-1.5 p-1.5 pr-3 text-on-surface-variant hover:text-primary hover:bg-surface-container-high rounded-full transition-all border border-outline-variant/30 active:scale-95"
@@ -174,7 +190,7 @@ export default function Layout({ cartCount, wishlistCount, currentUser, onLogout
                       </div>
                       
                       {/* Mobile-only Admin Link inside dropdown */}
-                      {currentUser && (
+                      {currentUser && currentUser.role === 'admin' && (
                         <Link
                           to="/admin"
                           onClick={() => setUserMenuOpen(false)}

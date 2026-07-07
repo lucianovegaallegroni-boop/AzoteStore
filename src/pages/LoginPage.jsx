@@ -25,21 +25,42 @@ export default function LoginPage({ onLogin }) {
 
     setIsLoading(true);
 
-    // Simulate login request delay
-    setTimeout(() => {
-      setIsLoading(false);
-      
-      // Determine a friendly name based on the email address
-      const nameFromEmail = email.split('@')[0];
-      const displayName = nameFromEmail.charAt(0).toUpperCase() + nameFromEmail.slice(1);
-      
-      onLogin({
-        name: displayName,
-        email: email
-      });
-      
-      navigate('/');
-    }, 1200);
+    // Query Supabase for authentication check
+    (async () => {
+      try {
+        const { supabase } = await import('../supabaseClient');
+
+        const { data: user, error: fetchError } = await supabase
+          .from('users')
+          .select('*')
+          .eq('email', email)
+          .single();
+
+        if (fetchError || !user) {
+          throw new Error('El correo electrónico no está registrado.');
+        }
+
+        // Mock password matching (comparing plaintext password for local convenience)
+        if (user.password !== password) {
+          throw new Error('La contraseña es incorrecta.');
+        }
+
+        setIsLoading(false);
+        onLogin({
+          id: user.id,
+          name: user.name,
+          email: user.email,
+          phone: user.phone,
+          role: user.role || 'cliente'
+        });
+
+        navigate('/');
+      } catch (err) {
+        console.error('Error al iniciar sesión:', err);
+        setError(err.message || 'Error al conectar con la base de datos.');
+        setIsLoading(false);
+      }
+    })();
   };
 
   return (

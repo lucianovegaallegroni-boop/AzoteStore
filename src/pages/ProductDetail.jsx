@@ -1,10 +1,70 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
+
 export default function ProductDetail({ products, onAddToCart, onAddToWishlist, wishlistItems }) {
   const { id } = useParams();
-  const product = products.find(p => p.id === id);
   const navigate = useNavigate();
-  
+  const [dbProduct, setDbProduct] = useState(null);
+  const [loading, setLoading] = useState(false);
+
+  // Fetch product from Supabase
+  useEffect(() => {
+    (async () => {
+      if (!id) return;
+      setLoading(true);
+      try {
+        const { supabase } = await import('../supabaseClient');
+        const { data: p, error } = await supabase
+          .from('products')
+          .select('*, product_variants(*)')
+          .eq('id', id)
+          .single();
+
+        if (error) throw error;
+
+        if (p) {
+          const formatted = {
+            id: p.id,
+            name: p.name,
+            subtitle: `${p.category} Collectible Item`,
+            price: parseFloat(p.price),
+            originalPrice: null,
+            image: p.image,
+            category: p.category,
+            categorySlug: p.category.toLowerCase().replace(/\s+/g, '-'),
+            inStock: p.stock > 0,
+            grade: 'Premium Grade',
+            description: p.description,
+            specifications: {
+              Stock: String(p.stock),
+              Category: p.category,
+              Status: p.stock > 0 ? 'Disponible' : 'Agotado'
+            },
+            colors: p.product_variants && p.product_variants.length > 0 ? p.product_variants.map(v => ({
+              id: v.id,
+              name: v.title,
+              hex: '#888888',
+              image: v.image,
+              stock: v.stock,
+              inStock: v.stock > 0,
+              price: parseFloat(v.price || p.price)
+            })) : null
+          };
+          setDbProduct(formatted);
+          if (formatted.colors && formatted.colors.length > 0) {
+            setSelectedColor(formatted.colors[0]);
+          }
+        }
+      } catch (err) {
+        console.error('Error fetching product details from Supabase:', err);
+      } finally {
+        setLoading(false);
+      }
+    })();
+  }, [id]);
+
+  const product = dbProduct || products.find(p => p.id === id);
+
   const [isColorMenuOpen, setIsColorMenuOpen] = useState(false);
   const [selectedColor, setSelectedColor] = useState(null);
   const isCurrentColorInStock = selectedColor ? selectedColor.inStock : (product ? product.inStock : false);
@@ -23,6 +83,18 @@ export default function ProductDetail({ products, onAddToCart, onAddToWishlist, 
       setSelectedColor(null);
     }
   }, [id, product]);
+
+  if (loading) {
+    return (
+      <div className="w-full max-w-[1440px] mx-auto px-margin-mobile md:px-margin-desktop py-xl text-center flex flex-col items-center justify-center gap-4">
+        <svg className="animate-spin h-10 w-10 text-primary" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+        </svg>
+        <p className="font-headline-md text-sm text-on-surface-variant animate-pulse font-semibold">Cargando detalles del coleccionable...</p>
+      </div>
+    );
+  }
 
   if (!product) {
     return (
@@ -45,7 +117,7 @@ export default function ProductDetail({ products, onAddToCart, onAddToWishlist, 
   };
 
   return (
-    <div className="w-full max-w-[1440px] mx-auto px-margin-mobile md:px-margin-desktop py-lg">
+    <div className="w-full max-w-[1440px] mx-auto px-margin-mobile md:px-margin-desktop py-lg animate-fade-in">
       
       {/* Breadcrumbs */}
       <div className="flex items-center gap-2 text-xs text-on-surface-variant mb-lg font-body-md">

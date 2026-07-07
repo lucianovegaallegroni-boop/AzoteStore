@@ -3,23 +3,24 @@ import { Link, useNavigate } from 'react-router-dom';
 export default function LandingPage({ products }) {
   const navigate = useNavigate();
 
-  // Get some products to display as featured
-  const featuredProducts = products.slice(0, 4);
+  // Get only products marked as featured, fallback to first 4 if none are flagged
+  const flaggedProducts = products.filter(p => p.featured === true);
+  const featuredProducts = flaggedProducts.length > 0 ? flaggedProducts.slice(0, 4) : products.slice(0, 4);
 
   return (
     <div className="w-full">
-      
+
       {/* Hero Section - Bento Grid Style */}
       <section className="w-full max-w-[1440px] mx-auto px-margin-mobile md:px-margin-desktop py-lg md:py-xl">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-gutter h-auto lg:h-[600px]">
-          
+
           {/* Main Feature (Left) */}
-          <div 
+          <div
             onClick={() => navigate('/product/rx-78-2-titanium-finish')}
             className="lg:col-span-8 bg-surface-container-low rounded-xl overflow-hidden relative group cursor-pointer shadow-[0_4px_20px_rgba(15,23,42,0.08)] h-[400px] lg:h-full"
           >
-            <div 
-              className="absolute inset-0 bg-cover bg-center transition-transform duration-700 group-hover:scale-105" 
+            <div
+              className="absolute inset-0 bg-cover bg-center transition-transform duration-700 group-hover:scale-105"
               style={{ backgroundImage: "url('https://lh3.googleusercontent.com/aida-public/AB6AXuAct3FZrbUkLdhtf_kIuFVe-SsAjjQF2TyHl0Z9heIFgJClU0DGBHnMVFINYeaIbb_B0JRF69Sf1JPn8BG-uHXAyrlcoB2V32G7XQIMQwGpPJoq1KYszZ43O2-ZjnU6cI4kdMetqGyPByPmC1-kXaSJiaT2O5mRMHIODP6v1AYNYIKqEUi2EMAqI4W5wOpZBtf1zrT0vVnkridLk8r2pPDmH9LgyMNCINBwKZACGdTxJeYhduMlOWoVRA')" }}
             ></div>
             <div className="absolute inset-0 bg-gradient-to-t from-on-background/80 via-on-background/20 to-transparent"></div>
@@ -33,7 +34,7 @@ export default function LandingPage({ products }) {
               <p className="font-body-lg text-body-lg text-white/90 mb-6 max-w-xl">
                 Experimenta un nivel de detalle sin precedentes con la última incorporación a la línea PG Unleashed. Preventas abiertas.
               </p>
-              <button 
+              <button
                 onClick={(e) => {
                   e.stopPropagation();
                   navigate('/catalog?category=mecha-kits');
@@ -47,14 +48,14 @@ export default function LandingPage({ products }) {
 
           {/* Secondary Features (Right) */}
           <div className="lg:col-span-4 flex flex-col gap-gutter h-full">
-            
+
             {/* Top Right */}
-            <div 
+            <div
               onClick={() => navigate('/catalog?category=board-games')}
               className="flex-1 bg-surface-container rounded-xl overflow-hidden relative group cursor-pointer shadow-[0_4px_20px_rgba(15,23,42,0.08)] min-h-[180px]"
             >
-              <div 
-                className="absolute inset-0 bg-cover bg-center transition-transform duration-500 group-hover:scale-110" 
+              <div
+                className="absolute inset-0 bg-cover bg-center transition-transform duration-500 group-hover:scale-110"
                 style={{ backgroundImage: "url('https://lh3.googleusercontent.com/aida-public/AB6AXuA_tvA7VyJYA3UBiwgNaiAVnSxltWGfbXLOpQU0uU7pUl7XkjgLIxBwIiTFtScLU9bPXQ5MElIEncb-2Lda6FOKjQXPUUdD71gEdioHPQLWEMZD5q8zvxCOrcTtY6DCHTLn30Hc5OWPCBsJfr3PSgNAxn8ve_nUVrtWqhpTRAu3KZ79iCoEXDFIFcl8cSGeIHsexlYcS1_3-okEBdZlx2Vmojc_5RS3k9UAqLVAnqsMqCSco25NHBHC7w')" }}
               ></div>
               <div className="absolute inset-0 bg-gradient-to-t from-on-background/70 to-transparent"></div>
@@ -65,7 +66,7 @@ export default function LandingPage({ products }) {
             </div>
 
             {/* Bottom Right */}
-            <div 
+            <div
               onClick={() => navigate('/catalog?category=yu-gi-oh')}
               className="flex-1 bg-secondary-container text-on-secondary-container rounded-xl overflow-hidden relative group cursor-pointer shadow-[0_4px_20px_rgba(15,23,42,0.08)] p-md flex flex-col justify-between min-h-[180px] transition-transform duration-300 hover:scale-[1.01]"
             >
@@ -109,7 +110,7 @@ export default function LandingPage({ products }) {
             </div>
           </div>
           <div className="flex overflow-x-auto pb-4 gap-lg snap-x hide-scrollbar">
-            
+
             {/* Category 1 */}
             <Link to="/catalog?category=mecha-kits" className="group flex flex-col items-center gap-4 min-w-[120px] snap-center">
               <div className="w-24 h-24 rounded-full bg-surface-container-high flex items-center justify-center text-primary group-hover:bg-primary group-hover:text-on-primary transition-colors duration-300 shadow-sm">
@@ -176,51 +177,101 @@ export default function LandingPage({ products }) {
           </Link>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-gutter">
-          {featuredProducts.map((product) => (
-            <div 
-              key={product.id}
-              onClick={() => navigate(`/product/${product.id}`)}
-              className="bg-surface rounded-xl overflow-hidden cursor-pointer group border border-outline-variant/20 card-shadow transition-all duration-300 hover:-translate-y-1 hover:shadow-lg flex flex-col h-full"
-            >
-              <div className="h-[240px] overflow-hidden bg-surface-container-low relative">
-                <img 
-                  src={product.image} 
-                  alt={product.name} 
-                  className={`w-full h-full object-cover transition-transform duration-500 group-hover:scale-105 ${!product.inStock ? 'grayscale opacity-60' : ''}`}
-                />
-                {!product.inStock && (
-                  <div className="absolute inset-0 bg-black/40 backdrop-blur-[1px] flex items-center justify-center transition-all duration-300 group-hover:bg-black/45">
-                    <span className="border-2 border-error text-error bg-error/10 font-headline-md text-xs font-bold uppercase tracking-widest px-4 py-2 rounded-lg shadow-sm">
-                      Sin Stock
+        <div className="relative w-full overflow-hidden py-4">
+          {/* Infinite Marquee Track */}
+          <div className="flex gap-6 w-max animate-scroll hover:[animation-play-state:paused]">
+            {/* First Set */}
+            {featuredProducts.map((product) => (
+              <div
+                key={`${product.id}-first`}
+                onClick={() => navigate(`/product/${product.id}`)}
+                className="bg-surface rounded-xl overflow-hidden cursor-pointer group border border-outline-variant/20 card-shadow transition-all duration-300 hover:-translate-y-1 hover:shadow-lg flex flex-col h-full w-[280px] sm:w-[300px] shrink-0"
+              >
+                <div className="h-[240px] overflow-hidden bg-surface-container-low relative">
+                  <img
+                    src={product.image}
+                    alt={product.name}
+                    className={`w-full h-full object-cover transition-transform duration-500 group-hover:scale-105 ${!product.inStock ? 'grayscale opacity-60' : ''}`}
+                  />
+                  {!product.inStock && (
+                    <div className="absolute inset-0 bg-black/40 backdrop-blur-[1px] flex items-center justify-center transition-all duration-300 group-hover:bg-black/45">
+                      <span className="border-2 border-error text-error bg-error/10 font-headline-md text-xs font-bold uppercase tracking-widest px-4 py-2 rounded-lg shadow-sm">
+                        Sin Stock
+                      </span>
+                    </div>
+                  )}
+                </div>
+
+                <div className="p-md flex flex-col flex-1 justify-between">
+                  <div>
+                    <span className="text-xs text-on-surface-variant uppercase tracking-wider font-semibold font-body-md">{product.category}</span>
+                    <h3 className="font-headline-md text-[18px] text-on-background group-hover:text-primary transition-colors line-clamp-1 mt-1">
+                      {product.name}
+                    </h3>
+                    <p className="text-sm text-on-surface-variant mt-1 line-clamp-2">{product.description}</p>
+                  </div>
+
+                  <div className="flex justify-between items-center mt-4 pt-4 border-t border-outline-variant/20">
+                    <div className="flex items-baseline gap-2">
+                      <span className="font-headline-md text-primary">${product.price.toFixed(2)}</span>
+                      {product.originalPrice && (
+                        <span className="font-body-md text-xs text-outline line-through">${product.originalPrice.toFixed(2)}</span>
+                      )}
+                    </div>
+                    <span className="material-symbols-outlined text-primary group-hover:translate-x-1 transition-transform">
+                      arrow_forward
                     </span>
                   </div>
-                )}
+                </div>
               </div>
+            ))}
 
-              <div className="p-md flex flex-col flex-1 justify-between">
-                <div>
-                  <span className="text-xs text-on-surface-variant uppercase tracking-wider font-semibold font-body-md">{product.category}</span>
-                  <h3 className="font-headline-md text-[18px] text-on-background group-hover:text-primary transition-colors line-clamp-1 mt-1">
-                    {product.name}
-                  </h3>
-                  <p className="text-sm text-on-surface-variant mt-1 line-clamp-2">{product.description}</p>
+            {/* Duplicate Set for Seamless Scrolling Loop */}
+            {featuredProducts.map((product) => (
+              <div
+                key={`${product.id}-second`}
+                onClick={() => navigate(`/product/${product.id}`)}
+                className="bg-surface rounded-xl overflow-hidden cursor-pointer group border border-outline-variant/20 card-shadow transition-all duration-300 hover:-translate-y-1 hover:shadow-lg flex flex-col h-full w-[280px] sm:w-[300px] shrink-0"
+              >
+                <div className="h-[240px] overflow-hidden bg-surface-container-low relative">
+                  <img
+                    src={product.image}
+                    alt={product.name}
+                    className={`w-full h-full object-cover transition-transform duration-500 group-hover:scale-105 ${!product.inStock ? 'grayscale opacity-60' : ''}`}
+                  />
+                  {!product.inStock && (
+                    <div className="absolute inset-0 bg-black/40 backdrop-blur-[1px] flex items-center justify-center transition-all duration-300 group-hover:bg-black/45">
+                      <span className="border-2 border-error text-error bg-error/10 font-headline-md text-xs font-bold uppercase tracking-widest px-4 py-2 rounded-lg shadow-sm">
+                        Sin Stock
+                      </span>
+                    </div>
+                  )}
                 </div>
-                
-                <div className="flex justify-between items-center mt-4 pt-4 border-t border-outline-variant/20">
-                  <div className="flex items-baseline gap-2">
-                    <span className="font-headline-md text-primary">${product.price.toFixed(2)}</span>
-                    {product.originalPrice && (
-                      <span className="font-body-md text-xs text-outline line-through">${product.originalPrice.toFixed(2)}</span>
-                    )}
+
+                <div className="p-md flex flex-col flex-1 justify-between">
+                  <div>
+                    <span className="text-xs text-on-surface-variant uppercase tracking-wider font-semibold font-body-md">{product.category}</span>
+                    <h3 className="font-headline-md text-[18px] text-on-background group-hover:text-primary transition-colors line-clamp-1 mt-1">
+                      {product.name}
+                    </h3>
+                    <p className="text-sm text-on-surface-variant mt-1 line-clamp-2">{product.description}</p>
                   </div>
-                  <span className="material-symbols-outlined text-primary group-hover:translate-x-1 transition-transform">
-                    arrow_forward
-                  </span>
+
+                  <div className="flex justify-between items-center mt-4 pt-4 border-t border-outline-variant/20">
+                    <div className="flex items-baseline gap-2">
+                      <span className="font-headline-md text-primary">${product.price.toFixed(2)}</span>
+                      {product.originalPrice && (
+                        <span className="font-body-md text-xs text-outline line-through">${product.originalPrice.toFixed(2)}</span>
+                      )}
+                    </div>
+                    <span className="material-symbols-outlined text-primary group-hover:translate-x-1 transition-transform">
+                      arrow_forward
+                    </span>
+                  </div>
                 </div>
               </div>
-            </div>
-          ))}
+            ))}
+          </div>
         </div>
       </section>
 

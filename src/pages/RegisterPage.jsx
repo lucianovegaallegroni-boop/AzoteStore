@@ -6,6 +6,7 @@ export default function RegisterPage({ onRegister }) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [phone, setPhone] = useState('');
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
@@ -15,8 +16,8 @@ export default function RegisterPage({ onRegister }) {
     setError('');
 
     // Form Validations
-    if (!name || !email || !password || !confirmPassword) {
-      setError('Por favor, rellene todos los campos.');
+    if (!name || !email || !password || !confirmPassword || !phone) {
+      setError('Por favor, rellene todos los campos, incluyendo el teléfono.');
       return;
     }
 
@@ -37,18 +38,54 @@ export default function RegisterPage({ onRegister }) {
 
     setIsLoading(true);
 
-    // Simulate database registration delay
-    setTimeout(() => {
-      setIsLoading(false);
-      
-      // Successful registration -> auto login
-      onRegister({
-        name: name,
-        email: email
-      });
-      
-      navigate('/');
-    }, 1200);
+    // Save to Supabase
+    (async () => {
+      try {
+        const { supabase } = await import('../supabaseClient');
+
+        // Check if user already exists
+        const { data: existingUser } = await supabase
+          .from('users')
+          .select('id')
+          .eq('email', email)
+          .maybeSingle();
+
+        if (existingUser) {
+          throw new Error('El correo electrónico ya está registrado.');
+        }
+
+        const newUser = {
+          name,
+          email,
+          password, // Storing plain text password for this mock interface (as originally designed)
+          phone,
+          role: 'cliente'
+        };
+
+        const { data: insertedUser, error: insertError } = await supabase
+          .from('users')
+          .insert([newUser])
+          .select()
+          .single();
+
+        if (insertError) throw insertError;
+
+        setIsLoading(false);
+        onRegister({
+          id: insertedUser.id,
+          name: insertedUser.name,
+          email: insertedUser.email,
+          phone: insertedUser.phone,
+          role: insertedUser.role
+        });
+
+        navigate('/');
+      } catch (err) {
+        console.error('Error al registrar usuario:', err);
+        setError(err.message || 'Error al conectar con el servidor.');
+        setIsLoading(false);
+      }
+    })();
   };
 
   return (
@@ -83,6 +120,20 @@ export default function RegisterPage({ onRegister }) {
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="Juan Pérez"
+              disabled={isLoading}
+              className="w-full bg-surface-container-low text-on-surface border border-outline-variant/40 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-primary focus:bg-white transition-all text-sm"
+            />
+          </div>
+
+          <div>
+            <label className="block text-xs font-semibold uppercase tracking-wider text-outline mb-1.5">
+              Teléfono de Contacto
+            </label>
+            <input 
+              type="tel"
+              value={phone}
+              onChange={(e) => setPhone(e.target.value)}
+              placeholder="+507 6123-4567"
               disabled={isLoading}
               className="w-full bg-surface-container-low text-on-surface border border-outline-variant/40 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-primary focus:bg-white transition-all text-sm"
             />
