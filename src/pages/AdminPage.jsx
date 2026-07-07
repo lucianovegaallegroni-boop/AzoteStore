@@ -115,8 +115,11 @@ export default function AdminPage({ products: initialProducts, onCreateProduct, 
   const [restockAmount, setRestockAmount] = useState({});
 
   // Tabs and Modal states
-  const [activeTab, setActiveTab] = useState('inventory');
+  const [activeTab, setActiveTab] = useState(() => {
+    return sessionStorage.getItem('azote_admin_active_tab') || 'inventory';
+  });
   const [selectedProofUrl, setSelectedProofUrl] = useState(null);
+  const [productToDelete, setProductToDelete] = useState(null);
 
   // Submit animation states
   const [btnText, setBtnText] = useState('Publicar Producto');
@@ -125,6 +128,34 @@ export default function AdminPage({ products: initialProducts, onCreateProduct, 
   const [error, setError] = useState('');
 
   const navigate = useNavigate();
+
+  // Persist tab changes
+  useEffect(() => {
+    sessionStorage.setItem('azote_admin_active_tab', activeTab);
+  }, [activeTab]);
+
+  // Function to delete product from database
+  const handleDeleteSubmit = async () => {
+    if (!productToDelete) return;
+    try {
+      const { supabase } = await import('../supabaseClient');
+
+      // Delete product (cascade will handle variants if configured, otherwise we delete them manually or by db setup)
+      const { error: deleteError } = await supabase
+        .from('products')
+        .delete()
+        .eq('id', productToDelete.id);
+
+      if (deleteError) throw deleteError;
+
+      alert(`Producto "${productToDelete.name}" eliminado correctamente.`);
+      setProductToDelete(null);
+      triggerReload();
+    } catch (err) {
+      console.error('Error deleting product from Supabase:', err);
+      alert('Error al eliminar producto: ' + err.message);
+    }
+  };
 
   // Filter products for restocking (from dbProducts instead of prop products)
   const filteredRestockProducts = dbProducts.filter((p) => {
@@ -920,6 +951,7 @@ export default function AdminPage({ products: initialProducts, onCreateProduct, 
                         <th className="px-md py-4 text-center">Stock Actual</th>
                         <th className="px-md py-4 text-center">Destacado</th>
                         <th className="px-md py-4 text-center">Añadir Unidades</th>
+                        <th className="px-md py-4 text-center">Eliminar</th>
                         <th className="px-md py-4 text-right">Acción</th>
                       </tr>
                     </thead>
@@ -979,6 +1011,16 @@ export default function AdminPage({ products: initialProducts, onCreateProduct, 
                                       className="w-20 bg-surface border border-outline-variant/30 rounded-lg px-2.5 py-1.5 text-xs text-center outline-none focus:border-primary font-bold text-on-surface"
                                     />
                                   </td>
+                                  <td className="px-md py-4 text-center">
+                                    <button
+                                      type="button"
+                                      onClick={() => setProductToDelete(p)}
+                                      className="text-on-surface-variant hover:text-error transition-colors p-1.5 hover:bg-error/5 rounded-full"
+                                      title="Eliminar Producto"
+                                    >
+                                      <span className="material-symbols-outlined text-[18px]">delete</span>
+                                    </button>
+                                  </td>
                                   <td className="px-md py-4 text-right">
                                     <button
                                       type="button"
@@ -1027,6 +1069,16 @@ export default function AdminPage({ products: initialProducts, onCreateProduct, 
                                   onChange={(e) => setRestockAmount({ ...restockAmount, [p.id]: e.target.value })}
                                   className="w-20 bg-surface border border-outline-variant/30 rounded-lg px-2.5 py-1.5 text-xs text-center outline-none focus:border-primary font-bold text-on-surface"
                                 />
+                              </td>
+                              <td className="px-md py-4 text-center">
+                                <button
+                                  type="button"
+                                  onClick={() => setProductToDelete(p)}
+                                  className="text-on-surface-variant hover:text-error transition-colors p-1.5 hover:bg-error/5 rounded-full"
+                                  title="Eliminar Producto"
+                                >
+                                  <span className="material-symbols-outlined text-[18px]">delete</span>
+                                </button>
                               </td>
                               <td className="px-md py-4 text-right">
                                 <button
@@ -1245,6 +1297,49 @@ export default function AdminPage({ products: initialProducts, onCreateProduct, 
                 className="bg-primary text-on-primary font-label-md px-6 py-2.5 rounded-xl hover:scale-105 transition-transform text-xs font-bold"
               >
                 Cerrar Vista
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Product Confirmation Modal */}
+      {productToDelete && (
+        <div className="fixed inset-0 bg-on-background/70 backdrop-blur-md z-50 flex items-center justify-center p-4">
+          <div className="bg-surface rounded-2xl max-w-md w-full overflow-hidden border border-outline-variant/30 shadow-2xl relative p-6 flex flex-col gap-4 text-center">
+            <div className="w-16 h-16 bg-error/10 text-error rounded-full flex items-center justify-center mx-auto mb-2">
+              <span className="material-symbols-outlined text-[36px]">warning</span>
+            </div>
+            
+            <h3 className="text-headline-md font-bold text-on-background">
+              ¿Eliminar Producto?
+            </h3>
+            
+            <p className="text-sm text-on-surface-variant leading-relaxed">
+              Estás a punto de eliminar permanentemente el producto <span className="font-bold text-on-surface">"{productToDelete.name}"</span> y todas sus variantes de catálogo.
+            </p>
+            
+            <div className="p-3.5 bg-error-container/20 border border-error/25 rounded-xl text-left flex items-start gap-3">
+              <span className="material-symbols-outlined text-error text-[20px] shrink-0 mt-0.5">info</span>
+              <p className="text-xs text-error font-semibold leading-relaxed">
+                Esta acción no se puede deshacer. El producto y su stock se borrarán definitivamente de la base de datos.
+              </p>
+            </div>
+
+            <div className="flex gap-3 mt-4">
+              <button
+                type="button"
+                onClick={() => setProductToDelete(null)}
+                className="flex-1 bg-surface-container-high text-on-surface font-semibold text-xs py-3 rounded-xl hover:bg-surface-container-highest transition-colors"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={handleDeleteSubmit}
+                className="flex-1 bg-error text-on-error font-semibold text-xs py-3 rounded-xl hover:bg-error/90 hover:scale-[1.01] transition-all"
+              >
+                Eliminar para siempre
               </button>
             </div>
           </div>
