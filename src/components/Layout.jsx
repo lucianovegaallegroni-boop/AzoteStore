@@ -48,12 +48,12 @@ export default function Layout({ cartCount, wishlistCount, currentUser, onLogout
           {/* Brand */}
           <Link 
             to="/" 
-            className="font-display-lg-mobile md:font-display-lg text-display-lg-mobile md:text-display-lg text-primary dark:text-primary-fixed tracking-tighter flex items-center gap-2 hover:scale-[1.02] transition-transform"
+            className="font-display-lg-mobile md:font-display-lg text-[22px] sm:text-display-lg-mobile md:text-display-lg text-primary dark:text-primary-fixed tracking-tighter flex items-center gap-1.5 sm:gap-2 hover:scale-[1.02] transition-transform shrink-0"
           >
-            <span className="material-symbols-outlined text-[1.2em] font-variation-settings-'FILL' 1;" style={{ fontVariationSettings: '"FILL" 1' }}>
+            <span className="material-symbols-outlined text-[1.4em] sm:text-[1.2em] font-variation-settings-'FILL' 1;" style={{ fontVariationSettings: '"FILL" 1' }}>
               deployed_code
             </span> 
-            Azote Store
+            <span className="hidden sm:inline">Azote Store</span>
           </Link>
 
           {/* Search (Center, Desktop) */}
@@ -73,7 +73,7 @@ export default function Layout({ cartCount, wishlistCount, currentUser, onLogout
           </form>
 
           {/* Navigation Links & Actions */}
-          <div className="flex items-center gap-md">
+          <div className="flex items-center gap-xs sm:gap-md">
             
             {/* Desktop Categories - hidden, navigation via mobile drawer */}
             <div className="hidden">
