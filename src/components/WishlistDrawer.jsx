@@ -31,7 +31,7 @@ export default function WishlistDrawer({ isOpen, onClose, wishlistItems, onAddTo
       ></div>
 
       {/* Drawer Body */}
-      <div className={`absolute inset-y-0 right-0 w-[448px] max-w-[448px] bg-surface border-l border-outline-variant/30 shadow-2xl p-6 flex flex-col gap-6 transform transition-transform duration-300 ease-in-out ${!animateClose ? 'translate-x-0' : 'translate-x-full'}`}>
+      <div className={`absolute inset-y-0 right-0 w-full sm:w-[448px] sm:max-w-[448px] bg-surface border-l border-outline-variant/30 shadow-2xl p-6 flex flex-col gap-6 transform transition-transform duration-300 ease-in-out ${!animateClose ? 'translate-x-0' : 'translate-x-full'}`}>
               
               {/* Header */}
               <div className="px-6 py-6 border-b border-outline-variant/30 flex items-center justify-between">
