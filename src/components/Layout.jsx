@@ -39,7 +39,7 @@ export default function Layout({ cartCount, wishlistCount, currentUser, onLogout
   };
 
   return (
-    <div className="flex flex-col min-h-screen">
+    <div className="flex flex-col min-h-screen overflow-x-hidden w-full">
       
       {/* Top Navigation Bar */}
       <nav className="bg-surface dark:bg-on-background shadow-sm top-0 z-40 sticky transition-all duration-300 border-b border-outline-variant/30">
