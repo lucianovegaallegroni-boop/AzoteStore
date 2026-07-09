@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 
 // Layout & Drawers
@@ -29,6 +29,41 @@ export default function App() {
   
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [isWishlistOpen, setIsWishlistOpen] = useState(false);
+
+  // Revalidate stored session against Supabase on mount to keep role in sync
+  useEffect(() => {
+    if (!currentUser?.id) return;
+    (async () => {
+      try {
+        const { supabase } = await import('./supabaseClient');
+        const { data: freshUser, error } = await supabase
+          .from('users')
+          .select('id, name, email, phone, role')
+          .eq('id', currentUser.id)
+          .single();
+
+        if (error || !freshUser) {
+          // User no longer exists in DB – clear session
+          setCurrentUser(null);
+          localStorage.removeItem('azote_user_session');
+          return;
+        }
+
+        // Update session with latest data from DB
+        const updatedUser = {
+          id: freshUser.id,
+          name: freshUser.name,
+          email: freshUser.email,
+          phone: freshUser.phone,
+          role: freshUser.role || 'cliente'
+        };
+        setCurrentUser(updatedUser);
+        localStorage.setItem('azote_user_session', JSON.stringify(updatedUser));
+      } catch (err) {
+        console.error('Error revalidating user session:', err);
+      }
+    })();
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Cart operations
   const handleAddToCart = (product, color = null) => {
