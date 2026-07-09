@@ -172,7 +172,7 @@ export default function Layout({ cartCount, wishlistCount, currentUser, onLogout
 
                   {/* Dropdown Menu */}
                   {userMenuOpen && (
-                    <div className="absolute right-0 mt-2 w-56 bg-surface border border-outline-variant/40 rounded-xl shadow-lg z-50 py-2">
+                    <div className="fixed sm:absolute left-4 right-4 sm:left-auto sm:right-0 mt-2 sm:w-56 bg-surface border border-outline-variant/40 rounded-xl shadow-lg z-50 py-2">
                       <div className="px-4 py-2 border-b border-outline-variant/20">
                         <p className="text-xs font-semibold text-outline">Conectado como</p>
                         <p className="font-label-md text-sm text-on-background truncate mt-0.5">{currentUser.name}</p>
