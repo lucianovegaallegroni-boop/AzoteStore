@@ -137,17 +137,7 @@ export default function Layout({ cartCount, wishlistCount, currentUser, onLogout
             {/* Icons */}
             <div className="flex items-center gap-sm relative">
               
-              {/* Search Toggle for Mobile */}
-              <button 
-                onClick={() => {
-                  const query = prompt('Buscar en Azote Store:');
-                  if (query) navigate(`/catalog?q=${encodeURIComponent(query)}`);
-                }}
-                className="p-2 lg:hidden text-on-surface-variant hover:text-primary rounded-full hover:bg-surface-container-high"
-                aria-label="Buscar"
-              >
-                <span className="material-symbols-outlined">search</span>
-              </button>
+
 
               {/* Favorites */}
               <button 

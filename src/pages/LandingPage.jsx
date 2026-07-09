@@ -2,10 +2,86 @@ import React from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 export default function LandingPage({ products }) {
   const navigate = useNavigate();
+  const [dbProducts, setDbProducts] = React.useState([]);
+  const [currentSlide, setCurrentSlide] = React.useState(0);
+
+  const slides = [
+    {
+      title: "Master Grade: The Next Evolution",
+      subtitle: "Lanzamiento Destacado",
+      description: "Experimenta un nivel de detalle sin precedentes con la última incorporación a la línea PG Unleashed. Preventas abiertas.",
+      buttonText: "Comprar Gunpla",
+      link: "/catalog?q=Gundam",
+      image: "https://lh3.googleusercontent.com/aida-public/AB6AXuAct3FZrbUkLdhtf_kIuFVe-SsAjjQF2TyHl0Z9heIFgJClU0DGBHnMVFINYeaIbb_B0JRF69Sf1JPn8BG-uHXAyrlcoB2V32G7XQIMQwGpPJoq1KYszZ43O2-ZjnU6cI4kdMetqGyPByPmC1-kXaSJiaT2O5mRMHIODP6v1AYNYIKqEUi2EMAqI4W5wOpZBtf1zrT0vVnkridLk8r2pPDmH9LgyMNCINBwKZACGdTxJeYhduMlOWoVRA",
+      badgeColor: "bg-primary text-on-primary",
+      onClick: () => navigate('/product/rx-78-2-titanium-finish')
+    },
+    {
+      title: "Estrategia y Táctica Premium",
+      subtitle: "Juegos de Mesa",
+      description: "Desde cooperativos profundos hasta desafiantes juegos de estrategia. Encuentra tu próxima gran partida en nuestra colección.",
+      buttonText: "Ver Juegos",
+      link: "/catalog?category=board-games",
+      image: "https://lh3.googleusercontent.com/aida-public/AB6AXuA_tvA7VyJYA3UBiwgNaiAVnSxltWGfbXLOpQU0uU7pUl7XkjgLIxBwIiTFtScLU9bPXQ5MElIEncb-2Lda6FOKjQXPUUdD71gEdioHPQLWEMZD5q8zvxCOrcTtY6DCHTLn30Hc5OWPCBsJfr3PSgNAxn8ve_nUVrtWqhpTRAu3KZ79iCoEXDFIFcl8cSGeIHsexlYcS1_3-okEBdZlx2Vmojc_5RS3k9UAqLVAnqsMqCSco25NHBHC7w",
+      badgeColor: "bg-secondary text-on-secondary",
+      onClick: () => navigate('/catalog?category=board-games')
+    },
+    {
+      title: "Cartas Coleccionables TCG",
+      subtitle: "Yu-Gi-Oh, Pokémon & Magic",
+      description: "Protege tu baraja y encuentra cartas secretas raras de las últimas expansiones lanzadas al mercado.",
+      buttonText: "Comprar TCG",
+      link: "/catalog?category=tcg",
+      image: "https://lh3.googleusercontent.com/aida-public/AB6AXuAct3FZrbUkLdhtf_kIuFVe-SsAjjQF2TyHl0Z9heIFgJClU0DGBHnMVFINYeaIbb_B0JRF69Sf1JPn8BG-uHXAyrlcoB2V32G7XQIMQwGpPJoq1KYszZ43O2-ZjnU6cI4kdMetqGyPByPmC1-kXaSJiaT2O5mRMHIODP6v1AYNYIKqEUi2EMAqI4W5wOpZBtf1zrT0vVnkridLk8r2pPDmH9LgyMNCINBwKZACGdTxJeYhduMlOWoVRA",
+      badgeColor: "bg-tertiary text-on-tertiary",
+      onClick: () => navigate('/catalog?category=yu-gi-oh')
+    }
+  ];
+
+  React.useEffect(() => {
+    const timer = setInterval(() => {
+      setCurrentSlide((prev) => (prev + 1) % slides.length);
+    }, 5000);
+    return () => clearInterval(timer);
+  }, [slides.length]);
+
+  React.useEffect(() => {
+    (async () => {
+      try {
+        const { supabase } = await import('../supabaseClient');
+        const { data: prods, error } = await supabase
+          .from('products')
+          .select('*, product_variants(*)');
+
+        if (error) throw error;
+
+        if (prods) {
+          const formatted = prods.map(p => ({
+            id: p.id,
+            name: p.name,
+            subtitle: `${p.category} Collectible Item`,
+            price: parseFloat(p.price),
+            originalPrice: null,
+            image: p.image,
+            category: p.category,
+            categorySlug: p.category.toLowerCase().replace(/\s+/g, '-'),
+            inStock: p.stock > 0,
+            featured: p.featured,
+            description: p.description
+          }));
+          setDbProducts(formatted);
+        }
+      } catch (err) {
+        console.error('Error cargando destacados desde Supabase:', err);
+      }
+    })();
+  }, []);
+
+  const activeProducts = dbProducts.length > 0 ? dbProducts : products;
 
   // Get only products marked as featured, fallback to first 4 if none are flagged
-  const flaggedProducts = products.filter(p => p.featured === true);
-  const featuredProducts = flaggedProducts.length > 0 ? flaggedProducts.slice(0, 4) : products.slice(0, 4);
+  const flaggedProducts = activeProducts.filter(p => p.featured === true);
+  const featuredProducts = flaggedProducts.length > 0 ? flaggedProducts.slice(0, 4) : activeProducts.slice(0, 4);
 
   return (
     <div className="w-full">
@@ -15,34 +91,61 @@ export default function LandingPage({ products }) {
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-gutter h-auto lg:h-[600px]">
 
           {/* Main Feature (Left) */}
+          {/* Main Feature (Left) - Auto-rotating Slider */}
           <div
-            onClick={() => navigate('/product/rx-78-2-titanium-finish')}
-            className="lg:col-span-8 bg-surface-container-low rounded-xl overflow-hidden relative group cursor-pointer shadow-[0_4px_20px_rgba(15,23,42,0.08)] h-[400px] lg:h-full"
+            onClick={slides[currentSlide].onClick}
+            className="lg:col-span-8 bg-surface-container-low rounded-xl overflow-hidden relative group cursor-pointer shadow-[0_4px_20px_rgba(15,23,42,0.08)] h-[400px] lg:h-full transition-all duration-500"
           >
-            <div
-              className="absolute inset-0 bg-cover bg-center transition-transform duration-700 group-hover:scale-105"
-              style={{ backgroundImage: "url('https://lh3.googleusercontent.com/aida-public/AB6AXuAct3FZrbUkLdhtf_kIuFVe-SsAjjQF2TyHl0Z9heIFgJClU0DGBHnMVFINYeaIbb_B0JRF69Sf1JPn8BG-uHXAyrlcoB2V32G7XQIMQwGpPJoq1KYszZ43O2-ZjnU6cI4kdMetqGyPByPmC1-kXaSJiaT2O5mRMHIODP6v1AYNYIKqEUi2EMAqI4W5wOpZBtf1zrT0vVnkridLk8r2pPDmH9LgyMNCINBwKZACGdTxJeYhduMlOWoVRA')" }}
-            ></div>
-            <div className="absolute inset-0 bg-gradient-to-t from-on-background/80 via-on-background/20 to-transparent"></div>
-            <div className="absolute bottom-0 left-0 p-lg w-full">
-              <span className="inline-block bg-primary text-on-primary font-label-sm text-label-sm px-3 py-1 rounded-full mb-4 uppercase tracking-wider backdrop-blur-sm shadow-sm">
-                Lanzamiento Destacado
-              </span>
-              <h1 className="font-display-lg-mobile md:font-display-lg text-display-lg-mobile md:text-display-lg text-white mb-2 leading-tight">
-                Master Grade: The Next Evolution
-              </h1>
-              <p className="font-body-lg text-body-lg text-white/90 mb-6 max-w-xl">
-                Experimenta un nivel de detalle sin precedentes con la última incorporación a la línea PG Unleashed. Preventas abiertas.
-              </p>
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  navigate('/catalog?category=mecha-kits');
-                }}
-                className="bg-white text-on-background font-label-md text-label-md px-6 py-3 rounded-full hover:bg-surface-container-highest hover:scale-105 active:scale-95 transition-all shadow-md flex items-center gap-2"
+            {slides.map((slide, idx) => (
+              <div
+                key={idx}
+                className={`absolute inset-0 transition-opacity duration-1000 ${
+                  idx === currentSlide ? 'opacity-100 z-10' : 'opacity-0 z-0 pointer-events-none'
+                }`}
               >
-                Comprar Gunpla <span className="material-symbols-outlined text-[1.2em]">arrow_forward</span>
-              </button>
+                <div
+                  className="absolute inset-0 bg-cover bg-center transition-transform duration-700 group-hover:scale-105"
+                  style={{ backgroundImage: `url('${slide.image}')` }}
+                ></div>
+                <div className="absolute inset-0 bg-gradient-to-t from-on-background/80 via-on-background/20 to-transparent"></div>
+                <div className="absolute bottom-0 left-0 p-lg w-full">
+                  <span className={`inline-block ${slide.badgeColor} font-label-sm text-label-sm px-3 py-1 rounded-full mb-4 uppercase tracking-wider backdrop-blur-sm shadow-sm`}>
+                    {slide.subtitle}
+                  </span>
+                  <h1 className="font-display-lg-mobile md:font-display-lg text-display-lg-mobile md:text-display-lg text-white mb-2 leading-tight">
+                    {slide.title}
+                  </h1>
+                  <p className="font-body-lg text-body-lg text-white/90 mb-6 max-w-xl">
+                    {slide.description}
+                  </p>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      navigate(slide.link);
+                    }}
+                    className="bg-white text-on-background font-label-md text-label-md px-6 py-3 rounded-full hover:bg-surface-container-highest hover:scale-105 active:scale-95 transition-all shadow-md flex items-center gap-2"
+                  >
+                    {slide.buttonText} <span className="material-symbols-outlined text-[1.2em]">arrow_forward</span>
+                  </button>
+                </div>
+              </div>
+            ))}
+
+            {/* Slide Indicators */}
+            <div className="absolute top-4 right-4 z-20 flex gap-2">
+              {slides.map((_, idx) => (
+                <button
+                  key={idx}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setCurrentSlide(idx);
+                  }}
+                  className={`w-2.5 h-2.5 rounded-full transition-all duration-300 ${
+                    idx === currentSlide ? 'bg-white w-6' : 'bg-white/40 hover:bg-white/70'
+                  }`}
+                  aria-label={`Go to slide ${idx + 1}`}
+                />
+              ))}
             </div>
           </div>
 
@@ -96,74 +199,7 @@ export default function LandingPage({ products }) {
         </div>
       </section>
 
-      {/* Shop by Category (Circular Icons) */}
-      <section className="w-full bg-surface-container-lowest py-xl border-y border-outline-variant/20">
-        <div className="max-w-[1440px] mx-auto px-margin-mobile md:px-margin-desktop">
-          <div className="flex flex-col md:flex-row justify-between items-end mb-lg gap-4">
-            <div>
-              <h2 className="font-display-lg-mobile md:font-headline-lg text-display-lg-mobile md:text-headline-lg text-on-background tracking-tight">
-                Explora la Bóveda
-              </h2>
-              <p className="font-body-lg text-body-lg text-on-surface-variant mt-2">
-                Encuentra tu próxima obsesión.
-              </p>
-            </div>
-          </div>
-          <div className="flex overflow-x-auto pb-4 gap-lg snap-x hide-scrollbar">
 
-            {/* Category 1 */}
-            <Link to="/catalog?category=mecha-kits" className="group flex flex-col items-center gap-4 min-w-[120px] snap-center">
-              <div className="w-24 h-24 rounded-full bg-surface-container-high flex items-center justify-center text-primary group-hover:bg-primary group-hover:text-on-primary transition-colors duration-300 shadow-sm">
-                <span className="material-symbols-outlined text-[3rem]">smart_toy</span>
-              </div>
-              <span className="font-label-md text-label-md text-on-surface group-hover:text-primary transition-colors">
-                Kits de Mechas
-              </span>
-            </Link>
-
-            {/* Category 2 */}
-            <Link to="/catalog?category=board-games" className="group flex flex-col items-center gap-4 min-w-[120px] snap-center">
-              <div className="w-24 h-24 rounded-full bg-surface-container-high flex items-center justify-center text-secondary group-hover:bg-secondary group-hover:text-on-secondary transition-colors duration-300 shadow-sm">
-                <span className="material-symbols-outlined text-[3rem]">casino</span>
-              </div>
-              <span className="font-label-md text-label-md text-on-surface group-hover:text-secondary transition-colors">
-                Juegos de Mesa
-              </span>
-            </Link>
-
-            {/* Category 3 */}
-            <Link to="/catalog?category=tcg" className="group flex flex-col items-center gap-4 min-w-[120px] snap-center">
-              <div className="w-24 h-24 rounded-full bg-surface-container-high flex items-center justify-center text-tertiary group-hover:bg-tertiary group-hover:text-on-tertiary transition-colors duration-300 shadow-sm">
-                <span className="material-symbols-outlined text-[3rem]">auto_awesome_mosaic</span>
-              </div>
-              <span className="font-label-md text-label-md text-on-surface group-hover:text-tertiary transition-colors">
-                Juegos de Cartas
-              </span>
-            </Link>
-
-            {/* Category 4 - Mock Category */}
-            <Link to="/catalog?q=tools" className="group flex flex-col items-center gap-4 min-w-[120px] snap-center">
-              <div className="w-24 h-24 rounded-full bg-surface-container-high flex items-center justify-center text-on-surface-variant group-hover:bg-on-surface-variant group-hover:text-surface transition-colors duration-300 shadow-sm">
-                <span className="material-symbols-outlined text-[3rem]">handyman</span>
-              </div>
-              <span className="font-label-md text-label-md text-on-surface group-hover:text-on-surface-variant transition-colors">
-                Herramientas
-              </span>
-            </Link>
-
-            {/* Category 5 - Mock Category */}
-            <Link to="/catalog?q=manga" className="group flex flex-col items-center gap-4 min-w-[120px] snap-center">
-              <div className="w-24 h-24 rounded-full bg-surface-container-high flex items-center justify-center text-primary group-hover:bg-primary group-hover:text-on-primary transition-colors duration-300 shadow-sm">
-                <span className="material-symbols-outlined text-[3rem]">book</span>
-              </div>
-              <span className="font-label-md text-label-md text-on-surface group-hover:text-primary transition-colors">
-                Manga/Libros
-              </span>
-            </Link>
-
-          </div>
-        </div>
-      </section>
 
       {/* Featured Products List */}
       <section className="w-full max-w-[1440px] mx-auto px-margin-mobile md:px-margin-desktop py-xl">

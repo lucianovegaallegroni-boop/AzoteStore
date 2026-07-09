@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 
 export default function CartDrawer({
   isOpen,
@@ -12,6 +13,7 @@ export default function CartDrawer({
 }) {
   const [animateClose, setAnimateClose] = useState(true);
   const [shouldRender, setShouldRender] = useState(isOpen);
+  const navigate = useNavigate();
 
   // Sync rendering with isOpen state and close animations
   React.useEffect(() => {
@@ -130,7 +132,10 @@ export default function CartDrawer({
                   <span className="material-symbols-outlined text-[4rem] text-outline/40">shopping_cart_off</span>
                   <p className="font-body-lg text-body-lg text-center font-medium">Tu carrito está vacío</p>
                   <button
-                    onClick={handleCloseDrawer}
+                    onClick={() => {
+                      handleCloseDrawer();
+                      navigate('/catalog');
+                    }}
                     className="bg-primary text-on-primary font-label-md px-6 py-2 rounded-full hover:scale-105 transition-transform"
                   >
                     Explorar Tienda

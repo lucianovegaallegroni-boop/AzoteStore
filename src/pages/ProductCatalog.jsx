@@ -1,5 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
+import CustomDropdown from '../components/CustomDropdown';
+
+const sortOptions = [
+  { value: "featured", label: "Destacados" },
+  { value: "price-low", label: "Precio: Bajo a Alto" },
+  { value: "price-high", label: "Precio: Alto a Bajo" },
+  { value: "name", label: "Nombre: A-Z" }
+];
 export default function ProductCatalog({ products }) {
   const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
@@ -76,7 +84,6 @@ export default function ProductCatalog({ products }) {
     { name: "Pokemon", slug: "pokemon" },
     { name: "Magic", slug: "magic" },
     { name: "Board Games", slug: "board-games" },
-    { name: "Mecha Kits", slug: "mecha-kits" },
     { name: "Sleeves", slug: "sleeves" }
   ];
 
@@ -148,18 +155,15 @@ export default function ProductCatalog({ products }) {
         </div>
         
         {/* Sorting Dropdown */}
-        <div className="flex items-center gap-2 self-end md:self-auto bg-surface-container-high px-4 py-2 rounded-full border border-outline-variant/30">
+        <div className="flex items-center gap-2 self-end md:self-auto bg-surface-container-high px-4 py-1.5 rounded-full border border-outline-variant/30">
           <span className="text-xs text-on-surface-variant font-semibold uppercase tracking-wider">Ordenar por:</span>
-          <select 
+          <CustomDropdown 
             value={sortBy} 
             onChange={(e) => setSortBy(e.target.value)}
-            className="bg-transparent border-none text-sm font-semibold text-on-surface focus:ring-0 outline-none cursor-pointer"
-          >
-            <option value="featured">Destacados</option>
-            <option value="price-low">Precio: Bajo a Alto</option>
-            <option value="price-high">Precio: Alto a Bajo</option>
-            <option value="name">Nombre: A-Z</option>
-          </select>
+            options={sortOptions}
+            className="bg-transparent border-none px-0 py-0 w-auto rounded-none focus:ring-0 shadow-none text-sm font-semibold text-on-surface"
+            align="right"
+          />
         </div>
       </div>
 

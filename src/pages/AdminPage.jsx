@@ -1,5 +1,29 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import CustomDropdown from '../components/CustomDropdown';
+
+const categoryOptions = [
+  { value: "Yu-Gi-Oh", label: "Yu-Gi-Oh" },
+  { value: "Pokemon", label: "Pokemon" },
+  { value: "Magic", label: "Magic" },
+  { value: "Board Games", label: "Board Games" },
+  { value: "Sleeves", label: "Sleeves" }
+];
+
+const restockCategoryOptions = [
+  { value: "", label: "Todas las Categorías" },
+  { value: "yu-gi-oh", label: "Yu-Gi-Oh" },
+  { value: "pokemon", label: "Pokemon" },
+  { value: "magic", label: "Magic" },
+  { value: "board-games", label: "Board Games" },
+  { value: "sleeves", label: "Sleeves" }
+];
+
+const orderStatusOptions = [
+  { value: "Realizado", label: "🛍️ Realizado" },
+  { value: "Entregado", label: "🏪 Entregado" },
+  { value: "Cancelado", label: "❌ Cancelado" }
+];
 
 export default function AdminPage({ products: initialProducts, onCreateProduct, onUpdateStock, orders = [], setOrders }) {
   const [dbProducts, setDbProducts] = useState([]);
@@ -465,7 +489,6 @@ export default function AdminPage({ products: initialProducts, onCreateProduct, 
             order.id === orderId ? { ...order, status: newStatus } : order
           )
         );
-        alert(`Pedido ${orderId} actualizado a ${newStatus} en la base de datos.`);
       } catch (err) {
         console.error('Error al cambiar estado del pedido:', err);
         alert('Error al conectar con la base de datos: ' + err.message);
@@ -639,19 +662,14 @@ export default function AdminPage({ products: initialProducts, onCreateProduct, 
 
                   <div className="space-y-base">
                     <label className="block font-label-md text-on-surface-variant ml-1">Categoría</label>
-                    <select
+                    <CustomDropdown
                       value={category}
                       onChange={(e) => setCategory(e.target.value)}
+                      options={categoryOptions}
                       disabled={isSubmitting || isPublished}
-                      className="w-full bg-surface-container-low border border-outline-variant/30 rounded-lg p-4 text-body-md transition-all appearance-none outline-none"
-                    >
-                      <option value="Yu-Gi-Oh">Yu-Gi-Oh</option>
-                      <option value="Pokemon">Pokemon</option>
-                      <option value="Magic">Magic</option>
-                      <option value="Board Games">Board Games</option>
-                      <option value="Mecha Kits">Mecha Kits</option>
-                      <option value="Sleeves">Sleeves</option>
-                    </select>
+                      className="w-full bg-surface-container-low border border-outline-variant/30 rounded-lg p-4 text-body-md transition-all outline-none"
+                      align="full"
+                    />
                   </div>
 
                   <div className="space-y-base">
@@ -915,21 +933,14 @@ export default function AdminPage({ products: initialProducts, onCreateProduct, 
                         />
                       </div>
                     </div>
-                    <div className="flex-1 min-w-[140px]">
-                      <label className="block text-[10px] text-outline uppercase tracking-wider font-bold mb-1.5">Categoría</label>
-                      <select
+                    <div className="flex-1 min-w-[150px]">
+                      <CustomDropdown
                         value={restockCategory}
                         onChange={(e) => setRestockCategory(e.target.value)}
+                        options={restockCategoryOptions}
                         className="w-full bg-surface border border-outline-variant/35 rounded-lg px-3 py-2 text-xs outline-none focus:border-primary font-bold text-on-surface"
-                      >
-                        <option value="">Todas las Categorías</option>
-                        <option value="yu-gi-oh">Yu-Gi-Oh</option>
-                        <option value="pokemon">Pokemon</option>
-                        <option value="magic">Magic</option>
-                        <option value="board-games">Board Games</option>
-                        <option value="mecha-kits">Mecha Kits</option>
-                        <option value="sleeves">Sleeves</option>
-                      </select>
+                        align="full"
+                      />
                     </div>
                     <button
                       type="button"
@@ -1178,15 +1189,13 @@ export default function AdminPage({ products: initialProducts, onCreateProduct, 
                             </td>
                             <td className="px-md py-4 align-top text-center font-bold">
                               <div className="relative inline-block w-40">
-                                <select
+                                <CustomDropdown
                                   value={order.status}
                                   onChange={(e) => handleStatusChange(order.id, e.target.value)}
-                                  className={`w-full text-xs font-bold py-2 px-3 rounded-lg border-0 appearance-none focus:ring-2 focus:ring-primary outline-none transition-colors text-center cursor-pointer ${getStatusBadgeClass(order.status)}`}
-                                >
-                                  <option value="Realizado">🛍️ Realizado</option>
-                                  <option value="Entregado">🏪 Entregado</option>
-                                  <option value="Cancelado">❌ Cancelado</option>
-                                </select>
+                                  options={orderStatusOptions}
+                                  className={`w-full text-xs font-bold py-2 px-3 rounded-lg border-0 focus:ring-2 focus:ring-primary outline-none transition-colors cursor-pointer ${getStatusBadgeClass(order.status)}`}
+                                  align="full"
+                                />
                               </div>
                             </td>
                           </tr>
