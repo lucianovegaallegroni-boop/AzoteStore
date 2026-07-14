@@ -55,6 +55,7 @@ export default function AdminPage({ products: initialProducts, onCreateProduct, 
             categorySlug: p.category.toLowerCase().replace(/\s+/g, '-'),
             inStock: p.stock > 0,
             featured: !!p.featured,
+            division: p.division,
             specifications: {
               Stock: String(p.stock),
               Category: p.category,
@@ -137,6 +138,10 @@ export default function AdminPage({ products: initialProducts, onCreateProduct, 
   const [restockSearch, setRestockSearch] = useState('');
   const [restockCategory, setRestockCategory] = useState('');
   const [restockAmount, setRestockAmount] = useState({});
+
+  // Featured states
+  const [featuredSearch, setFeaturedSearch] = useState('');
+  const [featuredCategory, setFeaturedCategory] = useState('');
 
   // Tabs and Modal states
   const [activeTab, setActiveTab] = useState(() => {
@@ -466,6 +471,23 @@ export default function AdminPage({ products: initialProducts, onCreateProduct, 
     }
   };
 
+  const handleToggleHero = async (productId, currentDivision) => {
+    try {
+      const { supabase } = await import('../supabaseClient');
+      const newDivision = currentDivision === 'hero' ? null : 'hero';
+      const { error } = await supabase
+        .from('products')
+        .update({ division: newDivision })
+        .eq('id', productId);
+
+      if (error) throw error;
+      triggerReload();
+    } catch (err) {
+      console.error('Error toggling hero status in Supabase:', err);
+      alert('Error al actualizar estado en carrusel: ' + err.message);
+    }
+  };
+
   const getStockStatusText = (qty) => {
     const quantity = parseInt(qty);
     if (quantity === 0) return 'Out of Stock';
@@ -529,6 +551,17 @@ export default function AdminPage({ products: initialProducts, onCreateProduct, 
         >
           <span className="material-symbols-outlined text-[20px]">inventory_2</span>
           Gestión de Catálogo
+        </button>
+
+        <button
+          onClick={() => setActiveTab('featured')}
+          className={`pb-3 px-2 font-headline-md text-sm font-bold border-b-2 transition-all flex items-center gap-2 shrink-0 ${activeTab === 'featured'
+            ? 'border-primary text-primary'
+            : 'border-transparent text-on-surface-variant hover:text-on-surface'
+            }`}
+        >
+          <span className="material-symbols-outlined text-[20px]">star</span>
+          Productos Destacados
         </button>
 
         <button
@@ -907,6 +940,251 @@ export default function AdminPage({ products: initialProducts, onCreateProduct, 
             </>
           )}
 
+          {activeTab === 'featured' && (
+            <div className="space-y-xl animate-fade-in">
+              {/* Header info */}
+              <div className="bg-surface-container-lowest border border-outline-variant/30 rounded-xl collector-card-shadow p-md md:p-lg">
+                <h2 className="font-headline-lg text-headline-lg text-on-surface">Control de Productos en la Landing Page</h2>
+                <p className="text-on-surface-variant text-body-md mt-1">
+                  Desde aquí puedes decidir qué productos se muestran en el Carrusel Superior (Hero) y cuáles en la marquesina de Productos Destacados de la página de inicio.
+                </p>
+
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-gutter mt-6 border-t border-outline-variant/20 pt-6">
+                  {/* Left Column: Top Carousel (Hero/Banner) */}
+                  <div className="space-y-base">
+                    <h3 className="font-headline-md text-headline-md text-on-surface flex items-center gap-2 mb-2">
+                      <span className="material-symbols-outlined text-primary font-variation-settings-'FILL'_1" style={{ fontVariationSettings: '"FILL" 1' }}>view_carousel</span>
+                      Carrusel Superior (Hero / Banner) ({dbProducts.filter(p => p.division === 'hero').length})
+                    </h3>
+                    <p className="text-xs text-on-surface-variant mb-4">
+                      Estos productos rotarán en la sección superior con banners autogenerados basados en su información.
+                    </p>
+
+                    {dbProducts.filter(p => p.division === 'hero').length === 0 ? (
+                      <div className="p-md rounded-xl border-2 border-dashed border-outline-variant/40 bg-surface-container-low text-center">
+                        <span className="material-symbols-outlined text-[36px] text-outline opacity-40 mb-1">browse_gallery</span>
+                        <p className="text-on-surface-variant text-xs font-semibold">Sin productos en el carrusel.</p>
+                        <p className="text-outline text-[10px] mt-0.5">Se mostrarán los banners estáticos predeterminados.</p>
+                      </div>
+                    ) : (
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-base max-h-[380px] overflow-y-auto pr-1 scrollbar-thin">
+                        {dbProducts.filter(p => p.division === 'hero').map(p => (
+                          <div key={p.id} className="bg-surface-container-low rounded-xl overflow-hidden border border-outline-variant/30 flex flex-col group relative">
+                            <img src={p.image} alt={p.name} className="h-28 w-full object-cover" />
+                            <div className="p-sm flex flex-col justify-between flex-grow gap-sm">
+                              <div>
+                                <span className="text-[9px] text-primary uppercase font-bold tracking-wider">{p.category}</span>
+                                <h4 className="font-bold text-on-surface text-xs line-clamp-1 mt-0.5">{p.name}</h4>
+                              </div>
+                              <button
+                                type="button"
+                                onClick={() => handleToggleHero(p.id, p.division)}
+                                className="w-full py-1.5 bg-error/10 hover:bg-error text-error hover:text-on-error rounded-lg font-bold text-[10px] transition-colors flex items-center justify-center gap-1"
+                              >
+                                <span className="material-symbols-outlined text-[14px]">close</span>
+                                Quitar de Carrusel
+                              </button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Right Column: Marquesina Destacados */}
+                  <div className="space-y-base">
+                    <h3 className="font-headline-md text-headline-md text-on-surface flex items-center gap-2 mb-2">
+                      <span className="material-symbols-outlined text-primary font-variation-settings-'FILL'_1" style={{ fontVariationSettings: '"FILL" 1' }}>star</span>
+                      Marquesina de Destacados ({dbProducts.filter(p => p.featured).length})
+                    </h3>
+                    <p className="text-xs text-on-surface-variant mb-4">
+                      Estos productos aparecerán en la marquesina giratoria de destacados en la landing.
+                    </p>
+
+                    {dbProducts.filter(p => p.featured).length === 0 ? (
+                      <div className="p-md rounded-xl border-2 border-dashed border-outline-variant/40 bg-surface-container-low text-center">
+                        <span className="material-symbols-outlined text-[36px] text-outline opacity-40 mb-1">star_half</span>
+                        <p className="text-on-surface-variant text-xs font-semibold">Sin productos en destacados.</p>
+                        <p className="text-outline text-[10px] mt-0.5">Se mostrarán los primeros 4 por defecto.</p>
+                      </div>
+                    ) : (
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-base max-h-[380px] overflow-y-auto pr-1 scrollbar-thin">
+                        {dbProducts.filter(p => p.featured).map(p => (
+                          <div key={p.id} className="bg-surface-container-low rounded-xl overflow-hidden border border-outline-variant/30 flex flex-col group relative">
+                            <img src={p.image} alt={p.name} className="h-28 w-full object-cover" />
+                            <div className="p-sm flex flex-col justify-between flex-grow gap-sm">
+                              <div>
+                                <span className="text-[9px] text-primary uppercase font-bold tracking-wider">{p.category}</span>
+                                <h4 className="font-bold text-on-surface text-xs line-clamp-1 mt-0.5">{p.name}</h4>
+                              </div>
+                              <button
+                                type="button"
+                                onClick={() => handleToggleFeatured(p.id, p.featured)}
+                                className="w-full py-1.5 bg-error/10 hover:bg-error text-error hover:text-on-error rounded-lg font-bold text-[10px] transition-colors flex items-center justify-center gap-1"
+                              >
+                                <span className="material-symbols-outlined text-[14px]">close</span>
+                                Quitar de Destacados
+                              </button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* All products list for searching and featuring */}
+              <div className="bg-surface-container-lowest border border-outline-variant/30 rounded-xl collector-card-shadow p-md md:p-lg">
+                <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-base mb-6">
+                  <div>
+                    <h3 className="font-headline-md text-headline-md text-on-surface">Catálogo de Productos</h3>
+                    <p className="text-on-surface-variant text-xs mt-0.5">Busca cualquier producto de la tienda para agregarlo o removerlo de las secciones de la Landing Page.</p>
+                  </div>
+                  
+                  {/* Search and Filters */}
+                  <div className="flex flex-col sm:flex-row gap-base w-full md:w-auto items-stretch">
+                    {/* Search */}
+                    <div className="relative flex-grow sm:flex-grow-0 group">
+                      <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant group-focus-within:text-primary transition-colors">
+                        search
+                      </span>
+                      <input 
+                        type="text" 
+                        placeholder="Buscar producto..."
+                        value={featuredSearch}
+                        onChange={(e) => setFeaturedSearch(e.target.value)}
+                        className="bg-surface border border-outline-variant/30 rounded-lg pl-9 pr-4 py-2 text-xs font-semibold outline-none focus:border-primary w-full sm:w-56 text-on-surface"
+                      />
+                    </div>
+                    {/* Category Selector */}
+                    <div className="w-full sm:w-48 shrink-0">
+                      <CustomDropdown
+                        value={featuredCategory}
+                        onChange={(val) => setFeaturedCategory(val)}
+                        options={restockCategoryOptions}
+                        placeholder="Filtrar por Categoría"
+                      />
+                    </div>
+                    {/* Reset Button */}
+                    {(featuredSearch || featuredCategory) && (
+                      <button 
+                        onClick={() => { setFeaturedSearch(''); setFeaturedCategory(''); }}
+                        className="py-2 px-4 rounded-lg bg-surface border border-outline-variant/30 text-xs font-bold text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high transition-colors"
+                      >
+                        Limpiar
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                {/* Table or Grid of all products */}
+                {dbProducts.filter(p => {
+                  const matchesSearch = p.name.toLowerCase().includes(featuredSearch.toLowerCase());
+                  const matchesCategory = featuredCategory ? p.categorySlug === featuredCategory : true;
+                  return matchesSearch && matchesCategory;
+                }).length === 0 ? (
+                  <div className="p-xl text-center text-on-surface-variant text-body-md font-semibold border border-dashed border-outline-variant/30 rounded-xl">
+                    No se encontraron productos coincidentes con los filtros de búsqueda.
+                  </div>
+                ) : (
+                  <div className="overflow-x-auto border border-outline-variant/30 rounded-xl">
+                    <table className="w-full text-left border-collapse">
+                      <thead>
+                        <tr className="bg-surface-container-low border-b border-outline-variant/30 text-on-surface-variant text-[11px] uppercase tracking-wider font-bold">
+                          <th className="px-md py-4">Producto</th>
+                          <th className="px-md py-4">Categoría</th>
+                          <th className="px-md py-4 text-center">Precio</th>
+                          <th className="px-md py-4 text-center">Carrusel Superior</th>
+                          <th className="px-md py-4 text-center">Sección Destacados</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-outline-variant/20">
+                        {dbProducts
+                          .filter(p => {
+                            const matchesSearch = p.name.toLowerCase().includes(featuredSearch.toLowerCase());
+                            const matchesCategory = featuredCategory ? p.categorySlug === featuredCategory : true;
+                            return matchesSearch && matchesCategory;
+                          })
+                          .map(p => (
+                            <tr key={p.id} className="hover:bg-surface-container-low/50 transition-colors">
+                              <td className="px-md py-4">
+                                <div className="flex items-center gap-3">
+                                  <img src={p.image} alt={p.name} className="w-10 h-10 rounded-lg object-cover border border-outline-variant/30" />
+                                  <span className="font-bold text-on-surface text-sm">{p.name}</span>
+                                </div>
+                              </td>
+                              <td className="px-md py-4 text-on-surface-variant text-xs font-semibold">{p.category}</td>
+                              <td className="px-md py-4 text-center text-xs font-bold text-on-surface-variant">${p.price.toFixed(2)}</td>
+                              
+                              {/* Hero Carousel Toggle */}
+                              <td className="px-md py-4 text-center">
+                                <div className="flex flex-col items-center gap-1.5">
+                                  {p.division === 'hero' ? (
+                                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-bold bg-primary/10 text-primary border border-primary/20">
+                                      En Carrusel
+                                    </span>
+                                  ) : (
+                                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-bold bg-on-surface-variant/10 text-on-surface-variant">
+                                      Inactivo
+                                    </span>
+                                  )}
+                                  <button
+                                    type="button"
+                                    onClick={() => handleToggleHero(p.id, p.division)}
+                                    className={`px-3 py-1 rounded-md font-bold text-[10px] transition-all flex items-center justify-center gap-0.5 ${
+                                      p.division === 'hero' 
+                                        ? 'bg-outline-variant/20 hover:bg-error/15 text-on-surface-variant hover:text-error' 
+                                        : 'bg-primary text-on-primary hover:bg-primary/90'
+                                    }`}
+                                  >
+                                    <span className="material-symbols-outlined text-[12px]">
+                                      {p.division === 'hero' ? 'close' : 'view_carousel'}
+                                    </span>
+                                    {p.division === 'hero' ? 'Quitar' : 'Poner'}
+                                  </button>
+                                </div>
+                              </td>
+
+                              {/* Featured Loop Toggle */}
+                              <td className="px-md py-4 text-center">
+                                <div className="flex flex-col items-center gap-1.5">
+                                  {p.featured ? (
+                                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-bold bg-primary/10 text-primary border border-primary/20">
+                                      En Landing
+                                    </span>
+                                  ) : (
+                                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-bold bg-on-surface-variant/10 text-on-surface-variant">
+                                      No en Landing
+                                    </span>
+                                  )}
+                                  <button
+                                    type="button"
+                                    onClick={() => handleToggleFeatured(p.id, p.featured)}
+                                    className={`px-3 py-1 rounded-md font-bold text-[10px] transition-all flex items-center justify-center gap-0.5 ${
+                                      p.featured 
+                                        ? 'bg-outline-variant/20 hover:bg-error/15 text-on-surface-variant hover:text-error' 
+                                        : 'bg-primary text-on-primary hover:bg-primary/90'
+                                    }`}
+                                  >
+                                    <span className="material-symbols-outlined text-[12px]">
+                                      {p.featured ? 'close' : 'star'}
+                                    </span>
+                                    {p.featured ? 'Quitar' : 'Poner'}
+                                  </button>
+                                </div>
+                              </td>
+
+                            </tr>
+                          ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
           {activeTab === 'restock' && (
             <div className="space-y-md animate-fade-in">
               <div className="bg-surface-container-lowest border border-outline-variant/30 rounded-xl collector-card-shadow overflow-hidden">
@@ -960,7 +1238,6 @@ export default function AdminPage({ products: initialProducts, onCreateProduct, 
                         <th className="px-md py-4">Artículo / Variante</th>
                         <th className="px-md py-4">Categoría</th>
                         <th className="px-md py-4 text-center">Stock Actual</th>
-                        <th className="px-md py-4 text-center">Destacado</th>
                         <th className="px-md py-4 text-center">Añadir Unidades</th>
                         <th className="px-md py-4 text-center">Eliminar</th>
                         <th className="px-md py-4 text-right">Acción</th>
@@ -1003,14 +1280,6 @@ export default function AdminPage({ products: initialProducts, onCreateProduct, 
                                     <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${getStockBadgeClass(currentStock)}`}>
                                       {currentStock} ({getStockStatusText(currentStock)})
                                     </span>
-                                  </td>
-                                  <td className="px-md py-4 text-center">
-                                    <input 
-                                      type="checkbox"
-                                      checked={p.featured}
-                                      onChange={() => handleToggleFeatured(p.id, p.featured)}
-                                      className="w-4 h-4 rounded text-primary focus:ring-primary border-outline-variant/50 focus:ring-offset-background cursor-pointer"
-                                    />
                                   </td>
                                   <td className="px-md py-4 text-center">
                                     <input
@@ -1062,14 +1331,6 @@ export default function AdminPage({ products: initialProducts, onCreateProduct, 
                                 <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${getStockBadgeClass(currentStock)}`}>
                                   {currentStock} ({getStockStatusText(currentStock)})
                                 </span>
-                              </td>
-                              <td className="px-md py-4 text-center">
-                                <input 
-                                  type="checkbox"
-                                  checked={p.featured}
-                                  onChange={() => handleToggleFeatured(p.id, p.featured)}
-                                  className="w-4 h-4 rounded text-primary focus:ring-primary border-outline-variant/50 focus:ring-offset-background cursor-pointer"
-                                />
                               </td>
                               <td className="px-md py-4 text-center">
                                 <input

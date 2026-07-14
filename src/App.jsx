@@ -26,7 +26,7 @@ export default function App() {
     return saved ? JSON.parse(saved) : null;
   }); // Persistent user session state
   const [orders, setOrders] = useState([]); // Mock orders state
-  
+
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [isWishlistOpen, setIsWishlistOpen] = useState(false);
 
@@ -71,13 +71,13 @@ export default function App() {
     const maxStock = color ? (color.stock !== undefined ? color.stock : 20) : (product.specifications?.Stock ? parseInt(product.specifications.Stock) : 20);
 
     setCartItems((prevItems) => {
-      const existing = prevItems.find((item) => 
+      const existing = prevItems.find((item) =>
         item.product.id === product.id && item.color?.id === color?.id
       );
       if (existing) {
-        return prevItems.map((item) => 
+        return prevItems.map((item) =>
           item.product.id === product.id && item.color?.id === color?.id
-            ? { ...item, quantity: Math.min(maxStock, item.quantity + 1) } 
+            ? { ...item, quantity: Math.min(maxStock, item.quantity + 1) }
             : item
         );
       }
@@ -105,7 +105,7 @@ export default function App() {
   };
 
   const handleRemoveFromCart = (productId, colorId = null) => {
-    setCartItems((prevItems) => 
+    setCartItems((prevItems) =>
       prevItems.filter((item) => {
         const itemColorId = item.color?.id || null;
         const targetColorId = colorId || null;
@@ -282,7 +282,7 @@ export default function App() {
       category: productData.category,
       categorySlug: productData.category.toLowerCase().replace(/\s+/g, '-'),
       inStock: parseInt(productData.stock) > 0,
-      grade: 'Premium Grade',
+      // grade: 'Premium Grade',
       description: productData.description,
       specifications: {
         Stock: productData.stock,
@@ -349,11 +349,11 @@ export default function App() {
     <BrowserRouter>
       {/* Page Routing within persistent layout */}
       <Routes>
-        <Route 
-          path="/" 
+        <Route
+          path="/"
           element={
-            <Layout 
-              cartCount={cartCount} 
+            <Layout
+              cartCount={cartCount}
               wishlistCount={wishlistItems.length}
               currentUser={currentUser}
               onLogout={handleLogout}
@@ -364,16 +364,16 @@ export default function App() {
         >
           <Route index element={<LandingPage products={productList} />} />
           <Route path="catalog" element={<ProductCatalog products={productList} />} />
-          <Route 
-            path="product/:id" 
+          <Route
+            path="product/:id"
             element={
-              <ProductDetail 
+              <ProductDetail
                 products={productList}
                 onAddToCart={handleAddToCart}
                 onAddToWishlist={handleAddToWishlist}
                 wishlistItems={wishlistItems}
               />
-            } 
+            }
           />
           <Route path="login" element={<LoginPage onLogin={handleLogin} />} />
           <Route path="register" element={<RegisterPage onRegister={handleRegister} />} />
@@ -393,7 +393,7 @@ export default function App() {
       </Routes>
 
       {/* Slide-over Drawers */}
-      <CartDrawer 
+      <CartDrawer
         isOpen={isCartOpen}
         onClose={() => setIsCartOpen(false)}
         cartItems={cartItems}
@@ -404,7 +404,7 @@ export default function App() {
         currentUser={currentUser}
       />
 
-      <WishlistDrawer 
+      <WishlistDrawer
         isOpen={isWishlistOpen}
         onClose={() => setIsWishlistOpen(false)}
         wishlistItems={wishlistItems}

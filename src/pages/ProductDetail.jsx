@@ -33,7 +33,7 @@ export default function ProductDetail({ products, onAddToCart, onAddToWishlist, 
             category: p.category,
             categorySlug: p.category.toLowerCase().replace(/\s+/g, '-'),
             inStock: p.stock > 0,
-            grade: 'Premium Grade',
+            // grade: 'Premium Grade',
             description: p.description,
             specifications: {
               Stock: String(p.stock),
@@ -118,7 +118,7 @@ export default function ProductDetail({ products, onAddToCart, onAddToWishlist, 
 
   return (
     <div className="w-full max-w-[1440px] mx-auto px-margin-mobile md:px-margin-desktop py-lg animate-fade-in">
-      
+
       {/* Breadcrumbs */}
       <div className="flex items-center gap-2 text-xs text-on-surface-variant mb-lg font-body-md">
         <Link to="/" className="hover:text-primary transition-colors">Inicio</Link>
@@ -132,7 +132,7 @@ export default function ProductDetail({ products, onAddToCart, onAddToWishlist, 
 
       {/* Product Section Layout */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-gutter mb-xl">
-        
+
         {/* Left: Image Gallery (8 columns) */}
         <div className="lg:col-span-8 flex flex-col gap-base">
           <div className="bg-surface-container-lowest rounded-xl overflow-hidden shadow-[0px_4px_20px_rgba(15,23,42,0.08)] relative h-[400px] md:h-[600px] group border border-outline-variant/20">
@@ -141,7 +141,7 @@ export default function ProductDetail({ products, onAddToCart, onAddToWishlist, 
                 <span className="material-symbols-outlined text-[5rem] text-primary animate-pulse">play_circle</span>
                 <p className="font-headline-md mt-4">Video de Exhibición de Gunpla</p>
                 <p className="font-body-md text-white/75 mt-1 text-center max-w-sm px-4">Esta es una reproducción simulada del RX-78-2 en su base de exhibición dinámica.</p>
-                <button 
+                <button
                   onClick={() => setIsVideoOpen(false)}
                   className="absolute top-4 right-4 bg-white/10 hover:bg-white/20 p-2 rounded-full transition-colors text-white"
                 >
@@ -149,7 +149,7 @@ export default function ProductDetail({ products, onAddToCart, onAddToWishlist, 
                 </button>
               </div>
             ) : (
-              <img 
+              <img
                 className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-102"
                 src={
                   selectedColor?.image ||
@@ -174,10 +174,9 @@ export default function ProductDetail({ products, onAddToCart, onAddToWishlist, 
                       if (isVideo) { setIsVideoOpen(true); }
                       else { setIsVideoOpen(false); setActiveImageIndex(index); }
                     }}
-                    className={`rounded-lg overflow-hidden shadow-sm h-16 sm:h-24 cursor-pointer border-2 transition-all relative ${
-                      isActive ? 'border-primary scale-[0.98]'
-                        : (isVideoOpen && isVideo ? 'border-primary scale-[0.98]' : 'border-transparent hover:opacity-85')
-                    }`}
+                    className={`rounded-lg overflow-hidden shadow-sm h-16 sm:h-24 cursor-pointer border-2 transition-all relative ${isActive ? 'border-primary scale-[0.98]'
+                      : (isVideoOpen && isVideo ? 'border-primary scale-[0.98]' : 'border-transparent hover:opacity-85')
+                      }`}
                   >
                     <img src={imgUrl} alt={`${product.name} ${index + 1}`} className={`w-full h-full object-cover ${isVideo ? 'opacity-65' : ''}`} />
                     {isVideo && (
@@ -215,7 +214,7 @@ export default function ProductDetail({ products, onAddToCart, onAddToWishlist, 
             {product.name}
           </h1>
           <p className="font-body-lg text-body-lg text-on-surface-variant mb-md">{product.subtitle}</p>
-          
+
           <div className="flex items-baseline gap-sm mb-lg">
             <span className="font-headline-lg text-headline-lg text-primary">
               ${(selectedColor?.price ?? product.price).toFixed(2)}
@@ -231,7 +230,7 @@ export default function ProductDetail({ products, onAddToCart, onAddToWishlist, 
               <label className="block font-label-md text-on-surface-variant text-xs uppercase tracking-wider mb-2 ml-1 font-semibold">
                 {product.categorySlug === 'sleeves' ? 'Color del Protector' : 'Seleccionar Tipo'}
               </label>
-              
+
               {/* Dropdown Trigger Button */}
               <button
                 type="button"
@@ -244,8 +243,8 @@ export default function ProductDetail({ products, onAddToCart, onAddToWishlist, 
                       <img src={selectedColor.image} alt={selectedColor.name} className="w-full h-full object-cover" />
                     </div>
                   ) : selectedColor.hex && selectedColor.hex !== '#888888' ? (
-                    <div 
-                      className="w-10 h-10 rounded-lg border border-outline-variant/40 shadow-sm shrink-0" 
+                    <div
+                      className="w-10 h-10 rounded-lg border border-outline-variant/40 shadow-sm shrink-0"
                       style={{ backgroundColor: selectedColor.hex }}
                       {...(selectedColor.id === 'clear-gloss' ? { className: "w-10 h-10 rounded-lg border border-outline-variant/40 shadow-sm shrink-0 bg-[linear-gradient(45deg,#ccc_25%,transparent_25%),linear-gradient(-45deg,#ccc_25%,transparent_25%),linear-gradient(45deg,transparent_75%,#ccc_75%),linear-gradient(-45deg,transparent_75%,#ccc_75%)] bg-[size:6px_6px]" } : {})}
                     ></div>
@@ -263,8 +262,8 @@ export default function ProductDetail({ products, onAddToCart, onAddToWishlist, 
 
               {/* Click-outside backdrop */}
               {isColorMenuOpen && (
-                <div 
-                  className="fixed inset-0 z-20" 
+                <div
+                  className="fixed inset-0 z-20"
                   onClick={() => setIsColorMenuOpen(false)}
                 ></div>
               )}
@@ -275,7 +274,7 @@ export default function ProductDetail({ products, onAddToCart, onAddToWishlist, 
                   {product.colors.map((color, idx) => {
                     const isSelected = color.id === selectedColor.id;
                     const isInStock = color.inStock;
-                    
+
                     return (
                       <button
                         key={color.id}
@@ -285,9 +284,8 @@ export default function ProductDetail({ products, onAddToCart, onAddToWishlist, 
                           setActiveImageIndex(idx);
                           setIsColorMenuOpen(false);
                         }}
-                        className={`w-full text-left px-3 py-2 hover:bg-surface-container-low transition-colors flex items-center justify-between gap-3 ${
-                          isSelected ? 'bg-primary/5 text-primary' : 'text-on-surface'
-                        }`}
+                        className={`w-full text-left px-3 py-2 hover:bg-surface-container-low transition-colors flex items-center justify-between gap-3 ${isSelected ? 'bg-primary/5 text-primary' : 'text-on-surface'
+                          }`}
                       >
                         <div className="flex items-center gap-2.5 min-w-0">
                           {/* Variant image thumbnail */}
@@ -296,8 +294,8 @@ export default function ProductDetail({ products, onAddToCart, onAddToWishlist, 
                               <img src={color.image} alt={color.name} className="w-full h-full object-cover" />
                             </div>
                           ) : color.hex && color.hex !== '#888888' ? (
-                            <div 
-                              className="w-10 h-10 rounded-lg border border-outline-variant/30 shadow-sm shrink-0" 
+                            <div
+                              className="w-10 h-10 rounded-lg border border-outline-variant/30 shadow-sm shrink-0"
                               style={{ backgroundColor: color.hex }}
                             ></div>
                           ) : (
@@ -312,7 +310,7 @@ export default function ProductDetail({ products, onAddToCart, onAddToWishlist, 
                             )}
                           </div>
                         </div>
-                        
+
                         {!isInStock && (
                           <span className="text-[9px] font-bold text-error bg-error/10 px-2 py-0.5 rounded-full shrink-0">
                             Agotado
@@ -343,9 +341,8 @@ export default function ProductDetail({ products, onAddToCart, onAddToWishlist, 
                   return (
                     <li
                       key={key}
-                      className={`flex justify-between pb-2 ${
-                        idx < arr.length - 1 ? 'border-b border-outline-variant/30' : ''
-                      }`}
+                      className={`flex justify-between pb-2 ${idx < arr.length - 1 ? 'border-b border-outline-variant/30' : ''
+                        }`}
                     >
                       <span className="capitalize">{key}</span>
                       <span className="font-medium text-on-surface">{displayVal}</span>
@@ -359,7 +356,7 @@ export default function ProductDetail({ products, onAddToCart, onAddToWishlist, 
           {/* Actions */}
           <div className="flex flex-col gap-sm mt-auto">
             {isCurrentColorInStock ? (
-              <button 
+              <button
                 onClick={() => onAddToCart(product, selectedColor)}
                 className="w-full bg-primary text-on-primary font-headline-md text-headline-md py-4 rounded-xl shadow-[0_4px_14px_0_rgba(37,99,235,0.39)] hover:shadow-[0_6px_20px_rgba(37,99,235,0.23)] hover:-translate-y-1 transition-all duration-200 flex items-center justify-center gap-2"
               >
@@ -367,7 +364,7 @@ export default function ProductDetail({ products, onAddToCart, onAddToWishlist, 
                 Añadir al Carrito
               </button>
             ) : (
-              <button 
+              <button
                 disabled
                 className="w-full bg-outline-variant/50 text-outline font-headline-md text-headline-md py-4 rounded-xl cursor-not-allowed flex items-center justify-center gap-2"
               >
@@ -375,14 +372,13 @@ export default function ProductDetail({ products, onAddToCart, onAddToWishlist, 
                 Producto Agotado
               </button>
             )}
-            
-            <button 
+
+            <button
               onClick={() => onAddToWishlist(product)}
-              className={`w-full border-2 py-4 rounded-xl font-headline-md text-headline-md hover:bg-primary-container/10 transition-colors duration-200 flex items-center justify-center gap-2 ${
-                isFavorite 
-                  ? 'border-secondary text-secondary hover:bg-secondary/10' 
-                  : 'border-primary text-primary'
-              }`}
+              className={`w-full border-2 py-4 rounded-xl font-headline-md text-headline-md hover:bg-primary-container/10 transition-colors duration-200 flex items-center justify-center gap-2 ${isFavorite
+                ? 'border-secondary text-secondary hover:bg-secondary/10'
+                : 'border-primary text-primary'
+                }`}
             >
               <span className="material-symbols-outlined">
                 {isFavorite ? 'favorite' : 'favorite_border'}
@@ -391,9 +387,9 @@ export default function ProductDetail({ products, onAddToCart, onAddToWishlist, 
             </button>
           </div>
 
-          <div className="mt-md flex items-center justify-center gap-2 text-on-surface-variant font-label-sm text-label-sm">
+          {/* <div className="mt-md flex items-center justify-center gap-2 text-on-surface-variant font-label-sm text-label-sm">
             <span className="material-symbols-outlined text-[16px]">local_shipping</span> Envío seguro gratis en pedidos superiores a $150
-          </div>
+          </div> */}
         </div>
 
       </div>

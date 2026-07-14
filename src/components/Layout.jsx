@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate, Outlet } from 'react-router-dom';
+import logo from '../assets/logo.webp';
 
 export default function Layout({ cartCount, wishlistCount, currentUser, onLogout, onOpenCart, onOpenWishlist }) {
   const [searchQuery, setSearchQuery] = useState('');
@@ -45,15 +46,11 @@ export default function Layout({ cartCount, wishlistCount, currentUser, onLogout
       <nav className="bg-surface dark:bg-on-background shadow-sm top-0 z-40 sticky transition-all duration-300 border-b border-outline-variant/30">
         <div className="flex justify-between items-center w-full px-margin-mobile md:px-margin-desktop py-4 max-w-[1440px] mx-auto">
           
-          {/* Brand */}
           <Link 
             to="/" 
-            className="font-display-lg-mobile md:font-display-lg text-[22px] sm:text-display-lg-mobile md:text-display-lg text-primary dark:text-primary-fixed tracking-tighter flex items-center gap-1.5 sm:gap-2 hover:scale-[1.02] transition-transform shrink-0"
+            className="hover:scale-[1.02] transition-transform shrink-0"
           >
-            <span className="material-symbols-outlined text-[1.4em] sm:text-[1.2em] font-variation-settings-'FILL' 1;" style={{ fontVariationSettings: '"FILL" 1' }}>
-              deployed_code
-            </span> 
-            <span className="hidden sm:inline">Azote Store</span>
+            <img src={logo} alt="Azote Store" className="h-24 sm:h-28 md:h-32 w-auto rounded-xl object-contain border border-outline-variant/10 shadow-md" />
           </Link>
 
           {/* Search (Center, Desktop) */}
@@ -253,10 +250,9 @@ export default function Layout({ cartCount, wishlistCount, currentUser, onLogout
             
             {/* Drawer Header */}
             <div className="flex items-center justify-between pb-4 border-b border-outline-variant/20">
-              <span className="font-display-lg-mobile text-primary tracking-tighter flex items-center gap-2 font-bold">
-                <span className="material-symbols-outlined text-[1.2em]">deployed_code</span> 
-                Azote Store
-              </span>
+              <Link to="/" onClick={() => setMobileMenuOpen(false)} className="flex items-center">
+                <img src={logo} alt="Azote Store" className="h-16 w-auto rounded-xl object-contain border border-outline-variant/10 shadow-md" />
+              </Link>
               <button 
                 onClick={() => setMobileMenuOpen(false)}
                 className="rounded-full p-2 text-on-surface-variant hover:bg-surface-container-high transition-colors"
@@ -375,9 +371,8 @@ export default function Layout({ cartCount, wishlistCount, currentUser, onLogout
         <div className="grid grid-cols-1 md:grid-cols-4 gap-gutter px-margin-mobile md:px-margin-desktop py-xl w-full max-w-[1440px] mx-auto">
           
           <div className="md:col-span-1 flex flex-col gap-4">
-            <Link to="/" className="font-headline-md text-headline-md text-primary-fixed dark:text-primary tracking-tighter flex items-center gap-2">
-              <span className="material-symbols-outlined text-[1.2em]">deployed_code</span> 
-              Azote Store
+            <Link to="/" className="flex items-center">
+              <img src={logo} alt="Azote Store" className="h-24 w-auto rounded-xl object-contain border border-outline-variant/10 shadow-lg" />
             </Link>
             <p className="font-body-md text-body-md text-surface-variant max-w-xs mt-2">
               Elevando la experiencia del coleccionista. Artículos premium, seleccionados por expertos.

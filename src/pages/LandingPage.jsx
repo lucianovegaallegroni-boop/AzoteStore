@@ -5,7 +5,7 @@ export default function LandingPage({ products }) {
   const [dbProducts, setDbProducts] = React.useState([]);
   const [currentSlide, setCurrentSlide] = React.useState(0);
 
-  const slides = [
+  const staticSlides = [
     {
       title: "Master Grade: The Next Evolution",
       subtitle: "Lanzamiento Destacado",
@@ -38,12 +38,34 @@ export default function LandingPage({ products }) {
     }
   ];
 
+  // Get products that are marked as hero (division === 'hero')
+  const heroProducts = dbProducts.filter(p => p.division === 'hero');
+
+  // Map heroProducts to slides format
+  const dynamicSlides = heroProducts.map((p, idx) => {
+    const badgeColors = ["bg-primary text-on-primary", "bg-secondary text-on-secondary", "bg-tertiary text-on-tertiary"];
+    const badgeColor = badgeColors[idx % badgeColors.length];
+    
+    return {
+      title: p.name,
+      subtitle: `${p.category} Destacado`,
+      description: p.description || "Descubre este artículo de colección en nuestra tienda. Calidad premium garantizada.",
+      buttonText: "Ver Detalles",
+      link: `/product/${p.id}`,
+      image: p.image,
+      badgeColor: badgeColor,
+      onClick: () => navigate(`/product/${p.id}`)
+    };
+  });
+
+  const activeSlides = dynamicSlides.length > 0 ? dynamicSlides : staticSlides;
+
   React.useEffect(() => {
     const timer = setInterval(() => {
-      setCurrentSlide((prev) => (prev + 1) % slides.length);
+      setCurrentSlide((prev) => (prev + 1) % activeSlides.length);
     }, 5000);
     return () => clearInterval(timer);
-  }, [slides.length]);
+  }, [activeSlides.length]);
 
   React.useEffect(() => {
     (async () => {
@@ -67,6 +89,7 @@ export default function LandingPage({ products }) {
             categorySlug: p.category.toLowerCase().replace(/\s+/g, '-'),
             inStock: p.stock > 0,
             featured: p.featured,
+            division: p.division,
             description: p.description
           }));
           setDbProducts(formatted);
@@ -93,10 +116,10 @@ export default function LandingPage({ products }) {
           {/* Main Feature (Left) */}
           {/* Main Feature (Left) - Auto-rotating Slider */}
           <div
-            onClick={slides[currentSlide].onClick}
+            onClick={activeSlides[currentSlide]?.onClick}
             className="lg:col-span-8 bg-surface-container-low rounded-xl overflow-hidden relative group cursor-pointer shadow-[0_4px_20px_rgba(15,23,42,0.08)] h-[400px] lg:h-full transition-all duration-500"
           >
-            {slides.map((slide, idx) => (
+            {activeSlides.map((slide, idx) => (
               <div
                 key={idx}
                 className={`absolute inset-0 transition-opacity duration-1000 ${
@@ -133,7 +156,7 @@ export default function LandingPage({ products }) {
 
             {/* Slide Indicators */}
             <div className="absolute top-4 right-4 z-20 flex gap-2">
-              {slides.map((_, idx) => (
+              {activeSlides.map((_, idx) => (
                 <button
                   key={idx}
                   onClick={(e) => {

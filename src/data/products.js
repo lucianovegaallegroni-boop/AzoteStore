@@ -16,7 +16,7 @@ export const products = [
     category: "Mecha Kits",
     categorySlug: "mecha-kits",
     inStock: true,
-    grade: "Premium Grade",
+    // grade: "Premium Grade",
     description: "Experience the ultimate in gunpla engineering with this special titanium finish edition. Featuring an electroplated metallic coating, ultra-precise mechanical inner frame, and unprecedented articulation for museum-quality posing.",
     specifications: {
       Scale: "1/100",
@@ -82,7 +82,7 @@ export const products = [
     category: "Board Games",
     categorySlug: "board-games",
     inStock: true,
-    grade: "Premium Grade",
+    // grade: "Premium Grade",
     description: "Set in an alternate-history 1920s period, Scythe is an engine-building game featuring beautiful artwork, detailed plastic miniatures, and robust resource-management mechanics.",
     specifications: {
       Players: "1-5",
@@ -126,7 +126,7 @@ export const products = [
     category: "Board Games",
     categorySlug: "board-games",
     inStock: true,
-    grade: "Premium Grade",
+    // grade: "Premium Grade",
     description: "Upgrade your Gloomhaven setup with high-fidelity, hand-painted 3D plastic tiles representing dungeons, caves, obstacles, and furniture. Fully compatible with all scenarios.",
     specifications: {
       Pieces: "120+ Terrain Tiles",
@@ -195,7 +195,7 @@ export const products = [
     category: "Sleeves",
     categorySlug: "sleeves",
     inStock: true,
-    grade: "Premium Grade",
+    // grade: "Premium Grade",
     description: "Protect your valuable cards with these premium sleeves. Features non-slip textured back for professional shuffling and high-clarity front for optimal visibility. Fits standard TCGs like Magic and Pokémon.",
     specifications: {
       Size: "Standard (66 x 91 mm)",
@@ -223,8 +223,8 @@ export const getProductsByCategory = (categorySlug) => {
 export const searchProducts = (query) => {
   if (!query) return products;
   const lowerQuery = query.toLowerCase();
-  return products.filter(p => 
-    p.name.toLowerCase().includes(lowerQuery) || 
+  return products.filter(p =>
+    p.name.toLowerCase().includes(lowerQuery) ||
     p.category.toLowerCase().includes(lowerQuery) ||
     p.description.toLowerCase().includes(lowerQuery)
   );

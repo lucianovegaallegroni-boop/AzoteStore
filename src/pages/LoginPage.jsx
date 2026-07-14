@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import logo from '../assets/logo.webp';
 
 export default function LoginPage({ onLogin }) {
   const [email, setEmail] = useState('');
@@ -69,9 +70,7 @@ export default function LoginPage({ onLogin }) {
         
         {/* Header */}
         <div className="text-center mb-8">
-          <span className="material-symbols-outlined text-[3.5rem] text-primary mb-2 font-variation-settings-'FILL' 1" style={{ fontVariationSettings: '"FILL" 1' }}>
-            deployed_code
-          </span>
+          <img src={logo} alt="Azote Store" className="mx-auto h-32 md:h-36 w-auto object-contain rounded-2xl border border-outline-variant/10 shadow-xl mb-6" />
           <h2 className="font-headline-lg text-headline-lg text-on-background">Ingresar a la Bóveda</h2>
           <p className="font-body-md text-sm text-on-surface-variant mt-1">Accede a tu colección y favoritos.</p>
         </div>
