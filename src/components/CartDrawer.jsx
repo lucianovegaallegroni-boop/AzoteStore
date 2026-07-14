@@ -105,10 +105,10 @@ export default function CartDrawer({
       ></div>
 
       {/* Drawer Body */}
-      <div className={`absolute inset-y-0 right-0 w-full sm:w-[448px] sm:max-w-[448px] bg-surface border-l border-outline-variant/30 shadow-2xl p-6 flex flex-col gap-6 transform transition-transform duration-300 ease-in-out ${!animateClose ? 'translate-x-0' : 'translate-x-full'}`}>
+      <div className={`absolute inset-y-0 right-0 w-full sm:w-[448px] sm:max-w-[448px] bg-surface border-l border-outline-variant/30 shadow-2xl p-4 sm:p-6 flex flex-col gap-4 sm:gap-6 transform transition-transform duration-300 ease-in-out ${!animateClose ? 'translate-x-0' : 'translate-x-full'}`}>
 
         {/* Header */}
-        <div className="px-6 py-6 border-b border-outline-variant/30 flex items-center justify-between">
+        <div className="px-2 py-4 border-b border-outline-variant/30 flex items-center justify-between">
           <h2 className="text-headline-md font-montserrat text-on-background flex items-center gap-2">
             <span className="material-symbols-outlined text-[1.2em]">
               {step === 'cart' ? 'shopping_cart' : step === 'payment' ? 'payments' : 'check_circle'}
@@ -126,7 +126,7 @@ export default function CartDrawer({
         {/* Step 1: Cart Items */}
         {step === 'cart' && (
           <>
-            <div className="flex-1 overflow-y-auto px-6 py-4">
+            <div className="flex-1 overflow-y-auto px-1.5 py-4">
               {cartItems.length === 0 ? (
                 <div className="flex flex-col items-center justify-center h-full text-on-surface-variant gap-4">
                   <span className="material-symbols-outlined text-[4rem] text-outline/40">shopping_cart_off</span>
@@ -144,13 +144,13 @@ export default function CartDrawer({
               ) : (
                 <div className="space-y-4">
                   {cartItems.map((item) => (
-                    <div key={`${item.product.id}-${item.color ? item.color.id : 'default'}`} className="flex gap-4 p-3 bg-surface-container-lowest rounded-xl border border-outline-variant/20 card-shadow transition-all hover:scale-[1.01]">
+                    <div key={`${item.product.id}-${item.color ? item.color.id : 'default'}`} className="flex gap-3 sm:gap-4 p-2.5 sm:p-3 bg-surface-container-lowest rounded-xl border border-outline-variant/20 card-shadow transition-all hover:scale-[1.01]">
                       <img
                         src={item.color ? item.color.image : item.product.image}
                         alt={item.product.name}
                         className="w-20 h-20 rounded-lg object-cover bg-surface-container-low"
                       />
-                      <div className="flex-1 flex flex-col justify-between">
+                      <div className="flex-1 min-w-0 flex flex-col justify-between">
                         <div>
                           <h4 className="font-label-md text-on-background line-clamp-1">{item.product.name}</h4>
                           <p className="text-xs text-on-surface-variant">{item.product.subtitle}</p>
@@ -164,7 +164,7 @@ export default function CartDrawer({
                             </div>
                           )}
                         </div>
-                        <div className="flex justify-between items-center mt-2">
+                        <div className="flex flex-wrap justify-between items-center gap-y-2 gap-x-1 mt-2">
                           <span className="font-label-md text-primary font-semibold">${(item.product.price * item.quantity).toFixed(2)}</span>
 
                           {/* Quantity Controls */}
@@ -252,7 +252,7 @@ export default function CartDrawer({
         {/* Step 2: Payment and Pick Up */}
         {step === 'payment' && (
           <>
-            <div className="flex-1 overflow-y-auto px-6 py-4 space-y-5">
+            <div className="flex-1 overflow-y-auto px-1.5 py-4 space-y-5">
               {/* Bank Transfer Instructions */}
               <div className="bg-surface-container-low border border-outline-variant/30 rounded-xl p-4 text-sm space-y-2">
                 <h4 className="font-bold text-on-surface flex items-center gap-1.5 text-xs uppercase tracking-wider font-montserrat">
@@ -425,7 +425,7 @@ export default function CartDrawer({
 
         {/* Step 3: Success View */}
         {step === 'success' && createdOrder && (
-          <div className="flex-1 overflow-y-auto px-6 py-8 flex flex-col items-center justify-center text-center space-y-6">
+          <div className="flex-1 overflow-y-auto px-1.5 py-8 flex flex-col items-center justify-center text-center space-y-6">
             <div className="w-20 h-20 bg-tertiary-fixed text-on-tertiary-fixed rounded-full flex items-center justify-center animate-bounce shadow-md">
               <span className="material-symbols-outlined text-[48px] font-variation-settings-'FILL' 1" style={{ fontVariationSettings: '"FILL" 1' }}>
                 verified_user
