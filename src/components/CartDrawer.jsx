@@ -169,12 +169,14 @@ export default function CartDrawer({
 
                           {/* Quantity Controls */}
                           <div className="flex items-center bg-surface-container-high rounded-full overflow-hidden border border-outline-variant/30">
-                            <button
-                              onClick={() => onUpdateQuantity(item.product.id, item.quantity - 1, item.color ? item.color.id : null)}
-                              className="px-2.5 py-1 text-on-surface hover:bg-surface-container-highest transition-colors"
-                            >
-                              <span className="material-symbols-outlined text-[14px]">remove</span>
-                            </button>
+                            {item.quantity > 1 && (
+                              <button
+                                onClick={() => onUpdateQuantity(item.product.id, item.quantity - 1, item.color ? item.color.id : null)}
+                                className="px-2.5 py-1 text-on-surface hover:bg-surface-container-highest transition-colors"
+                              >
+                                <span className="material-symbols-outlined text-[14px]">remove</span>
+                              </button>
+                            )}
                             <input
                               type="number"
                               min="1"

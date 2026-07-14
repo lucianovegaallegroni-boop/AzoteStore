@@ -7,14 +7,7 @@ export default function LandingPage({ products }) {
 
   const staticSlides = [
     {
-      title: "Master Grade: The Next Evolution",
-      subtitle: "Lanzamiento Destacado",
-      description: "Experimenta un nivel de detalle sin precedentes con la última incorporación a la línea PG Unleashed. Preventas abiertas.",
-      buttonText: "Comprar Gunpla",
-      link: "/catalog?q=Gundam",
-      image: "https://lh3.googleusercontent.com/aida-public/AB6AXuAct3FZrbUkLdhtf_kIuFVe-SsAjjQF2TyHl0Z9heIFgJClU0DGBHnMVFINYeaIbb_B0JRF69Sf1JPn8BG-uHXAyrlcoB2V32G7XQIMQwGpPJoq1KYszZ43O2-ZjnU6cI4kdMetqGyPByPmC1-kXaSJiaT2O5mRMHIODP6v1AYNYIKqEUi2EMAqI4W5wOpZBtf1zrT0vVnkridLk8r2pPDmH9LgyMNCINBwKZACGdTxJeYhduMlOWoVRA",
-      badgeColor: "bg-primary text-on-primary",
-      onClick: () => navigate('/product/rx-78-2-titanium-finish')
+
     },
     {
       title: "Estrategia y Táctica Premium",
@@ -45,7 +38,7 @@ export default function LandingPage({ products }) {
   const dynamicSlides = heroProducts.map((p, idx) => {
     const badgeColors = ["bg-primary text-on-primary", "bg-secondary text-on-secondary", "bg-tertiary text-on-tertiary"];
     const badgeColor = badgeColors[idx % badgeColors.length];
-    
+
     return {
       title: p.name,
       subtitle: `${p.category} Destacado`,
@@ -59,6 +52,55 @@ export default function LandingPage({ products }) {
   });
 
   const activeSlides = dynamicSlides.length > 0 ? dynamicSlides : staticSlides;
+
+  // Drag-to-swipe slider controls
+  const [dragStartX, setDragStartX] = React.useState(null);
+  const [isDragging, setIsDragging] = React.useState(false);
+  const [hasDragged, setHasDragged] = React.useState(false);
+
+  const handleDragStart = (e) => {
+    if (e.type === 'mousedown' && e.button !== 0) return;
+    const clientX = e.type === 'touchstart' ? e.touches[0].clientX : e.clientX;
+    setDragStartX(clientX);
+    setIsDragging(true);
+    setHasDragged(false);
+  };
+
+  const handleDragMove = (e) => {
+    if (!isDragging || dragStartX === null) return;
+    const clientX = e.type === 'touchmove' ? e.touches[0].clientX : e.clientX;
+    const diffX = dragStartX - clientX;
+
+    if (Math.abs(diffX) > 10) {
+      setHasDragged(true);
+    }
+
+    if (Math.abs(diffX) > 60) {
+      if (diffX > 0) {
+        // Swipe left -> Next slide
+        setCurrentSlide((prev) => (prev + 1) % activeSlides.length);
+      } else {
+        // Swipe right -> Previous slide
+        setCurrentSlide((prev) => (prev - 1 + activeSlides.length) % activeSlides.length);
+      }
+      setIsDragging(false);
+      setDragStartX(null);
+    }
+  };
+
+  const handleDragEnd = () => {
+    setIsDragging(false);
+    setDragStartX(null);
+  };
+
+  const handleContainerClick = (e) => {
+    if (hasDragged) {
+      e.preventDefault();
+      e.stopPropagation();
+      return;
+    }
+    activeSlides[currentSlide]?.onClick();
+  };
 
   React.useEffect(() => {
     const timer = setInterval(() => {
@@ -116,15 +158,21 @@ export default function LandingPage({ products }) {
           {/* Main Feature (Left) */}
           {/* Main Feature (Left) - Auto-rotating Slider */}
           <div
-            onClick={activeSlides[currentSlide]?.onClick}
-            className="lg:col-span-8 bg-surface-container-low rounded-xl overflow-hidden relative group cursor-pointer shadow-[0_4px_20px_rgba(15,23,42,0.08)] h-[400px] lg:h-full transition-all duration-500"
+            onMouseDown={handleDragStart}
+            onMouseMove={handleDragMove}
+            onMouseUp={handleDragEnd}
+            onMouseLeave={handleDragEnd}
+            onTouchStart={handleDragStart}
+            onTouchMove={handleDragMove}
+            onTouchEnd={handleDragEnd}
+            onClick={handleContainerClick}
+            className="lg:col-span-8 bg-surface-container-low rounded-xl overflow-hidden relative group cursor-pointer shadow-[0_4px_20px_rgba(15,23,42,0.08)] h-[400px] lg:h-full transition-all duration-500 select-none"
           >
             {activeSlides.map((slide, idx) => (
               <div
                 key={idx}
-                className={`absolute inset-0 transition-opacity duration-1000 ${
-                  idx === currentSlide ? 'opacity-100 z-10' : 'opacity-0 z-0 pointer-events-none'
-                }`}
+                className={`absolute inset-0 transition-opacity duration-1000 ${idx === currentSlide ? 'opacity-100 z-10' : 'opacity-0 z-0 pointer-events-none'
+                  }`}
               >
                 <div
                   className="absolute inset-0 bg-cover bg-center transition-transform duration-700 group-hover:scale-105"
@@ -163,9 +211,8 @@ export default function LandingPage({ products }) {
                     e.stopPropagation();
                     setCurrentSlide(idx);
                   }}
-                  className={`w-2.5 h-2.5 rounded-full transition-all duration-300 ${
-                    idx === currentSlide ? 'bg-white w-6' : 'bg-white/40 hover:bg-white/70'
-                  }`}
+                  className={`w-2.5 h-2.5 rounded-full transition-all duration-300 ${idx === currentSlide ? 'bg-white w-6' : 'bg-white/40 hover:bg-white/70'
+                    }`}
                   aria-label={`Go to slide ${idx + 1}`}
                 />
               ))}

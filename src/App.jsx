@@ -19,8 +19,14 @@ import { products as initialProducts } from './data/products';
 
 export default function App() {
   const [productList, setProductList] = useState(initialProducts); // Dynamic products state
-  const [cartItems, setCartItems] = useState([]);
-  const [wishlistItems, setWishlistItems] = useState([]);
+  const [cartItems, setCartItems] = useState(() => {
+    const saved = localStorage.getItem('azote_cart');
+    return saved ? JSON.parse(saved) : [];
+  });
+  const [wishlistItems, setWishlistItems] = useState(() => {
+    const saved = localStorage.getItem('azote_wishlist');
+    return saved ? JSON.parse(saved) : [];
+  });
   const [currentUser, setCurrentUser] = useState(() => {
     const saved = localStorage.getItem('azote_user_session');
     return saved ? JSON.parse(saved) : null;
@@ -29,6 +35,16 @@ export default function App() {
 
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [isWishlistOpen, setIsWishlistOpen] = useState(false);
+
+  // Persist cart items
+  useEffect(() => {
+    localStorage.setItem('azote_cart', JSON.stringify(cartItems));
+  }, [cartItems]);
+
+  // Persist wishlist items
+  useEffect(() => {
+    localStorage.setItem('azote_wishlist', JSON.stringify(wishlistItems));
+  }, [wishlistItems]);
 
   // Revalidate stored session against Supabase on mount to keep role in sync
   useEffect(() => {
