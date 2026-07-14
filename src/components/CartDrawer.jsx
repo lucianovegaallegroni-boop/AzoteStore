@@ -320,7 +320,11 @@ export default function CartDrawer({
                           if (file) {
                             setPaymentProof(file);
                             setPaymentProofName(file.name);
-                            setPaymentProofPreview(URL.createObjectURL(file));
+                            const reader = new FileReader();
+                            reader.onloadend = () => {
+                              setPaymentProofPreview(reader.result);
+                            };
+                            reader.readAsDataURL(file);
                           }
                         }}
                         className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
