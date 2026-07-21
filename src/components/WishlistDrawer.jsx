@@ -78,16 +78,23 @@ export default function WishlistDrawer({ isOpen, onClose, wishlistItems, onAddTo
                             <span className="font-label-md text-primary font-semibold">${product.price.toFixed(2)}</span>
                             
                             {/* Add to Cart button */}
-                            <button
-                              onClick={() => {
-                                onAddToCart(product);
-                                onRemoveFromWishlist(product.id);
-                              }}
-                              className="bg-primary/10 text-primary hover:bg-primary hover:text-on-primary transition-colors text-xs font-semibold px-3 py-1.5 rounded-full flex items-center gap-1"
-                            >
-                              <span className="material-symbols-outlined text-[14px]">shopping_cart</span>
-                              Mover al carro
-                            </button>
+                            {product.inStock !== false ? (
+                              <button
+                                onClick={() => {
+                                  onAddToCart(product);
+                                  onRemoveFromWishlist(product.id);
+                                }}
+                                className="bg-primary/10 text-primary hover:bg-primary hover:text-on-primary transition-colors text-xs font-semibold px-3 py-1.5 rounded-full flex items-center gap-1"
+                              >
+                                <span className="material-symbols-outlined text-[14px]">shopping_cart</span>
+                                Mover al carro
+                              </button>
+                            ) : (
+                              <span className="inline-flex items-center gap-1 px-3 py-1.5 bg-error/10 text-error border border-error/20 text-xs font-bold rounded-full">
+                                <span className="material-symbols-outlined text-[14px]">warning</span>
+                                Sin stock
+                              </span>
+                            )}
                           </div>
                         </div>
                         <button 

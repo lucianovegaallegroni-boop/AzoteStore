@@ -153,12 +153,29 @@ export default function App() {
 
             return changed ? validatedItems : prevItems;
           });
+
+          // Validate and sync wishlist items against fresh stock
+          setWishlistItems((prevItems) => {
+            let changed = false;
+            const updatedItems = prevItems.map((item) => {
+              const dbProduct = formatted.find(p => String(p.id) === String(item.id));
+              if (dbProduct) {
+                const currentInStock = dbProduct.inStock;
+                if (item.inStock !== currentInStock) {
+                  changed = true;
+                  return { ...item, inStock: currentInStock };
+                }
+              }
+              return item;
+            });
+            return changed ? updatedItems : prevItems;
+          });
         }
       } catch (err) {
-        console.error('Error syncing products/validating cart in App.jsx:', err);
+        console.error('Error syncing products/validating cart and wishlist in App.jsx:', err);
       }
     })();
-  }, [isCartOpen]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [isCartOpen, isWishlistOpen]); // eslint-disable-line react-hooks/exhaustive-deps
 
 
   // Cart operations
