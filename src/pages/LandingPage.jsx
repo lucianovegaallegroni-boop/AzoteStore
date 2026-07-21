@@ -4,11 +4,9 @@ export default function LandingPage({ products }) {
   const navigate = useNavigate();
   const [dbProducts, setDbProducts] = React.useState([]);
   const [currentSlide, setCurrentSlide] = React.useState(0);
+  const [loading, setLoading] = React.useState(true);
 
   const staticSlides = [
-    {
-
-    },
     {
       title: "Estrategia y Táctica Premium",
       subtitle: "Juegos de Mesa",
@@ -111,6 +109,7 @@ export default function LandingPage({ products }) {
 
   React.useEffect(() => {
     (async () => {
+      setLoading(true);
       try {
         const { supabase } = await import('../supabaseClient');
         const { data: prods, error } = await supabase
@@ -138,6 +137,8 @@ export default function LandingPage({ products }) {
         }
       } catch (err) {
         console.error('Error cargando destacados desde Supabase:', err);
+      } finally {
+        setLoading(false);
       }
     })();
   }, []);
@@ -153,7 +154,16 @@ export default function LandingPage({ products }) {
 
       {/* Hero Section - Bento Grid Style */}
       <section className="w-full max-w-[1440px] mx-auto px-margin-mobile md:px-margin-desktop py-lg md:py-xl">
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-gutter h-auto lg:h-[600px]">
+        {loading ? (
+          <div className="w-full h-[400px] lg:h-[600px] bg-surface-container-low rounded-xl border border-outline-variant/30 flex flex-col items-center justify-center text-primary gap-4 card-shadow">
+            <svg className="animate-spin h-10 w-10 text-primary" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+            </svg>
+            <p className="font-headline-md text-sm text-on-surface-variant animate-pulse font-semibold">Cargando Bóveda de Coleccionables...</p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-gutter h-auto lg:h-[600px]">
 
           {/* Main Feature (Left) */}
           {/* Main Feature (Left) - Auto-rotating Slider */}
@@ -267,6 +277,7 @@ export default function LandingPage({ products }) {
           </div>
 
         </div>
+        )}
       </section>
 
 
@@ -283,9 +294,18 @@ export default function LandingPage({ products }) {
           </Link>
         </div>
 
-        <div className="relative w-full overflow-hidden py-4">
-          {/* Infinite Marquee Track */}
-          <div className="flex gap-6 w-max animate-scroll hover:[animation-play-state:paused]">
+        {loading ? (
+          <div className="w-full h-[240px] bg-surface-container-low rounded-xl border border-outline-variant/30 flex flex-col items-center justify-center text-primary gap-4 card-shadow">
+            <svg className="animate-spin h-8 w-8 text-primary" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+            </svg>
+            <p className="font-headline-md text-xs text-on-surface-variant animate-pulse font-semibold">Cargando destacados...</p>
+          </div>
+        ) : (
+          <div className="relative w-full overflow-hidden py-4">
+            {/* Infinite Marquee Track */}
+            <div className="flex gap-6 w-max animate-scroll hover:[animation-play-state:paused]">
             {/* First Set */}
             {featuredProducts.map((product) => (
               <div
@@ -379,6 +399,7 @@ export default function LandingPage({ products }) {
             ))}
           </div>
         </div>
+        )}
       </section>
 
     </div>
