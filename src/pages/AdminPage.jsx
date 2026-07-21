@@ -27,13 +27,12 @@ const orderStatusOptions = [
 
 export default function AdminPage({ products: initialProducts, onCreateProduct, onUpdateStock, orders = [], setOrders }) {
   const [dbProducts, setDbProducts] = useState([]);
-  const [loadingDb, setLoadingDb] = useState(false);
+  const [loadingDb, setLoadingDb] = useState(true);
   const [reloadTrigger, setReloadTrigger] = useState(0);
 
   // Sync Supabase products on mount or reloadTrigger change
   useEffect(() => {
     (async () => {
-      setLoadingDb(true);
       try {
         const { supabase } = await import('../supabaseClient');
         // Fetch products and their variants
