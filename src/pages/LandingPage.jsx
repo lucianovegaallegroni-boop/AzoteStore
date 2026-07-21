@@ -2,9 +2,17 @@ import React from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 export default function LandingPage({ products }) {
   const navigate = useNavigate();
-  const [dbProducts, setDbProducts] = React.useState([]);
+  const [dbProducts, setDbProducts] = React.useState(products || []);
   const [currentSlide, setCurrentSlide] = React.useState(0);
-  const [loading, setLoading] = React.useState(true);
+  const [loading, setLoading] = React.useState(!products || products.length === 0);
+
+  // Sync dbProducts if products prop updates
+  React.useEffect(() => {
+    if (products && products.length > 0) {
+      setDbProducts(products);
+      setLoading(false);
+    }
+  }, [products]);
 
   const staticSlides = [
     {
@@ -109,12 +117,16 @@ export default function LandingPage({ products }) {
 
   React.useEffect(() => {
     (async () => {
-      setLoading(true);
+      // Only set loading if we don't have items already
+      if (!products || products.length === 0) {
+        setLoading(true);
+      }
       try {
         const { supabase } = await import('../supabaseClient');
+        // Lightweight targeted query (avoids heavy join for Landing Page)
         const { data: prods, error } = await supabase
           .from('products')
-          .select('*, product_variants(*)');
+          .select('id, name, price, image, category, stock, featured, division, description');
 
         if (error) throw error;
 

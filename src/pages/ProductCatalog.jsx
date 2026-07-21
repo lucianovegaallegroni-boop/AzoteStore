@@ -18,8 +18,16 @@ export default function ProductCatalog({ products }) {
   const [sortBy, setSortBy] = useState('featured');
   const [searchQuery, setSearchQuery] = useState('');
 
-  const [dbProducts, setDbProducts] = useState([]);
-  const [loading, setLoading] = useState(false);
+  const [dbProducts, setDbProducts] = useState(products || []);
+  const [loading, setLoading] = useState(!products || products.length === 0);
+
+  // Sync with products prop when updated
+  useEffect(() => {
+    if (products && products.length > 0) {
+      setDbProducts(products);
+      setLoading(false);
+    }
+  }, [products]);
 
   // Sync state with URL Search Params
   useEffect(() => {
@@ -33,7 +41,9 @@ export default function ProductCatalog({ products }) {
   // Load products from Supabase on mount
   useEffect(() => {
     (async () => {
-      setLoading(true);
+      if (!products || products.length === 0) {
+        setLoading(true);
+      }
       try {
         const { supabase } = await import('../supabaseClient');
         const { data: prods, error } = await supabase

@@ -71,6 +71,16 @@ export default function AdminPage({ products: initialProducts, onCreateProduct, 
             })) : null
           }));
           setDbProducts(formatted);
+
+          // Store initial snapshot of featured and division states
+          const origMap = {};
+          formatted.forEach(p => {
+            origMap[p.id] = {
+              featured: !!p.featured,
+              division: p.division || null
+            };
+          });
+          setOriginalFeaturedState(origMap);
         }
 
         // Fetch orders from Supabase
@@ -141,6 +151,19 @@ export default function AdminPage({ products: initialProducts, onCreateProduct, 
   // Featured states
   const [featuredSearch, setFeaturedSearch] = useState('');
   const [featuredCategory, setFeaturedCategory] = useState('');
+  const [originalFeaturedState, setOriginalFeaturedState] = useState({});
+  const [isSavingFeatured, setIsSavingFeatured] = useState(false);
+  const [featuredSaveSuccess, setFeaturedSaveSuccess] = useState(false);
+
+  // Compute pending featured/hero changes
+  const pendingFeaturedChanges = dbProducts.filter(p => {
+    const orig = originalFeaturedState[p.id] || { featured: false, division: null };
+    const currentDiv = p.division || null;
+    const origDiv = orig.division || null;
+    return p.featured !== orig.featured || currentDiv !== origDiv;
+  });
+
+  const hasPendingFeaturedChanges = pendingFeaturedChanges.length > 0;
 
   // Tabs and Modal states
   const [activeTab, setActiveTab] = useState(() => {
@@ -598,64 +621,91 @@ export default function AdminPage({ products: initialProducts, onCreateProduct, 
     }
   };
 
-  const handleToggleFeatured = async (productId, currentVal) => {
+  const handleToggleFeatured = (productId, currentVal) => {
     const newVal = !currentVal;
     
-    // 1. Optimistic Update (instant UI feedback)
+    // Local update only - no API call until user confirms
     setDbProducts((prevProducts) =>
       prevProducts.map((p) =>
         p.id === productId ? { ...p, featured: newVal } : p
       )
     );
-
-    try {
-      const { supabase } = await import('../supabaseClient');
-      const { error } = await supabase
-        .from('products')
-        .update({ featured: newVal })
-        .eq('id', productId);
-
-      if (error) throw error;
-    } catch (err) {
-      // 2. Revert on error
-      setDbProducts((prevProducts) =>
-        prevProducts.map((p) =>
-          p.id === productId ? { ...p, featured: currentVal } : p
-        )
-      );
-      console.error('Error toggling featured status in Supabase:', err);
-      alert('Error al actualizar estado destacado: ' + err.message);
-    }
+    setFeaturedSaveSuccess(false);
   };
 
-  const handleToggleHero = async (productId, currentDivision) => {
+  const handleToggleHero = (productId, currentDivision) => {
     const newDivision = currentDivision === 'hero' ? null : 'hero';
 
-    // 1. Optimistic Update (instant UI feedback)
+    // Local update only - no API call until user confirms
     setDbProducts((prevProducts) =>
       prevProducts.map((p) =>
         p.id === productId ? { ...p, division: newDivision } : p
       )
     );
+    setFeaturedSaveSuccess(false);
+  };
+
+  const handleConfirmFeaturedChanges = async () => {
+    if (!hasPendingFeaturedChanges) return;
+
+    setIsSavingFeatured(true);
+    setFeaturedSaveSuccess(false);
 
     try {
       const { supabase } = await import('../supabaseClient');
-      const { error } = await supabase
-        .from('products')
-        .update({ division: newDivision })
-        .eq('id', productId);
 
-      if (error) throw error;
+      // Update all changed products in Supabase
+      const updatePromises = pendingFeaturedChanges.map(async (p) => {
+        const { error } = await supabase
+          .from('products')
+          .update({
+            featured: p.featured,
+            division: p.division || null
+          })
+          .eq('id', p.id);
+
+        if (error) throw error;
+      });
+
+      await Promise.all(updatePromises);
+
+      // Update original state snapshot
+      setOriginalFeaturedState((prevOrig) => {
+        const updated = { ...prevOrig };
+        pendingFeaturedChanges.forEach((p) => {
+          updated[p.id] = {
+            featured: p.featured,
+            division: p.division || null
+          };
+        });
+        return updated;
+      });
+
+      setFeaturedSaveSuccess(true);
+      setTimeout(() => {
+        setFeaturedSaveSuccess(false);
+      }, 4000);
     } catch (err) {
-      // 2. Revert on error
-      setDbProducts((prevProducts) =>
-        prevProducts.map((p) =>
-          p.id === productId ? { ...p, division: currentDivision } : p
-        )
-      );
-      console.error('Error toggling hero status in Supabase:', err);
-      alert('Error al actualizar estado en carrusel: ' + err.message);
+      console.error('Error guardando productos destacados:', err);
+      alert('Error al confirmar los cambios: ' + err.message);
+    } finally {
+      setIsSavingFeatured(false);
     }
+  };
+
+  const handleDiscardFeaturedChanges = () => {
+    setDbProducts((prevProducts) =>
+      prevProducts.map((p) => {
+        const orig = originalFeaturedState[p.id];
+        if (!orig) return p;
+        return {
+          ...p,
+          featured: orig.featured,
+          division: orig.division
+        };
+      })
+    );
+    setFeaturedSaveSuccess(false);
   };
 
   const getStockStatusText = (qty) => {
@@ -1155,13 +1205,109 @@ export default function AdminPage({ products: initialProducts, onCreateProduct, 
               )}
 
               {activeTab === 'featured' && (
-                <div className="space-y-xl animate-fade-in">
+                <div className="space-y-xl animate-fade-in relative">
+                  {/* Sticky notification banner for pending changes */}
+                  {hasPendingFeaturedChanges && (
+                    <div className="sticky top-4 z-30 bg-primary text-on-primary p-md rounded-xl shadow-xl flex flex-col sm:flex-row items-center justify-between gap-base border border-primary-container animate-fade-in">
+                      <div className="flex items-center gap-3">
+                        <span className="material-symbols-outlined text-[26px]">pending_actions</span>
+                        <div>
+                          <h4 className="font-bold text-sm">Tienes {pendingFeaturedChanges.length} cambio(s) pendiente(s) por guardar</h4>
+                          <p className="text-xs opacity-90">Las modificaciones no se guardarán en la tienda hasta que confirmes los cambios.</p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2 shrink-0">
+                        <button
+                          type="button"
+                          onClick={handleDiscardFeaturedChanges}
+                          disabled={isSavingFeatured}
+                          className="px-3.5 py-2 rounded-lg bg-on-primary/10 hover:bg-on-primary/20 text-on-primary text-xs font-bold transition-colors flex items-center gap-1"
+                        >
+                          <span className="material-symbols-outlined text-[16px]">undo</span>
+                          Descartar
+                        </button>
+                        <button
+                          type="button"
+                          onClick={handleConfirmFeaturedChanges}
+                          disabled={isSavingFeatured}
+                          className="px-5 py-2 rounded-lg bg-surface text-primary hover:bg-surface-container-high text-xs font-bold transition-all shadow-md flex items-center gap-1.5"
+                        >
+                          {isSavingFeatured ? (
+                            <>
+                              <span className="material-symbols-outlined text-[16px] animate-spin">progress_activity</span>
+                              Guardando...
+                            </>
+                          ) : (
+                            <>
+                              <span className="material-symbols-outlined text-[16px]">check_circle</span>
+                              Confirmar Cambios ({pendingFeaturedChanges.length})
+                            </>
+                          )}
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Success notification */}
+                  {featuredSaveSuccess && (
+                    <div className="bg-tertiary-container/30 border border-tertiary/30 text-on-tertiary-container p-md rounded-xl flex items-center gap-3 animate-fade-in">
+                      <span className="material-symbols-outlined text-tertiary text-[24px]">check_circle</span>
+                      <div>
+                        <p className="font-bold text-sm">¡Cambios guardados con éxito!</p>
+                        <p className="text-xs opacity-90">Los productos destacados y el carrusel se han actualizado en la tienda.</p>
+                      </div>
+                    </div>
+                  )}
+
                   {/* Header info */}
                   <div className="bg-surface-container-lowest border border-outline-variant/30 rounded-xl collector-card-shadow p-md md:p-lg">
-                    <h2 className="font-headline-lg text-headline-lg text-on-surface">Control de Productos en la Landing Page</h2>
-                    <p className="text-on-surface-variant text-body-md mt-1">
-                      Desde aquí puedes decidir qué productos se muestran en el Carrusel Superior (Hero) y cuáles en la marquesina de Productos Destacados de la página de inicio.
-                    </p>
+                    <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                      <div>
+                        <h2 className="font-headline-lg text-headline-lg text-on-surface">Control de Productos en la Landing Page</h2>
+                        <p className="text-on-surface-variant text-body-md mt-1">
+                          Desde aquí puedes decidir qué productos se muestran en el Carrusel Superior (Hero) y cuáles en la marquesina de Productos Destacados de la página de inicio.
+                        </p>
+                      </div>
+
+                      <div className="flex items-center gap-2 shrink-0">
+                        {hasPendingFeaturedChanges ? (
+                          <>
+                            <button
+                              type="button"
+                              onClick={handleDiscardFeaturedChanges}
+                              disabled={isSavingFeatured}
+                              className="px-3.5 py-2 rounded-lg border border-outline-variant/40 hover:bg-surface-container-high text-on-surface-variant text-xs font-bold transition-colors flex items-center gap-1"
+                            >
+                              <span className="material-symbols-outlined text-[16px]">undo</span>
+                              Descartar
+                            </button>
+                            <button
+                              type="button"
+                              onClick={handleConfirmFeaturedChanges}
+                              disabled={isSavingFeatured}
+                              className="px-4 py-2 rounded-lg bg-primary hover:bg-primary/90 text-on-primary text-xs font-bold transition-all shadow-sm flex items-center gap-1.5"
+                            >
+                              {isSavingFeatured ? (
+                                <>
+                                  <span className="material-symbols-outlined text-[16px] animate-spin">progress_activity</span>
+                                  Guardando...
+                                </>
+                              ) : (
+                                <>
+                                  <span className="material-symbols-outlined text-[16px]">check_circle</span>
+                                  Confirmar Cambios ({pendingFeaturedChanges.length})
+                                </>
+                              )}
+                            </button>
+                          </>
+                        ) : (
+                          <span className="px-3.5 py-2 rounded-lg bg-surface-container-low border border-outline-variant/30 text-on-surface-variant text-xs font-semibold flex items-center gap-1.5">
+                            <span className="material-symbols-outlined text-[16px] text-tertiary">check_circle</span>
+                            Sin cambios pendientes
+                          </span>
+                        )}
+                      </div>
+                    </div>
 
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-gutter mt-6 border-t border-outline-variant/20 pt-6">
                       {/* Left Column: Top Carousel (Hero/Banner) */}
@@ -1182,25 +1328,34 @@ export default function AdminPage({ products: initialProducts, onCreateProduct, 
                           </div>
                         ) : (
                           <div className="grid grid-cols-1 sm:grid-cols-2 gap-base max-h-[380px] overflow-y-auto pr-1 scrollbar-thin">
-                            {dbProducts.filter(p => p.division === 'hero').map(p => (
-                              <div key={p.id} className="bg-surface-container-low rounded-xl overflow-hidden border border-outline-variant/30 flex flex-col group relative">
-                                <img src={p.image} alt={p.name} className="h-28 w-full object-cover" />
-                                <div className="p-sm flex flex-col justify-between flex-grow gap-sm">
-                                  <div>
-                                    <span className="text-[9px] text-primary uppercase font-bold tracking-wider">{p.category}</span>
-                                    <h4 className="font-bold text-on-surface text-xs line-clamp-1 mt-0.5">{p.name}</h4>
+                            {dbProducts.filter(p => p.division === 'hero').map(p => {
+                              const isPending = (originalFeaturedState[p.id]?.division || null) !== p.division;
+                              return (
+                                <div key={p.id} className={`bg-surface-container-low rounded-xl overflow-hidden border flex flex-col group relative ${isPending ? 'border-amber-500/60 ring-1 ring-amber-500/30' : 'border-outline-variant/30'}`}>
+                                  <img src={p.image} alt={p.name} className="h-28 w-full object-cover" />
+                                  {isPending && (
+                                    <span className="absolute top-2 right-2 px-2 py-0.5 rounded-md bg-amber-500 text-white font-bold text-[9px] shadow-sm flex items-center gap-1">
+                                      <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
+                                      Pendiente
+                                    </span>
+                                  )}
+                                  <div className="p-sm flex flex-col justify-between flex-grow gap-sm">
+                                    <div>
+                                      <span className="text-[9px] text-primary uppercase font-bold tracking-wider">{p.category}</span>
+                                      <h4 className="font-bold text-on-surface text-xs line-clamp-1 mt-0.5">{p.name}</h4>
+                                    </div>
+                                    <button
+                                      type="button"
+                                      onClick={() => handleToggleHero(p.id, p.division)}
+                                      className="w-full py-1.5 bg-error/10 hover:bg-error text-error hover:text-on-error rounded-lg font-bold text-[10px] transition-colors flex items-center justify-center gap-1"
+                                    >
+                                      <span className="material-symbols-outlined text-[14px]">close</span>
+                                      Quitar de Carrusel
+                                    </button>
                                   </div>
-                                  <button
-                                    type="button"
-                                    onClick={() => handleToggleHero(p.id, p.division)}
-                                    className="w-full py-1.5 bg-error/10 hover:bg-error text-error hover:text-on-error rounded-lg font-bold text-[10px] transition-colors flex items-center justify-center gap-1"
-                                  >
-                                    <span className="material-symbols-outlined text-[14px]">close</span>
-                                    Quitar de Carrusel
-                                  </button>
                                 </div>
-                              </div>
-                            ))}
+                              );
+                            })}
                           </div>
                         )}
                       </div>
@@ -1223,25 +1378,34 @@ export default function AdminPage({ products: initialProducts, onCreateProduct, 
                           </div>
                         ) : (
                           <div className="grid grid-cols-1 sm:grid-cols-2 gap-base max-h-[380px] overflow-y-auto pr-1 scrollbar-thin">
-                            {dbProducts.filter(p => p.featured).map(p => (
-                              <div key={p.id} className="bg-surface-container-low rounded-xl overflow-hidden border border-outline-variant/30 flex flex-col group relative">
-                                <img src={p.image} alt={p.name} className="h-28 w-full object-cover" />
-                                <div className="p-sm flex flex-col justify-between flex-grow gap-sm">
-                                  <div>
-                                    <span className="text-[9px] text-primary uppercase font-bold tracking-wider">{p.category}</span>
-                                    <h4 className="font-bold text-on-surface text-xs line-clamp-1 mt-0.5">{p.name}</h4>
+                            {dbProducts.filter(p => p.featured).map(p => {
+                              const isPending = (originalFeaturedState[p.id]?.featured || false) !== p.featured;
+                              return (
+                                <div key={p.id} className={`bg-surface-container-low rounded-xl overflow-hidden border flex flex-col group relative ${isPending ? 'border-amber-500/60 ring-1 ring-amber-500/30' : 'border-outline-variant/30'}`}>
+                                  <img src={p.image} alt={p.name} className="h-28 w-full object-cover" />
+                                  {isPending && (
+                                    <span className="absolute top-2 right-2 px-2 py-0.5 rounded-md bg-amber-500 text-white font-bold text-[9px] shadow-sm flex items-center gap-1">
+                                      <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
+                                      Pendiente
+                                    </span>
+                                  )}
+                                  <div className="p-sm flex flex-col justify-between flex-grow gap-sm">
+                                    <div>
+                                      <span className="text-[9px] text-primary uppercase font-bold tracking-wider">{p.category}</span>
+                                      <h4 className="font-bold text-on-surface text-xs line-clamp-1 mt-0.5">{p.name}</h4>
+                                    </div>
+                                    <button
+                                      type="button"
+                                      onClick={() => handleToggleFeatured(p.id, p.featured)}
+                                      className="w-full py-1.5 bg-error/10 hover:bg-error text-error hover:text-on-error rounded-lg font-bold text-[10px] transition-colors flex items-center justify-center gap-1"
+                                    >
+                                      <span className="material-symbols-outlined text-[14px]">close</span>
+                                      Quitar de Destacados
+                                    </button>
                                   </div>
-                                  <button
-                                    type="button"
-                                    onClick={() => handleToggleFeatured(p.id, p.featured)}
-                                    className="w-full py-1.5 bg-error/10 hover:bg-error text-error hover:text-on-error rounded-lg font-bold text-[10px] transition-colors flex items-center justify-center gap-1"
-                                  >
-                                    <span className="material-symbols-outlined text-[14px]">close</span>
-                                    Quitar de Destacados
-                                  </button>
                                 </div>
-                              </div>
-                            ))}
+                              );
+                            })}
                           </div>
                         )}
                       </div>
@@ -1321,90 +1485,113 @@ export default function AdminPage({ products: initialProducts, onCreateProduct, 
                                 const matchesCategory = featuredCategory ? p.categorySlug === featuredCategory : true;
                                 return matchesSearch && matchesCategory;
                               })
-                              .map(p => (
-                                <tr key={p.id} className="hover:bg-surface-container-low/50 transition-colors">
-                                  <td className="px-md py-4">
-                                    <div className="flex items-center gap-3">
-                                      <img src={p.image} alt={p.name} className="w-10 h-10 rounded-lg object-cover border border-outline-variant/30" />
-                                      <span className="font-bold text-on-surface text-sm">{p.name}</span>
-                                    </div>
-                                  </td>
-                                  <td className="px-md py-4 text-on-surface-variant text-xs font-semibold">{p.category}</td>
-                                  <td className="px-md py-4 text-center text-xs font-bold text-on-surface-variant">${p.price.toFixed(2)}</td>
-                                  
-                                  {/* Hero Carousel Toggle */}
-                                  <td className="px-md py-4 text-center">
-                                    <div className="flex flex-col items-center gap-1.5">
-                                      {p.division === 'hero' ? (
-                                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-bold bg-primary/10 text-primary border border-primary/20">
-                                          En Carrusel
-                                        </span>
-                                      ) : (
-                                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-bold bg-on-surface-variant/10 text-on-surface-variant">
-                                          Inactivo
-                                        </span>
-                                      )}
+                              .map(p => {
+                                const orig = originalFeaturedState[p.id] || { featured: false, division: null };
+                                const heroPending = (orig.division || null) !== (p.division || null);
+                                const featuredPending = (orig.featured || false) !== (p.featured || false);
+                                const rowHasPending = heroPending || featuredPending;
+                                return (
+                                  <tr key={p.id} className={`transition-colors ${rowHasPending ? 'bg-amber-500/5 hover:bg-amber-500/10' : 'hover:bg-surface-container-low/50'}`}>
+                                    <td className="px-md py-4">
+                                      <div className="flex items-center gap-3">
+                                        <img src={p.image} alt={p.name} className="w-10 h-10 rounded-lg object-cover border border-outline-variant/30" />
+                                        <div className="flex flex-col">
+                                          <span className="font-bold text-on-surface text-sm">{p.name}</span>
+                                          {rowHasPending && (
+                                            <span className="text-[10px] font-bold text-amber-600 dark:text-amber-400 flex items-center gap-0.5">
+                                              <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
+                                              Cambio pendiente
+                                            </span>
+                                          )}
+                                        </div>
+                                      </div>
+                                    </td>
+                                    <td className="px-md py-4 text-on-surface-variant text-xs font-semibold">{p.category}</td>
+                                    <td className="px-md py-4 text-center text-xs font-bold text-on-surface-variant">${p.price.toFixed(2)}</td>
+                                    
+                                    {/* Hero Carousel Toggle */}
+                                    <td className="px-md py-4 text-center">
+                                      <div className="flex flex-col items-center gap-1.5">
+                                        {p.division === 'hero' ? (
+                                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-bold bg-primary/10 text-primary border border-primary/20">
+                                            En Carrusel
+                                          </span>
+                                        ) : (
+                                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-bold bg-on-surface-variant/10 text-on-surface-variant">
+                                            Inactivo
+                                          </span>
+                                        )}
+                                        {heroPending && (
+                                          <span className="text-[9px] font-bold text-amber-600 dark:text-amber-400">
+                                            ({p.division === 'hero' ? 'Pendiente agregar' : 'Pendiente quitar'})
+                                          </span>
+                                        )}
+                                        <button
+                                          type="button"
+                                          onClick={() => handleToggleHero(p.id, p.division)}
+                                          className={`px-3 py-1 rounded-md font-bold text-[10px] transition-all flex items-center justify-center gap-0.5 ${
+                                            p.division === 'hero' 
+                                              ? 'bg-outline-variant/20 hover:bg-error/15 text-on-surface-variant hover:text-error' 
+                                              : 'bg-primary text-on-primary hover:bg-primary/90'
+                                          }`}
+                                        >
+                                          <span className="material-symbols-outlined text-[12px]">
+                                            {p.division === 'hero' ? 'close' : 'view_carousel'}
+                                          </span>
+                                          {p.division === 'hero' ? 'Quitar' : 'Poner'}
+                                        </button>
+                                      </div>
+                                    </td>
+
+                                    {/* Featured Loop Toggle */}
+                                    <td className="px-md py-4 text-center">
+                                      <div className="flex flex-col items-center gap-1.5">
+                                        {p.featured ? (
+                                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-bold bg-primary/10 text-primary border border-primary/20">
+                                            En Landing
+                                          </span>
+                                        ) : (
+                                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-bold bg-on-surface-variant/10 text-on-surface-variant">
+                                            No en Landing
+                                          </span>
+                                        )}
+                                        {featuredPending && (
+                                          <span className="text-[9px] font-bold text-amber-600 dark:text-amber-400">
+                                            ({p.featured ? 'Pendiente agregar' : 'Pendiente quitar'})
+                                          </span>
+                                        )}
+                                        <button
+                                          type="button"
+                                          onClick={() => handleToggleFeatured(p.id, p.featured)}
+                                          className={`px-3 py-1 rounded-md font-bold text-[10px] transition-all flex items-center justify-center gap-0.5 ${
+                                            p.featured 
+                                              ? 'bg-outline-variant/20 hover:bg-error/15 text-on-surface-variant hover:text-error' 
+                                              : 'bg-primary text-on-primary hover:bg-primary/90'
+                                          }`}
+                                        >
+                                          <span className="material-symbols-outlined text-[12px]">
+                                            {p.featured ? 'close' : 'star'}
+                                          </span>
+                                          {p.featured ? 'Quitar' : 'Poner'}
+                                        </button>
+                                      </div>
+                                    </td>
+
+                                    {/* Edit Action Button */}
+                                    <td className="px-md py-4 text-center">
                                       <button
                                         type="button"
-                                        onClick={() => handleToggleHero(p.id, p.division)}
-                                        className={`px-3 py-1 rounded-md font-bold text-[10px] transition-all flex items-center justify-center gap-0.5 ${
-                                          p.division === 'hero' 
-                                            ? 'bg-outline-variant/20 hover:bg-error/15 text-on-surface-variant hover:text-error' 
-                                            : 'bg-primary text-on-primary hover:bg-primary/90'
-                                        }`}
+                                        onClick={() => handleEditClick(p)}
+                                        className="px-3 py-1.5 bg-secondary text-on-secondary hover:bg-secondary/90 rounded-md font-bold text-[10px] transition-all flex items-center justify-center gap-0.5 mx-auto"
+                                        title="Editar Producto"
                                       >
-                                        <span className="material-symbols-outlined text-[12px]">
-                                          {p.division === 'hero' ? 'close' : 'view_carousel'}
-                                        </span>
-                                        {p.division === 'hero' ? 'Quitar' : 'Poner'}
+                                        <span className="material-symbols-outlined text-[14px]">edit</span>
+                                        Editar
                                       </button>
-                                    </div>
-                                  </td>
-
-                                  {/* Featured Loop Toggle */}
-                                  <td className="px-md py-4 text-center">
-                                    <div className="flex flex-col items-center gap-1.5">
-                                      {p.featured ? (
-                                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-bold bg-primary/10 text-primary border border-primary/20">
-                                          En Landing
-                                        </span>
-                                      ) : (
-                                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-bold bg-on-surface-variant/10 text-on-surface-variant">
-                                          No en Landing
-                                        </span>
-                                      )}
-                                      <button
-                                        type="button"
-                                        onClick={() => handleToggleFeatured(p.id, p.featured)}
-                                        className={`px-3 py-1 rounded-md font-bold text-[10px] transition-all flex items-center justify-center gap-0.5 ${
-                                          p.featured 
-                                            ? 'bg-outline-variant/20 hover:bg-error/15 text-on-surface-variant hover:text-error' 
-                                            : 'bg-primary text-on-primary hover:bg-primary/90'
-                                        }`}
-                                      >
-                                        <span className="material-symbols-outlined text-[12px]">
-                                          {p.featured ? 'close' : 'star'}
-                                        </span>
-                                        {p.featured ? 'Quitar' : 'Poner'}
-                                      </button>
-                                    </div>
-                                  </td>
-
-                                  {/* Edit Action Button */}
-                                  <td className="px-md py-4 text-center">
-                                    <button
-                                      type="button"
-                                      onClick={() => handleEditClick(p)}
-                                      className="px-3 py-1.5 bg-secondary text-on-secondary hover:bg-secondary/90 rounded-md font-bold text-[10px] transition-all flex items-center justify-center gap-0.5 mx-auto"
-                                      title="Editar Producto"
-                                    >
-                                      <span className="material-symbols-outlined text-[14px]">edit</span>
-                                      Editar
-                                    </button>
-                                  </td>
-
-                                </tr>
-                              ))}
+                                    </td>
+                                  </tr>
+                                );
+                              })}
                           </tbody>
                         </table>
                       </div>
