@@ -13,6 +13,8 @@ import ProductDetail from './pages/ProductDetail';
 import LoginPage from './pages/LoginPage';
 import RegisterPage from './pages/RegisterPage';
 import AdminPage from './pages/AdminPage';
+import OrdersPage from './pages/OrdersPage';
+
 
 // Initial Data
 import { products as initialProducts } from './data/products';
@@ -393,6 +395,7 @@ export default function App() {
           />
           <Route path="login" element={<LoginPage onLogin={handleLogin} />} />
           <Route path="register" element={<RegisterPage onRegister={handleRegister} />} />
+          <Route path="orders" element={<OrdersPage products={productList} currentUser={currentUser} />} />
           <Route path="admin" element={
             currentUser && currentUser.role === 'admin' ? (
               <AdminPage products={productList} onCreateProduct={handleCreateProduct} onUpdateStock={handleUpdateStock} orders={orders} setOrders={setOrders} />

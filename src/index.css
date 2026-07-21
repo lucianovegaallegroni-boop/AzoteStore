@@ -47,3 +47,11 @@ html, body {
 .font-montserrat {
   font-family: 'Montserrat', sans-serif;
 }
+
+/* Dynamic icon scaling in navigation header for very narrow screens */
+@media (max-width: 640px) {
+  nav .material-symbols-outlined {
+    font-size: clamp(18px, 5.5vw, 24px) !important;
+  }
+}
+

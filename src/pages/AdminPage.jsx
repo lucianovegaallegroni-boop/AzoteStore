@@ -149,6 +149,7 @@ export default function AdminPage({ products: initialProducts, onCreateProduct, 
   });
   const [selectedProofUrl, setSelectedProofUrl] = useState(null);
   const [productToDelete, setProductToDelete] = useState(null);
+  const [editingProduct, setEditingProduct] = useState(null);
 
   // Submit animation states
   const [btnText, setBtnText] = useState('Publicar Producto');
@@ -302,6 +303,62 @@ export default function AdminPage({ products: initialProducts, onCreateProduct, 
     })();
   };
 
+  const handleEditClick = (product) => {
+    setEditingProduct(product);
+    setName(product.name);
+    setCategory(product.category);
+    
+    // Check if product has variants
+    if (product.colors && product.colors.length > 0) {
+      setHasVariants(true);
+      const firstPrice = product.colors[0].price;
+      const allSame = product.colors.every(v => v.price === firstPrice);
+      setSamePrice(allSame);
+      setPrice(allSame ? String(firstPrice) : '');
+      
+      setVariants(product.colors.map((v, index) => ({
+        id: v.id || index + 1,
+        title: v.name,
+        stock: String(v.stock !== undefined ? v.stock : 20),
+        price: String(v.price || ''),
+        imagePreview: v.image,
+        image: v.image
+      })));
+      setStock('');
+      setImagePreview('');
+    } else {
+      setHasVariants(false);
+      setPrice(String(product.price));
+      const prodStock = product.specifications?.Stock || product.stock || '0';
+      setStock(String(prodStock));
+      setImagePreview(product.image);
+      setVariants([
+        { id: 1, title: '', stock: '', price: '', image: '', imagePreview: '' }
+      ]);
+    }
+    
+    setDescription(product.description || '');
+    setImageFile(null);
+    setBtnText('Guardar Cambios');
+    setActiveTab('inventory');
+  };
+
+  const handleCancelEdit = () => {
+    setEditingProduct(null);
+    setName('');
+    setCategory('Yu-Gi-Oh');
+    setPrice('');
+    setStock('');
+    setDescription('');
+    setImageFile(null);
+    setImagePreview('');
+    setHasVariants(false);
+    setSamePrice(true);
+    setVariants([{ id: 1, title: '', stock: '', price: '', image: '', imagePreview: '' }]);
+    setBtnText('Publicar Producto');
+    setError('');
+  };
+
   const handleSubmit = (e) => {
     e.preventDefault();
     setError('');
@@ -339,106 +396,154 @@ export default function AdminPage({ products: initialProducts, onCreateProduct, 
     }
 
     setIsSubmitting(true);
-    setBtnText('Publicando...');
+    setBtnText(editingProduct ? 'Guardando...' : 'Publicando...');
 
     // Save to Supabase using a separate async function to avoid inline complexity
     (async () => {
       try {
         const { supabase } = await import('../supabaseClient');
 
-        // 1. Insert base product
+        // 1. Prepare base product data
         const baseProduct = {
           name,
           category,
           price: hasVariants && samePrice ? parseFloat(price) : (!hasVariants ? parseFloat(price) : parseFloat(variants[0].price || 0)),
           stock: hasVariants ? variants.reduce((sum, v) => sum + parseInt(v.stock || 0), 0) : parseInt(stock),
           description,
-          image: hasVariants ? variants[0].imagePreview : imagePreview,
-          division: null // optional field
+          image: imagePreview || (hasVariants ? variants[0].imagePreview : ''),
+          division: editingProduct ? editingProduct.division : null
         };
 
-        const { data: insertedProduct, error: insertError } = await supabase
-          .from('products')
-          .insert([baseProduct])
-          .select()
-          .single();
+        if (editingProduct) {
+          // Update existing product
+          const { error: updateError } = await supabase
+            .from('products')
+            .update(baseProduct)
+            .eq('id', editingProduct.id);
 
-        if (insertError) throw insertError;
+          if (updateError) throw updateError;
 
-        // 2. Insert variants if product has variants
-        if (hasVariants && insertedProduct) {
-          const variantsToInsert = variants.map(v => ({
-            product_id: insertedProduct.id,
-            title: v.title,
-            stock: parseInt(v.stock || 0),
-            price: samePrice ? parseFloat(price) : parseFloat(v.price),
-            image: v.imagePreview
-          }));
-
-          const { error: variantsError } = await supabase
+          // Delete all old variants
+          const { error: deleteVariantsError } = await supabase
             .from('product_variants')
-            .insert(variantsToInsert);
+            .delete()
+            .eq('product_id', editingProduct.id);
 
-          if (variantsError) throw variantsError;
-        }
+          if (deleteVariantsError) throw deleteVariantsError;
 
-        // Trigger local callback for UI compatibility
-        if (hasVariants) {
-          onCreateProduct({
-            id: insertedProduct.id,
-            name,
-            category,
-            price: baseProduct.price,
-            stock: baseProduct.stock.toString(),
-            description,
-            image: baseProduct.image,
-            variants: variants.map(v => ({
-              id: v.title.toLowerCase().trim().replace(/[^a-z0-9]+/g, '-'),
-              name: v.title,
-              stock: parseInt(v.stock),
-              inStock: parseInt(v.stock) > 0,
+          // Re-insert new variants if hasVariants is true
+          if (hasVariants) {
+            const variantsToInsert = variants.map(v => ({
+              product_id: editingProduct.id,
+              title: v.title,
+              stock: parseInt(v.stock || 0),
               price: samePrice ? parseFloat(price) : parseFloat(v.price),
-              image: v.imagePreview,
-            }))
-          });
+              image: v.imagePreview
+            }));
+
+            const { error: variantsError } = await supabase
+              .from('product_variants')
+              .insert(variantsToInsert);
+
+            if (variantsError) throw variantsError;
+          }
+
+          triggerReload();
+
+          setIsSubmitting(false);
+          setIsPublished(true);
+          setBtnText('¡Guardado!');
+
+          setTimeout(() => {
+            setIsPublished(false);
+            handleCancelEdit();
+          }, 2000);
+
         } else {
-          onCreateProduct({
-            id: insertedProduct.id,
-            name,
-            category,
-            price,
-            stock,
-            description,
-            image: imagePreview
-          });
+          // Insert base product
+          const { data: insertedProduct, error: insertError } = await supabase
+            .from('products')
+            .insert([baseProduct])
+            .select()
+            .single();
+
+          if (insertError) throw insertError;
+
+          // Insert variants if product has variants
+          if (hasVariants && insertedProduct) {
+            const variantsToInsert = variants.map(v => ({
+              product_id: insertedProduct.id,
+              title: v.title,
+              stock: parseInt(v.stock || 0),
+              price: samePrice ? parseFloat(price) : parseFloat(v.price),
+              image: v.imagePreview
+            }));
+
+            const { error: variantsError } = await supabase
+              .from('product_variants')
+              .insert(variantsToInsert);
+
+            if (variantsError) throw variantsError;
+          }
+
+          // Trigger local callback for UI compatibility
+          if (hasVariants) {
+            onCreateProduct({
+              id: insertedProduct.id,
+              name,
+              category,
+              price: baseProduct.price,
+              stock: baseProduct.stock.toString(),
+              description,
+              image: baseProduct.image,
+              variants: variants.map(v => ({
+                id: v.title.toLowerCase().trim().replace(/[^a-z0-9]+/g, '-'),
+                name: v.title,
+                stock: parseInt(v.stock),
+                inStock: parseInt(v.stock) > 0,
+                price: samePrice ? parseFloat(price) : parseFloat(v.price),
+                image: v.imagePreview,
+              }))
+            });
+          } else {
+            onCreateProduct({
+              id: insertedProduct.id,
+              name,
+              category,
+              price,
+              stock,
+              description,
+              image: imagePreview
+            });
+          }
+
+          triggerReload();
+
+          setIsSubmitting(false);
+          setIsPublished(true);
+          setBtnText('¡Publicado!');
+
+          setTimeout(() => {
+            setIsPublished(false);
+            setBtnText('Publicar Producto');
+            setName('');
+            setCategory('Yu-Gi-Oh');
+            setPrice('');
+            setStock('');
+            setDescription('');
+            setImageFile(null);
+            setImagePreview('');
+            setHasVariants(false);
+            setSamePrice(true);
+            setVariants([{ id: 1, title: '', stock: '', price: '', image: '', imagePreview: '' }]);
+          }, 2000);
         }
-
-        triggerReload();
-
-        setIsSubmitting(false);
-        setIsPublished(true);
-        setBtnText('¡Publicado!');
-
-        setTimeout(() => {
-          setIsPublished(false);
-          setBtnText('Publicar Producto');
-          setName('');
-          setCategory('Yu-Gi-Oh');
-          setPrice('');
-          setStock('');
-          setDescription('');
-          setImageFile(null);
-          setImagePreview('');
-          setHasVariants(false);
-          setSamePrice(true);
-          setVariants([{ id: 1, title: '', stock: '', price: '', image: '', imagePreview: '' }]);
-        }, 2000);
 
       } catch (err) {
-        console.error('Error al subir el producto a Supabase:', err);
+        console.error('Error al guardar el producto en Supabase:', err);
         setError('Error al conectar con la base de datos: ' + err.message);
         setIsSubmitting(false);
-        setBtnText('Publicar Producto');
+        setBtnText(editingProduct ? 'Guardar Cambios' : 'Publicar Producto');
       }
     })();
   };
@@ -648,27 +753,50 @@ export default function AdminPage({ products: initialProducts, onCreateProduct, 
                 {/* Header info & Submit button */}
                 <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-base mb-xl">
                   <div>
-                    <h2 className="font-headline-lg text-headline-lg text-on-surface">Agregar Nuevo Producto</h2>
-                    <p className="text-on-surface-variant text-body-md mt-1">Completa los campos para publicar un nuevo artículo de colección.</p>
-                  </div>
-                  <button
-                    form="inventory-form"
-                    type="submit"
-                    disabled={isSubmitting || isPublished}
-                    className={`font-headline-md text-headline-md px-xl py-4 rounded-lg hover:scale-105 active:scale-95 transition-all shadow-md flex items-center justify-center gap-2 ${isPublished
-                      ? 'bg-tertiary-container text-on-tertiary-container'
-                      : 'bg-primary text-on-primary hover:bg-primary-container'
-                      } disabled:opacity-85`}
-                  >
-                    {isSubmitting && (
-                      <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                      </svg>
+                    <h2 className="font-headline-lg text-headline-lg text-on-surface">
+                      {editingProduct ? `Editar Producto` : 'Agregar Nuevo Producto'}
+                    </h2>
+                    {editingProduct && (
+                      <div className="text-primary font-bold text-sm mt-1 flex items-center gap-1">
+                        <span className="material-symbols-outlined text-[16px]">edit</span>
+                        Editando: {editingProduct.name}
+                      </div>
                     )}
-                    {isPublished && <span className="material-symbols-outlined">check_circle</span>}
-                    {btnText}
-                  </button>
+                    <p className="text-on-surface-variant text-body-md mt-1">
+                      {editingProduct ? 'Modifica los campos del artículo de colección.' : 'Completa los campos para publicar un nuevo artículo de colección.'}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    {editingProduct && (
+                      <button
+                        type="button"
+                        onClick={handleCancelEdit}
+                        disabled={isSubmitting}
+                        className="font-headline-md text-headline-md px-xl py-4 bg-outline-variant/20 hover:bg-outline-variant/35 text-on-surface rounded-lg hover:scale-105 active:scale-95 transition-all flex items-center justify-center gap-2"
+                      >
+                        <span className="material-symbols-outlined text-[18px]">close</span>
+                        Cancelar
+                      </button>
+                    )}
+                    <button
+                      form="inventory-form"
+                      type="submit"
+                      disabled={isSubmitting || isPublished}
+                      className={`font-headline-md text-headline-md px-xl py-4 rounded-lg hover:scale-105 active:scale-95 transition-all shadow-md flex items-center justify-center gap-2 ${isPublished
+                        ? 'bg-tertiary-container text-on-tertiary-container'
+                        : 'bg-primary text-on-primary hover:bg-primary-container'
+                        } disabled:opacity-85`}
+                    >
+                      {isSubmitting && (
+                        <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                      )}
+                      {isPublished && <span className="material-symbols-outlined">check_circle</span>}
+                      {editingProduct ? (isPublished ? '¡Guardado!' : (isSubmitting ? 'Guardando...' : 'Guardar Cambios')) : btnText}
+                    </button>
+                  </div>
                 </div>
 
                 {/* Error Alert */}
@@ -1097,6 +1225,7 @@ export default function AdminPage({ products: initialProducts, onCreateProduct, 
                           <th className="px-md py-4 text-center">Precio</th>
                           <th className="px-md py-4 text-center">Carrusel Superior</th>
                           <th className="px-md py-4 text-center">Sección Destacados</th>
+                          <th className="px-md py-4 text-center">Acciones</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-outline-variant/20">
@@ -1175,6 +1304,19 @@ export default function AdminPage({ products: initialProducts, onCreateProduct, 
                                 </div>
                               </td>
 
+                              {/* Edit Action Button */}
+                              <td className="px-md py-4 text-center">
+                                <button
+                                  type="button"
+                                  onClick={() => handleEditClick(p)}
+                                  className="px-3 py-1.5 bg-secondary text-on-secondary hover:bg-secondary/90 rounded-md font-bold text-[10px] transition-all flex items-center justify-center gap-0.5 mx-auto"
+                                  title="Editar Producto"
+                                >
+                                  <span className="material-symbols-outlined text-[14px]">edit</span>
+                                  Editar
+                                </button>
+                              </td>
+
                             </tr>
                           ))}
                       </tbody>
@@ -1239,7 +1381,7 @@ export default function AdminPage({ products: initialProducts, onCreateProduct, 
                         <th className="px-md py-4">Categoría</th>
                         <th className="px-md py-4 text-center">Stock Actual</th>
                         <th className="px-md py-4 text-center">Añadir Unidades</th>
-                        <th className="px-md py-4 text-center">Eliminar</th>
+                        <th className="px-md py-4 text-center">Acciones</th>
                         <th className="px-md py-4 text-right">Acción</th>
                       </tr>
                     </thead>
@@ -1292,14 +1434,24 @@ export default function AdminPage({ products: initialProducts, onCreateProduct, 
                                     />
                                   </td>
                                   <td className="px-md py-4 text-center">
-                                    <button
-                                      type="button"
-                                      onClick={() => setProductToDelete(p)}
-                                      className="text-on-surface-variant hover:text-error transition-colors p-1.5 hover:bg-error/5 rounded-full"
-                                      title="Eliminar Producto"
-                                    >
-                                      <span className="material-symbols-outlined text-[18px]">delete</span>
-                                    </button>
+                                    <div className="flex items-center justify-center gap-1">
+                                      <button
+                                        type="button"
+                                        onClick={() => handleEditClick(p)}
+                                        className="text-on-surface-variant hover:text-primary transition-colors p-1.5 hover:bg-primary/5 rounded-full"
+                                        title="Editar Producto"
+                                      >
+                                        <span className="material-symbols-outlined text-[18px]">edit</span>
+                                      </button>
+                                      <button
+                                        type="button"
+                                        onClick={() => setProductToDelete(p)}
+                                        className="text-on-surface-variant hover:text-error transition-colors p-1.5 hover:bg-error/5 rounded-full"
+                                        title="Eliminar Producto"
+                                      >
+                                        <span className="material-symbols-outlined text-[18px]">delete</span>
+                                      </button>
+                                    </div>
                                   </td>
                                   <td className="px-md py-4 text-right">
                                     <button
@@ -1343,14 +1495,24 @@ export default function AdminPage({ products: initialProducts, onCreateProduct, 
                                 />
                               </td>
                               <td className="px-md py-4 text-center">
-                                <button
-                                  type="button"
-                                  onClick={() => setProductToDelete(p)}
-                                  className="text-on-surface-variant hover:text-error transition-colors p-1.5 hover:bg-error/5 rounded-full"
-                                  title="Eliminar Producto"
-                                >
-                                  <span className="material-symbols-outlined text-[18px]">delete</span>
-                                </button>
+                                <div className="flex items-center justify-center gap-1">
+                                  <button
+                                    type="button"
+                                    onClick={() => handleEditClick(p)}
+                                    className="text-on-surface-variant hover:text-primary transition-colors p-1.5 hover:bg-primary/5 rounded-full"
+                                    title="Editar Producto"
+                                  >
+                                    <span className="material-symbols-outlined text-[18px]">edit</span>
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => setProductToDelete(p)}
+                                    className="text-on-surface-variant hover:text-error transition-colors p-1.5 hover:bg-error/5 rounded-full"
+                                    title="Eliminar Producto"
+                                  >
+                                    <span className="material-symbols-outlined text-[18px]">delete</span>
+                                  </button>
+                                </div>
                               </td>
                               <td className="px-md py-4 text-right">
                                 <button
