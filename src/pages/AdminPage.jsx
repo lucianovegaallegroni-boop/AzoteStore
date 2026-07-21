@@ -559,9 +559,17 @@ export default function AdminPage({ products: initialProducts, onCreateProduct, 
   };
 
   const handleToggleFeatured = async (productId, currentVal) => {
+    const newVal = !currentVal;
+    
+    // 1. Optimistic Update (instant UI feedback)
+    setDbProducts((prevProducts) =>
+      prevProducts.map((p) =>
+        p.id === productId ? { ...p, featured: newVal } : p
+      )
+    );
+
     try {
       const { supabase } = await import('../supabaseClient');
-      const newVal = !currentVal;
       const { error } = await supabase
         .from('products')
         .update({ featured: newVal })
@@ -570,15 +578,29 @@ export default function AdminPage({ products: initialProducts, onCreateProduct, 
       if (error) throw error;
       triggerReload();
     } catch (err) {
+      // 2. Revert on error
+      setDbProducts((prevProducts) =>
+        prevProducts.map((p) =>
+          p.id === productId ? { ...p, featured: currentVal } : p
+        )
+      );
       console.error('Error toggling featured status in Supabase:', err);
       alert('Error al actualizar estado destacado: ' + err.message);
     }
   };
 
   const handleToggleHero = async (productId, currentDivision) => {
+    const newDivision = currentDivision === 'hero' ? null : 'hero';
+
+    // 1. Optimistic Update (instant UI feedback)
+    setDbProducts((prevProducts) =>
+      prevProducts.map((p) =>
+        p.id === productId ? { ...p, division: newDivision } : p
+      )
+    );
+
     try {
       const { supabase } = await import('../supabaseClient');
-      const newDivision = currentDivision === 'hero' ? null : 'hero';
       const { error } = await supabase
         .from('products')
         .update({ division: newDivision })
@@ -587,6 +609,12 @@ export default function AdminPage({ products: initialProducts, onCreateProduct, 
       if (error) throw error;
       triggerReload();
     } catch (err) {
+      // 2. Revert on error
+      setDbProducts((prevProducts) =>
+        prevProducts.map((p) =>
+          p.id === productId ? { ...p, division: currentDivision } : p
+        )
+      );
       console.error('Error toggling hero status in Supabase:', err);
       alert('Error al actualizar estado en carrusel: ' + err.message);
     }
@@ -600,6 +628,17 @@ export default function AdminPage({ products: initialProducts, onCreateProduct, 
   };
 
   const handleStatusChange = (orderId, newStatus) => {
+    let prevStatus = 'Realizado';
+    
+    // 1. Optimistic Update (instant UI feedback)
+    setOrders((prevOrders) => {
+      const target = prevOrders.find((o) => o.id === orderId);
+      if (target) prevStatus = target.status;
+      return prevOrders.map((order) =>
+        order.id === orderId ? { ...order, status: newStatus } : order
+      );
+    });
+
     (async () => {
       try {
         const { supabase } = await import('../supabaseClient');
@@ -609,13 +648,14 @@ export default function AdminPage({ products: initialProducts, onCreateProduct, 
           .eq('id', orderId);
 
         if (error) throw error;
-
+        triggerReload();
+      } catch (err) {
+        // 2. Revert on error
         setOrders((prevOrders) =>
           prevOrders.map((order) =>
-            order.id === orderId ? { ...order, status: newStatus } : order
+            order.id === orderId ? { ...order, status: prevStatus } : order
           )
         );
-      } catch (err) {
         console.error('Error al cambiar estado del pedido:', err);
         alert('Error al conectar con la base de datos: ' + err.message);
       }
