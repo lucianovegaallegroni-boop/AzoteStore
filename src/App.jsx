@@ -83,10 +83,89 @@ export default function App() {
     })();
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Sync products and validate cart stock when app mounts or cart drawer is opened
+  useEffect(() => {
+    (async () => {
+      try {
+        const { supabase } = await import('./supabaseClient');
+        const { data: dbProducts, error } = await supabase
+          .from('products')
+          .select('*, product_variants(*)');
+
+        if (error) throw error;
+
+        if (dbProducts) {
+          const formatted = dbProducts.map(p => ({
+            id: p.id,
+            name: p.name,
+            subtitle: `${p.category} Collectible Item`,
+            price: parseFloat(p.price),
+            originalPrice: null,
+            image: p.image,
+            category: p.category,
+            categorySlug: p.category.toLowerCase().replace(/\s+/g, '-'),
+            inStock: p.stock > 0,
+            featured: p.featured,
+            division: p.division,
+            description: p.description,
+            colors: p.product_variants && p.product_variants.length > 0 ? p.product_variants.map(v => ({
+              id: v.id,
+              name: v.title,
+              hex: '#888888',
+              image: v.image,
+              stock: v.stock,
+              inStock: v.stock > 0,
+              price: parseFloat(v.price || p.price)
+            })) : null
+          }));
+
+          setProductList(formatted);
+
+          // Validate cart items
+          setCartItems((prevItems) => {
+            let changed = false;
+            const validatedItems = prevItems.filter((item) => {
+              const dbProduct = formatted.find(p => String(p.id) === String(item.product.id));
+              
+              if (!dbProduct) {
+                // Product no longer exists in DB
+                changed = true;
+                return false;
+              }
+
+              if (item.color) {
+                // Check variant stock
+                const dbVariant = dbProduct.colors?.find(v => String(v.id) === String(item.color.id));
+                if (!dbVariant || dbVariant.stock <= 0) {
+                  changed = true;
+                  return false;
+                }
+              } else {
+                // Check standard product stock
+                const currentStock = dbProduct.specifications?.Stock ? parseInt(dbProduct.specifications.Stock) : (dbProduct.inStock ? 20 : 0);
+                if (currentStock <= 0) {
+                  changed = true;
+                  return false;
+                }
+              }
+              return true;
+            });
+
+            return changed ? validatedItems : prevItems;
+          });
+        }
+      } catch (err) {
+        console.error('Error syncing products/validating cart in App.jsx:', err);
+      }
+    })();
+  }, [isCartOpen]); // eslint-disable-line react-hooks/exhaustive-deps
+
+
   // Cart operations
   const handleAddToCart = (product, color = null) => {
     // Get max available stock
     const maxStock = color ? (color.stock !== undefined ? color.stock : 20) : (product.specifications?.Stock ? parseInt(product.specifications.Stock) : 20);
+    if (maxStock <= 0) return;
 
     setCartItems((prevItems) => {
       const existing = prevItems.find((item) =>
