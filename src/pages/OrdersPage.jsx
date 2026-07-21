@@ -5,6 +5,7 @@ export default function OrdersPage({ currentUser }) {
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [selectedProofUrl, setSelectedProofUrl] = useState(null);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -54,7 +55,7 @@ export default function OrdersPage({ currentUser }) {
             items: o.order_items ? o.order_items.map(oi => {
               // Find matching product in DB products
               const productObj = dbProducts.find(p => String(p.id) === String(oi.product_id));
-              
+
               // Determine item image (use variant image if color_id matches, otherwise default to product image)
               let itemImage = productObj?.image;
               if (oi.color_id && productObj?.product_variants) {
@@ -307,15 +308,14 @@ export default function OrdersPage({ currentUser }) {
                         <span className="text-base font-black text-primary">${order.total.toFixed(2)}</span>
                       </div>
                       {order.paymentProofPreview ? (
-                        <a
-                          href={order.paymentProofPreview}
-                          target="_blank"
-                          rel="noopener noreferrer"
+                        <button
+                          type="button"
+                          onClick={() => setSelectedProofUrl(order.paymentProofPreview)}
                           className="mt-3 inline-flex items-center gap-1.5 text-xs font-bold text-primary hover:text-primary-hover border border-primary/20 hover:bg-primary/5 px-3 py-1.5 rounded-lg transition-all"
                         >
                           <span className="material-symbols-outlined text-[14px]">visibility</span>
                           Ver Comprobante
-                        </a>
+                        </button>
                       ) : (
                         <p className="text-xs text-error mt-2 font-semibold">Sin comprobante adjunto</p>
                       )}
@@ -326,6 +326,41 @@ export default function OrdersPage({ currentUser }) {
               </div>
             </div>
           ))}
+        </div>
+      )}
+      {/* Lightbox Modal for Receipt Verification */}
+      {selectedProofUrl && (
+        <div 
+          onClick={(e) => {
+            if (e.target === e.currentTarget) {
+              setSelectedProofUrl(null);
+            }
+          }}
+          className="fixed inset-0 bg-on-background/70 backdrop-blur-md z-50 flex items-center justify-center p-4 cursor-pointer"
+        >
+          <div className="bg-surface rounded-2xl max-w-lg w-full overflow-hidden border border-outline-variant/30 shadow-2xl relative flex flex-col max-h-[90vh] cursor-default">
+            <div className="px-6 py-4 border-b border-outline-variant/30 flex items-center justify-between">
+              <h3 className="text-headline-md font-montserrat text-on-background flex items-center gap-2">
+                <span className="material-symbols-outlined text-[1.2em]">receipt</span>
+                Comprobante de Pago
+              </h3>
+              <button
+                onClick={() => setSelectedProofUrl(null)}
+                className="rounded-full p-2 text-on-surface-variant hover:bg-surface-container-high transition-colors"
+                aria-label="Cerrar comprobante"
+              >
+                <span className="material-symbols-outlined">close</span>
+              </button>
+            </div>
+            <div className="p-6 flex-1 overflow-y-auto flex items-center justify-center bg-surface-container-low">
+              <img
+                src={selectedProofUrl}
+                alt="Comprobante de Pago Completo"
+                className="max-w-full max-h-[60vh] rounded-lg object-contain shadow-md"
+              />
+            </div>
+
+          </div>
         </div>
       )}
     </div>

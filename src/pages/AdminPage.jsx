@@ -1701,8 +1701,15 @@ export default function AdminPage({ products: initialProducts, onCreateProduct, 
 
       {/* Lightbox Modal for Receipt Verification */}
       {selectedProofUrl && (
-        <div className="fixed inset-0 bg-on-background/70 backdrop-blur-md z-50 flex items-center justify-center p-4">
-          <div className="bg-surface rounded-2xl max-w-lg w-full overflow-hidden border border-outline-variant/30 shadow-2xl relative flex flex-col max-h-[90vh]">
+        <div 
+          onClick={(e) => {
+            if (e.target === e.currentTarget) {
+              setSelectedProofUrl(null);
+            }
+          }}
+          className="fixed inset-0 bg-on-background/70 backdrop-blur-md z-50 flex items-center justify-center p-4 cursor-pointer"
+        >
+          <div className="bg-surface rounded-2xl max-w-lg w-full overflow-hidden border border-outline-variant/30 shadow-2xl relative flex flex-col max-h-[90vh] cursor-default">
             <div className="px-6 py-4 border-b border-outline-variant/30 flex items-center justify-between">
               <h3 className="text-headline-md font-montserrat text-on-background flex items-center gap-2">
                 <span className="material-symbols-outlined text-[1.2em]">receipt</span>
@@ -1737,8 +1744,15 @@ export default function AdminPage({ products: initialProducts, onCreateProduct, 
 
       {/* Delete Product Confirmation Modal */}
       {productToDelete && (
-        <div className="fixed inset-0 bg-on-background/70 backdrop-blur-md z-50 flex items-center justify-center p-4">
-          <div className="bg-surface rounded-2xl max-w-md w-full overflow-hidden border border-outline-variant/30 shadow-2xl relative p-6 flex flex-col gap-4 text-center">
+        <div 
+          onClick={(e) => {
+            if (e.target === e.currentTarget) {
+              setProductToDelete(null);
+            }
+          }}
+          className="fixed inset-0 bg-on-background/70 backdrop-blur-md z-50 flex items-center justify-center p-4 cursor-pointer"
+        >
+          <div className="bg-surface rounded-2xl max-w-md w-full overflow-hidden border border-outline-variant/30 shadow-2xl relative p-6 flex flex-col gap-4 text-center cursor-default">
             <div className="w-16 h-16 bg-error/10 text-error rounded-full flex items-center justify-center mx-auto mb-2">
               <span className="material-symbols-outlined text-[36px]">warning</span>
             </div>
