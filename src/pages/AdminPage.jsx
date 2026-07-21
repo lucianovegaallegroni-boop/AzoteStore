@@ -268,6 +268,29 @@ export default function AdminPage({ products: initialProducts, onCreateProduct, 
               .from('products')
               .update({ stock: totalStock })
               .eq('id', currentVar.product_id);
+
+            // Update local dbProducts state for the variant and the product stock
+            setDbProducts((prevProducts) =>
+              prevProducts.map((p) => {
+                if (p.id === currentVar.product_id) {
+                  const updatedColors = p.colors?.map((c) =>
+                    c.id === colorId ? { ...c, stock: newStock, inStock: newStock > 0 } : c
+                  ) || null;
+                  return {
+                    ...p,
+                    stock: totalStock,
+                    inStock: totalStock > 0,
+                    specifications: {
+                      ...p.specifications,
+                      Stock: String(totalStock),
+                      Status: totalStock > 0 ? 'Disponible' : 'Agotado'
+                    },
+                    colors: updatedColors
+                  };
+                }
+                return p;
+              })
+            );
           }
 
         } else {
@@ -287,12 +310,29 @@ export default function AdminPage({ products: initialProducts, onCreateProduct, 
             .eq('id', productId);
 
           if (updateErr) throw updateErr;
+
+          // Update local dbProducts state
+          setDbProducts((prevProducts) =>
+            prevProducts.map((p) =>
+              p.id === productId
+                ? {
+                    ...p,
+                    stock: newStock,
+                    inStock: newStock > 0,
+                    specifications: {
+                      ...p.specifications,
+                      Stock: String(newStock),
+                      Status: newStock > 0 ? 'Disponible' : 'Agotado'
+                    }
+                  }
+                : p
+            )
+          );
         }
 
         onUpdateStock(productId, qty, colorId);
         const key = colorId ? `${productId}-${colorId}` : productId;
         setRestockAmount(prev => ({ ...prev, [key]: '' }));
-        triggerReload();
         alert('Stock actualizado correctamente en base de datos.');
 
       } catch (err) {
@@ -576,7 +616,6 @@ export default function AdminPage({ products: initialProducts, onCreateProduct, 
         .eq('id', productId);
 
       if (error) throw error;
-      triggerReload();
     } catch (err) {
       // 2. Revert on error
       setDbProducts((prevProducts) =>
@@ -607,7 +646,6 @@ export default function AdminPage({ products: initialProducts, onCreateProduct, 
         .eq('id', productId);
 
       if (error) throw error;
-      triggerReload();
     } catch (err) {
       // 2. Revert on error
       setDbProducts((prevProducts) =>
@@ -648,7 +686,6 @@ export default function AdminPage({ products: initialProducts, onCreateProduct, 
           .eq('id', orderId);
 
         if (error) throw error;
-        triggerReload();
       } catch (err) {
         // 2. Revert on error
         setOrders((prevOrders) =>
