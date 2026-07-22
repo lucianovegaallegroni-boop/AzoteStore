@@ -1702,7 +1702,7 @@ export default function AdminPage({ products: initialProducts, onCreateProduct, 
                                       <td className="px-md py-4">
                                         <div className="flex items-center gap-sm">
                                           <div className="w-10 h-10 rounded-lg overflow-hidden border border-outline-variant/20 shrink-0">
-                                            <img src={color.image} alt={color.name} className="w-full h-full object-cover" />
+                                            <img src={color.image || p.image} alt={color.name} className="w-full h-full object-cover" />
                                           </div>
                                           <div className="flex flex-col">
                                             <span className="font-bold text-on-surface text-sm">{p.name}</span>
