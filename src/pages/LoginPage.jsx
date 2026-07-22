@@ -104,9 +104,9 @@ export default function LoginPage({ onLogin }) {
               <label className="block text-xs font-semibold uppercase tracking-wider text-outline">
                 Contraseña
               </label>
-              <a href="#" onClick={(e) => { e.preventDefault(); alert('Enlace de recuperación enviado. (Simulación)'); }} className="text-xs font-semibold text-primary hover:underline">
+              <Link to="/forgot-password" className="text-xs font-semibold text-primary hover:underline">
                 ¿Olvidaste tu contraseña?
-              </a>
+              </Link>
             </div>
             <input 
               type="password"
