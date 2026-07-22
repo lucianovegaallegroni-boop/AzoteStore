@@ -383,7 +383,7 @@ export default function AdminPage({ products: initialProducts, onCreateProduct, 
         title: v.name,
         stock: String(v.stock !== undefined ? v.stock : 20),
         price: String(v.price || ''),
-        imagePreview: v.image || product.image,
+        imagePreview: v.image || '',
         image: v.image || null
       })));
       setStock('');
@@ -420,8 +420,8 @@ export default function AdminPage({ products: initialProducts, onCreateProduct, 
               title: v.title,
               stock: String(v.stock !== undefined ? v.stock : 20),
               price: String(v.price || ''),
-              imagePreview: v.image || product.image,
-              image: v.image
+              imagePreview: v.image || '',
+              image: v.image || null
             })));
           }
         } catch (err) {
@@ -464,7 +464,7 @@ export default function AdminPage({ products: initialProducts, onCreateProduct, 
       for (const v of variants) {
         if (!v.title) { setError('Cada tipo debe tener un título.'); return; }
         if (!v.stock || parseInt(v.stock) < 0) { setError(`El tipo "${v.title}" necesita una cantidad de stock válida.`); return; }
-        if (!v.imagePreview) { setError(`El tipo "${v.title}" necesita una imagen.`); return; }
+        if (!v.imagePreview && !v.image) { setError(`El tipo "${v.title}" necesita una imagen.`); return; }
         if (!samePrice && (!v.price || parseFloat(v.price) <= 0)) { setError(`El tipo "${v.title}" necesita un precio válido.`); return; }
       }
     } else {
@@ -526,7 +526,7 @@ export default function AdminPage({ products: initialProducts, onCreateProduct, 
               title: v.title,
               stock: parseInt(v.stock || 0),
               price: samePrice ? parseFloat(price) : parseFloat(v.price),
-              image: v.imagePreview
+              image: v.imagePreview || v.image || null
             }));
 
             const { error: variantsError } = await supabase
@@ -564,7 +564,7 @@ export default function AdminPage({ products: initialProducts, onCreateProduct, 
               title: v.title,
               stock: parseInt(v.stock || 0),
               price: samePrice ? parseFloat(price) : parseFloat(v.price),
-              image: v.imagePreview
+              image: v.imagePreview || v.image || null
             }));
 
             const { error: variantsError } = await supabase
@@ -590,7 +590,7 @@ export default function AdminPage({ products: initialProducts, onCreateProduct, 
                 stock: parseInt(v.stock),
                 inStock: parseInt(v.stock) > 0,
                 price: samePrice ? parseFloat(price) : parseFloat(v.price),
-                image: v.imagePreview,
+                image: v.imagePreview || v.image || null,
               }))
             });
           } else {
@@ -1179,12 +1179,15 @@ export default function AdminPage({ products: initialProducts, onCreateProduct, 
                                 {/* Image upload per variant */}
                                 <div>
                                   <label className="block text-xs text-on-surface-variant font-semibold mb-1">Imagen del tipo</label>
-                                  {v.imagePreview ? (
+                                  {v.imagePreview || v.image ? (
                                     <div className="relative h-32 rounded-lg overflow-hidden border border-outline-variant/30 bg-surface-container-low flex items-center justify-center group">
-                                      <img src={v.imagePreview} alt={v.title} className="max-h-full max-w-full object-contain" />
+                                      <img src={v.imagePreview || v.image} alt={v.title} className="max-h-full max-w-full object-contain" />
                                       <button
                                         type="button"
-                                        onClick={() => updateVariant(v.id, 'imagePreview', '')}
+                                        onClick={() => {
+                                          updateVariant(v.id, 'imagePreview', '');
+                                          updateVariant(v.id, 'image', null);
+                                        }}
                                         className="absolute top-2 right-2 bg-error text-on-error rounded-full p-1.5 transition-colors shadow opacity-0 group-hover:opacity-100"
                                       >
                                         <span className="material-symbols-outlined text-[16px]">delete</span>
@@ -1702,7 +1705,7 @@ export default function AdminPage({ products: initialProducts, onCreateProduct, 
                                       <td className="px-md py-4">
                                         <div className="flex items-center gap-sm">
                                           <div className="w-10 h-10 rounded-lg overflow-hidden border border-outline-variant/20 shrink-0">
-                                            <img src={color.image || p.image} alt={color.name} className="w-full h-full object-cover" />
+                                            <img src={color.image || color.imagePreview || p.image} alt={color.name} className="w-full h-full object-cover" />
                                           </div>
                                           <div className="flex flex-col">
                                             <span className="font-bold text-on-surface text-sm">{p.name}</span>
