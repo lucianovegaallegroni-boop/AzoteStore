@@ -420,7 +420,7 @@ export default function AdminPage({ products: initialProducts, onCreateProduct, 
         image: v.image || null
       })));
       setStock('');
-      setImagePreview('');
+      setImagePreview(product.image || '');
     } else {
       setHasVariants(false);
       setPrice(String(product.price));
