@@ -822,12 +822,29 @@ export default function AdminPage({ products: initialProducts, onCreateProduct, 
     (async () => {
       try {
         const { supabase } = await import('../supabaseClient');
-        const { error } = await supabase
-          .from('orders')
-          .update({ status: newStatus })
-          .eq('id', orderId);
 
-        if (error) throw error;
+        if (newStatus === 'Cancelado' || newStatus === 'Entregado') {
+          const action = newStatus === 'Cancelado' ? 'reject' : 'confirm';
+          const { data, error } = await supabase.rpc('process_order_action', {
+            p_order_id: orderId,
+            p_action: action
+          });
+
+          if (error) throw error;
+          if (data && !data.success) throw new Error(data.message);
+
+          // If rejected, reload database products so stock counts refresh on admin screen
+          if (newStatus === 'Cancelado') {
+            triggerReload();
+          }
+        } else {
+          const { error } = await supabase
+            .from('orders')
+            .update({ status: newStatus })
+            .eq('id', orderId);
+
+          if (error) throw error;
+        }
       } catch (err) {
         // 2. Revert on error
         setOrders((prevOrders) =>
@@ -836,7 +853,7 @@ export default function AdminPage({ products: initialProducts, onCreateProduct, 
           )
         );
         console.error('Error al cambiar estado del pedido:', err);
-        alert('Error al conectar con la base de datos: ' + err.message);
+        alert('Error al cambiar estado del pedido: ' + err.message);
       }
     })();
   };
