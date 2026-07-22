@@ -16,7 +16,7 @@ export default function ProductDetail({ products, onAddToCart, onAddToWishlist, 
         const { supabase } = await import('../supabaseClient');
         const { data: p, error } = await supabase
           .from('products')
-          .select('*, product_variants(*)')
+          .select('id, name, price, description, image, category, stock, featured, division, product_variants(id, product_id, title, price, stock)')
           .eq('id', id)
           .single();
 
@@ -44,7 +44,7 @@ export default function ProductDetail({ products, onAddToCart, onAddToWishlist, 
               id: v.id,
               name: v.title,
               hex: '#888888',
-              image: v.image,
+              image: null,
               stock: v.stock,
               inStock: v.stock > 0,
               price: parseFloat(v.price || p.price)
@@ -68,6 +68,65 @@ export default function ProductDetail({ products, onAddToCart, onAddToWishlist, 
   const [isColorMenuOpen, setIsColorMenuOpen] = useState(false);
   const [selectedColor, setSelectedColor] = useState(null);
   const isCurrentColorInStock = selectedColor ? selectedColor.inStock : (product ? product.inStock : false);
+
+  const [variantImages, setVariantImages] = useState({});
+
+  // Fetch variant image on-demand for selected variant
+  useEffect(() => {
+    if (selectedColor && selectedColor.id) {
+      const colorId = selectedColor.id;
+      if (variantImages[colorId]) return;
+
+      (async () => {
+        try {
+          const { supabase } = await import('../supabaseClient');
+          const { data, error } = await supabase
+            .from('product_variants')
+            .select('image')
+            .eq('id', colorId)
+            .single();
+          if (!error && data?.image) {
+            setVariantImages(prev => ({ ...prev, [colorId]: data.image }));
+          }
+        } catch (err) {
+          console.error('Error fetching variant image on-demand:', err);
+        }
+      })();
+    }
+  }, [selectedColor, variantImages]);
+
+  // Pre-fetch all variant images when the color menu is opened
+  useEffect(() => {
+    if (isColorMenuOpen && product && product.colors) {
+      (async () => {
+        try {
+          const { supabase } = await import('../supabaseClient');
+          const missingIds = product.colors
+            .map(c => c.id)
+            .filter(id => !variantImages[id]);
+          
+          if (missingIds.length === 0) return;
+
+          const { data, error } = await supabase
+            .from('product_variants')
+            .select('id, image')
+            .in('id', missingIds);
+          
+          if (!error && data) {
+            const newImages = {};
+            data.forEach(item => {
+              if (item.image) {
+                newImages[item.id] = item.image;
+              }
+            });
+            setVariantImages(prev => ({ ...prev, ...newImages }));
+          }
+        } catch (err) {
+          console.error('Error pre-fetching variant images:', err);
+        }
+      })();
+    }
+  }, [isColorMenuOpen, product, variantImages]);
 
   // Gallery States
   const [activeImageIndex, setActiveImageIndex] = useState(0);
@@ -152,6 +211,7 @@ export default function ProductDetail({ products, onAddToCart, onAddToWishlist, 
               <img
                 className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-102"
                 src={
+                  (selectedColor ? variantImages[selectedColor.id] : null) ||
                   selectedColor?.image ||
                   (product.gallery && product.gallery[activeImageIndex]) ||
                   product.image
@@ -238,9 +298,9 @@ export default function ProductDetail({ products, onAddToCart, onAddToWishlist, 
                 className="w-full md:max-w-xs flex items-center justify-between bg-surface-container-low border border-outline-variant/40 hover:border-primary rounded-xl px-4 py-3.5 text-sm transition-all focus:ring-2 focus:ring-primary outline-none card-shadow"
               >
                 <div className="flex items-center gap-3">
-                  {selectedColor.image ? (
+                  {(variantImages[selectedColor.id] || selectedColor.image || product.image) ? (
                     <div className="w-10 h-10 rounded-lg overflow-hidden border border-outline-variant/30 shrink-0 bg-surface-container-low">
-                      <img src={selectedColor.image} alt={selectedColor.name} className="w-full h-full object-cover" />
+                      <img src={variantImages[selectedColor.id] || selectedColor.image || product.image} alt={selectedColor.name} className="w-full h-full object-cover" />
                     </div>
                   ) : selectedColor.hex && selectedColor.hex !== '#888888' ? (
                     <div
@@ -270,7 +330,7 @@ export default function ProductDetail({ products, onAddToCart, onAddToWishlist, 
 
               {/* Dropdown Options Menu */}
               {isColorMenuOpen && (
-                <div className="absolute left-0 top-full mt-1.5 w-full md:max-w-xs bg-surface dark:bg-inverse-surface border border-outline-variant/30 rounded-xl shadow-lg z-30 py-1.5 flex flex-col gap-0.5 card-shadow">
+                <div className="absolute left-0 top-full mt-1.5 w-full md:max-w-xs bg-surface dark:bg-inverse-surface border border-outline-variant/30 rounded-xl shadow-lg z-30 py-1.5 flex flex-col gap-0.5 card-shadow max-h-60 overflow-y-auto">
                   {product.colors.map((color, idx) => {
                     const isSelected = color.id === selectedColor.id;
                     const isInStock = color.inStock;
@@ -289,9 +349,9 @@ export default function ProductDetail({ products, onAddToCart, onAddToWishlist, 
                       >
                         <div className="flex items-center gap-2.5 min-w-0">
                           {/* Variant image thumbnail */}
-                          {color.image ? (
+                          {(variantImages[color.id] || color.image || product.image) ? (
                             <div className="w-10 h-10 rounded-lg overflow-hidden border border-outline-variant/20 shrink-0 bg-surface-container-low">
-                              <img src={color.image} alt={color.name} className="w-full h-full object-cover" />
+                              <img src={variantImages[color.id] || color.image || product.image} alt={color.name} className="w-full h-full object-cover" />
                             </div>
                           ) : color.hex && color.hex !== '#888888' ? (
                             <div
