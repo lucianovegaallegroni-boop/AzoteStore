@@ -27,21 +27,14 @@ export default function ForgotPasswordPage() {
       const { supabase } = await import('../supabaseClient');
 
       // Check if user exists first (since we manage custom users table)
-      const { data: user, error: fetchError } = await supabase
-        .from('users')
-        .select('id')
-        .eq('email', email)
-        .single();
+      // Call the Edge Function to send the password email
+      const { data: responseData, error: invokeError } = await supabase.functions.invoke('send-password-email', {
+        body: { email }
+      });
 
-      if (fetchError || !user) {
-        throw new Error('No se encontró ninguna cuenta con ese correo electrónico.');
+      if (invokeError) {
+        throw new Error('Hubo un problema al enviar el correo. Por favor, inténtalo de nuevo.');
       }
-
-      // In a real application, you'd trigger supabase.auth.resetPasswordForEmail(email)
-      // Since this app might be using a simple password field in the users table, 
-      // we'll simulate the success response for the mockup UI.
-      
-      // await supabase.auth.resetPasswordForEmail(email, { redirectTo: 'http://localhost:5173/reset-password' });
 
       setStatus({ 
         type: 'success', 
