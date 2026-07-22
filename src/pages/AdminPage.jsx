@@ -38,7 +38,7 @@ export default function AdminPage({ products: initialProducts, onCreateProduct, 
         // Fetch products and their variants
         const { data: prods, error: pErr } = await supabase
           .from('products')
-          .select('*, product_variants(*)');
+          .select('id, name, price, description, image, category, stock, featured, division, product_variants(id, product_id, title, price, stock)');
         
         if (pErr) throw pErr;
 
@@ -383,8 +383,8 @@ export default function AdminPage({ products: initialProducts, onCreateProduct, 
         title: v.name,
         stock: String(v.stock !== undefined ? v.stock : 20),
         price: String(v.price || ''),
-        imagePreview: v.image,
-        image: v.image
+        imagePreview: v.image || product.image,
+        image: v.image || null
       })));
       setStock('');
       setImagePreview('');
@@ -403,6 +403,32 @@ export default function AdminPage({ products: initialProducts, onCreateProduct, 
     setImageFile(null);
     setBtnText('Guardar Cambios');
     setActiveTab('inventory');
+
+    // Fetch full variants with images in the background to populate variant image previews
+    if (product.colors && product.colors.length > 0) {
+      (async () => {
+        try {
+          const { supabase } = await import('../supabaseClient');
+          const { data: fullVariants, error } = await supabase
+            .from('product_variants')
+            .select('id, title, price, stock, image')
+            .eq('product_id', product.id);
+          
+          if (!error && fullVariants) {
+            setVariants(fullVariants.map((v, index) => ({
+              id: v.id || index + 1,
+              title: v.title,
+              stock: String(v.stock !== undefined ? v.stock : 20),
+              price: String(v.price || ''),
+              imagePreview: v.image || product.image,
+              image: v.image
+            })));
+          }
+        } catch (err) {
+          console.error("Error loading full variants for editing:", err);
+        }
+      })();
+    }
   };
 
   const handleCancelEdit = () => {

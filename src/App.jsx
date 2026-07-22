@@ -90,7 +90,7 @@ export default function App() {
         const { supabase } = await import('./supabaseClient');
         const { data: dbProducts, error } = await supabase
           .from('products')
-          .select('*, product_variants(*)');
+          .select('id, name, price, description, image, category, stock, featured, division, product_variants(id, product_id, title, price, stock)');
 
         if (error) throw error;
 
