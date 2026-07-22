@@ -126,7 +126,7 @@ Deno.serve(async (req: Request) => {
       <h1>${title}</h1>
       <p><span class="badge">${orderId}</span></p>
       <p>${message}</p>
-      <a href="https://azotestore.com/admin" class="btn">Ir al Panel de Administración</a>
+      <a href="/" class="btn">Volver al Inicio</a>
     </div>
   </body>
   </html>`;

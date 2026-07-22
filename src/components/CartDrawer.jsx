@@ -57,6 +57,7 @@ export default function CartDrawer({
       setGuestName('');
       setGuestPhone('');
       setCreatedOrder(null);
+      navigate('/');
     }
     onClose();
   };
