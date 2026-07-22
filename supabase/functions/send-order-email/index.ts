@@ -1,7 +1,18 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
+import nodemailer from 'npm:nodemailer@6';
 
-const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY")!;
-const ADMIN_EMAIL = "lucianovegaallegroni@gmail.com";
+const GMAIL_USER = "lucianovegaallegroni@gmail.com";
+const GMAIL_APP_PASSWORD = Deno.env.get("GMAIL_APP_PASSWORD") || "fqkk simh nqbt kfqg";
+const ADMIN_EMAIL = "cristhianv1018@gmail.com";
+
+// Create Gmail SMTP transporter
+const transporter = nodemailer.createTransport({
+  service: 'gmail',
+  auth: {
+    user: GMAIL_USER,
+    pass: GMAIL_APP_PASSWORD,
+  },
+});
 
 interface OrderRecord {
   id: string;
@@ -230,33 +241,16 @@ Deno.serve(async (req: Request) => {
     </body>
     </html>`;
 
-    // Send via Resend
-    const resendRes = await fetch("https://api.resend.com/emails", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${RESEND_API_KEY}`,
-      },
-      body: JSON.stringify({
-        from: "Azote Store <onboarding@resend.dev>",
-        to: [ADMIN_EMAIL],
-        subject: `🛒 Nuevo Pedido: ${order.id} — $${order.total.toFixed(2)} de ${order.client_name}`,
-        html: emailHtml,
-      }),
+    // Send via Gmail SMTP
+    const info = await transporter.sendMail({
+      from: `"Azote Store" <${GMAIL_USER}>`,
+      to: ADMIN_EMAIL,
+      subject: `🛒 Nuevo Pedido: ${order.id} — $${order.total.toFixed(2)} de ${order.client_name}`,
+      html: emailHtml,
     });
 
-    const resendData = await resendRes.json();
-
-    if (!resendRes.ok) {
-      console.error("Resend API error:", resendData);
-      return new Response(JSON.stringify({ error: "Failed to send email", details: resendData }), {
-        status: 500,
-        headers: { "Content-Type": "application/json" },
-      });
-    }
-
-    console.log("Email sent successfully:", resendData);
-    return new Response(JSON.stringify({ message: "Email sent", data: resendData }), {
+    console.log("Email sent successfully via Gmail:", info.messageId);
+    return new Response(JSON.stringify({ message: "Email sent", messageId: info.messageId }), {
       status: 200,
       headers: { "Content-Type": "application/json" },
     });
