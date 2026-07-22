@@ -39,45 +39,29 @@ export default function RegisterPage({ onRegister }) {
 
     setIsLoading(true);
 
-    // Save to Supabase
+    // Register via server-side RPC (password hashed with bcrypt on server)
     (async () => {
       try {
         const { supabase } = await import('../supabaseClient');
 
-        // Check if user already exists
-        const { data: existingUser } = await supabase
-          .from('users')
-          .select('id')
-          .eq('email', email)
-          .maybeSingle();
+        const { data, error: rpcError } = await supabase.rpc('register_user', {
+          p_name: name,
+          p_email: email,
+          p_password: password,
+          p_phone: phone
+        });
 
-        if (existingUser) {
-          throw new Error('El correo electrónico ya está registrado.');
-        }
+        if (rpcError) throw new Error('Error al conectar con el servidor.');
 
-        const newUser = {
-          name,
-          email,
-          password, // Storing plain text password for this mock interface (as originally designed)
-          phone,
-          role: 'cliente'
-        };
-
-        const { data: insertedUser, error: insertError } = await supabase
-          .from('users')
-          .insert([newUser])
-          .select()
-          .single();
-
-        if (insertError) throw insertError;
+        if (data.error) throw new Error(data.error);
 
         setIsLoading(false);
         onRegister({
-          id: insertedUser.id,
-          name: insertedUser.name,
-          email: insertedUser.email,
-          phone: insertedUser.phone,
-          role: insertedUser.role
+          id: data.id,
+          name: data.name,
+          email: data.email,
+          phone: data.phone,
+          role: data.role
         });
 
         navigate('/');

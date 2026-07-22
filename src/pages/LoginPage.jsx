@@ -26,33 +26,27 @@ export default function LoginPage({ onLogin }) {
 
     setIsLoading(true);
 
-    // Query Supabase for authentication check
+    // Authenticate via server-side RPC (password verified with bcrypt on server)
     (async () => {
       try {
         const { supabase } = await import('../supabaseClient');
 
-        const { data: user, error: fetchError } = await supabase
-          .from('users')
-          .select('*')
-          .eq('email', email)
-          .single();
+        const { data, error: rpcError } = await supabase.rpc('login_user', {
+          p_email: email,
+          p_password: password
+        });
 
-        if (fetchError || !user) {
-          throw new Error('El correo electrónico no está registrado.');
-        }
+        if (rpcError) throw new Error('Error al conectar con el servidor.');
 
-        // Mock password matching (comparing plaintext password for local convenience)
-        if (user.password !== password) {
-          throw new Error('La contraseña es incorrecta.');
-        }
+        if (data.error) throw new Error(data.error);
 
         setIsLoading(false);
         onLogin({
-          id: user.id,
-          name: user.name,
-          email: user.email,
-          phone: user.phone,
-          role: user.role || 'cliente'
+          id: data.id,
+          name: data.name,
+          email: data.email,
+          phone: data.phone,
+          role: data.role || 'cliente'
         });
 
         navigate('/');

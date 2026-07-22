@@ -38,14 +38,20 @@ Deno.serve(async (req: Request) => {
 
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
-    const { data: user, error: fetchError } = await supabase
-      .from('users')
-      .select('name, email, password')
-      .eq('email', email)
-      .single();
+    // Call RPC to generate a new random password (hashed in DB, plaintext returned)
+    const { data: resetData, error: rpcError } = await supabase.rpc('reset_user_password', {
+      p_email: email
+    });
 
-    if (fetchError || !user) {
-      return new Response(JSON.stringify({ error: "User not found" }), {
+    if (rpcError) {
+      return new Response(JSON.stringify({ error: "RPC error: " + rpcError.message }), {
+        status: 500,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    if (resetData.error) {
+      return new Response(JSON.stringify({ error: resetData.error }), {
         status: 404,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
@@ -63,16 +69,16 @@ Deno.serve(async (req: Request) => {
           </h1>
         </div>
         <div style="background: #ffffff; padding: 28px 24px; border-radius: 0 0 16px 16px; box-shadow: 0 4px 24px rgba(0,0,0,0.06);">
-          <p style="color: #1a1a2e; font-size: 16px;">Hola <strong>${user.name || 'Cliente'}</strong>,</p>
-          <p style="color: #1a1a2e; font-size: 14px; margin-bottom: 24px;">Hemos recibido una solicitud para recuperar la contraseña de tu cuenta en Azote Store.</p>
+          <p style="color: #1a1a2e; font-size: 16px;">Hola <strong>${resetData.name || 'Cliente'}</strong>,</p>
+          <p style="color: #1a1a2e; font-size: 14px; margin-bottom: 24px;">Hemos restablecido la contraseña de tu cuenta en Azote Store. Tu nueva contraseña temporal es:</p>
           
           <div style="background: #f8f9ff; border-radius: 12px; padding: 20px 24px; border-left: 4px solid #3b5bdb; text-align: center;">
-            <p style="margin: 0 0 10px; font-size: 12px; color: #6c757d; text-transform: uppercase; letter-spacing: 1px;">Tu contraseña es:</p>
-            <p style="margin: 0; font-size: 24px; color: #1a1a2e; font-weight: 800; letter-spacing: 2px; font-family: monospace;">${user.password}</p>
+            <p style="margin: 0 0 10px; font-size: 12px; color: #6c757d; text-transform: uppercase; letter-spacing: 1px;">Tu nueva contraseña:</p>
+            <p style="margin: 0; font-size: 28px; color: #1a1a2e; font-weight: 800; letter-spacing: 3px; font-family: monospace;">${resetData.new_password}</p>
           </div>
           
-          <p style="color: #6c757d; font-size: 13px; margin-top: 24px;">Por motivos de seguridad, te recomendamos eliminar este correo una vez hayas iniciado sesión.</p>
-          <p style="color: #6c757d; font-size: 13px;">Si tú no solicitaste esta recuperación, puedes ignorar este mensaje.</p>
+          <p style="color: #6c757d; font-size: 13px; margin-top: 24px;">Por motivos de seguridad, te recomendamos cambiar esta contraseña temporal después de iniciar sesión.</p>
+          <p style="color: #6c757d; font-size: 13px;">Si tú no solicitaste esta recuperación, contacta con soporte inmediatamente.</p>
         </div>
         <div style="text-align: center; padding: 20px 0 0;">
           <p style="color: #9ca3af; font-size: 11px; margin: 0;">
