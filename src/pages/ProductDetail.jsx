@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 
 export default function ProductDetail({ products, onAddToCart, onAddToWishlist, wishlistItems }) {
@@ -65,7 +65,6 @@ export default function ProductDetail({ products, onAddToCart, onAddToWishlist, 
 
   const product = dbProduct || products.find(p => p.id === id);
 
-  const [isColorMenuOpen, setIsColorMenuOpen] = useState(false);
   const [selectedColor, setSelectedColor] = useState(null);
   const isCurrentColorInStock = selectedColor ? selectedColor.inStock : (product ? product.inStock : false);
 
@@ -95,9 +94,9 @@ export default function ProductDetail({ products, onAddToCart, onAddToWishlist, 
     }
   }, [selectedColor, variantImages]);
 
-  // Pre-fetch all variant images when the color menu is opened
+  // Eagerly pre-fetch all variant images when product loads
   useEffect(() => {
-    if (isColorMenuOpen && product && product.colors) {
+    if (product && product.colors) {
       (async () => {
         try {
           const { supabase } = await import('../supabaseClient');
@@ -126,11 +125,44 @@ export default function ProductDetail({ products, onAddToCart, onAddToWishlist, 
         }
       })();
     }
-  }, [isColorMenuOpen, product, variantImages]);
+  }, [product]);
 
   // Gallery States
   const [activeImageIndex, setActiveImageIndex] = useState(0);
   const [isVideoOpen, setIsVideoOpen] = useState(false);
+
+  // Drag-to-scroll for variant strip
+  const variantStripRef = useRef(null);
+  const isDraggingRef = useRef(false);
+  const dragStartX = useRef(0);
+  const scrollStartX = useRef(0);
+  const wasDragged = useRef(false);
+  const [isDragging, setIsDragging] = useState(false);
+
+  const handleDragStart = useCallback((e) => {
+    const el = variantStripRef.current;
+    if (!el) return;
+    isDraggingRef.current = true;
+    wasDragged.current = false;
+    dragStartX.current = e.pageX;
+    scrollStartX.current = el.scrollLeft;
+    setIsDragging(true);
+  }, []);
+
+  const handleDragMove = useCallback((e) => {
+    if (!isDraggingRef.current) return;
+    e.preventDefault();
+    const el = variantStripRef.current;
+    if (!el) return;
+    const dx = e.pageX - dragStartX.current;
+    if (Math.abs(dx) > 5) wasDragged.current = true;
+    el.scrollLeft = scrollStartX.current - dx;
+  }, []);
+
+  const handleDragEnd = useCallback(() => {
+    isDraggingRef.current = false;
+    setIsDragging(false);
+  }, []);
 
   // Reset states when product changes
   useEffect(() => {
@@ -209,7 +241,7 @@ export default function ProductDetail({ products, onAddToCart, onAddToWishlist, 
               </div>
             ) : (
               <img
-                className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-102"
+                className="w-full h-full object-contain transition-transform duration-500 group-hover:scale-102"
                 src={
                   (selectedColor ? variantImages[selectedColor.id] : null) ||
                   selectedColor?.image ||
@@ -249,6 +281,85 @@ export default function ProductDetail({ products, onAddToCart, onAddToWishlist, 
               })}
             </div>
           )}
+
+          {/* Variant image strip — below the main image */}
+          {product.colors && selectedColor && (
+            <div className="mt-3">
+              <label className="block font-label-md text-on-surface-variant text-xs uppercase tracking-wider mb-2.5 ml-1 font-semibold">
+                {product.categorySlug === 'sleeves' ? 'Color del Protector' : 'Seleccionar Tipo'}
+                <span className="text-primary ml-1.5 normal-case tracking-normal">— {selectedColor.name}</span>
+              </label>
+
+              <div
+                ref={variantStripRef}
+                className={`flex gap-2.5 overflow-x-auto pb-2 scrollbar-thin select-none ${isDragging ? 'cursor-grabbing' : 'cursor-grab'}`}
+                style={{ scrollbarWidth: 'thin', scrollbarColor: 'var(--md-sys-color-outline-variant) transparent' }}
+                onMouseDown={handleDragStart}
+                onMouseMove={handleDragMove}
+                onMouseUp={handleDragEnd}
+                onMouseLeave={handleDragEnd}
+              >
+                {product.colors.map((color, idx) => {
+                  const isSelected = color.id === selectedColor.id;
+                  const isInStock = color.inStock;
+                  const imgSrc = variantImages[color.id] || color.image || product.image;
+
+                  return (
+                    <button
+                      key={color.id}
+                      type="button"
+                      onClick={() => {
+                        if (wasDragged.current) return;
+                        setSelectedColor(color);
+                        setActiveImageIndex(idx);
+                      }}
+                      className={`relative shrink-0 w-20 h-20 sm:w-[88px] sm:h-[88px] rounded-xl overflow-hidden border-2 transition-all duration-200 group focus:outline-none
+                        ${isSelected
+                          ? 'border-primary shadow-[0_0_0_2px_var(--md-sys-color-primary)] scale-[1.02]'
+                          : 'border-outline-variant/30 hover:border-primary/50 hover:shadow-md'
+                        }
+                        ${!isInStock ? 'opacity-60' : ''}
+                      `}
+                      title={color.name}
+                    >
+                      {imgSrc ? (
+                        <img
+                          src={imgSrc}
+                          alt={color.name}
+                          className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-110"
+                        />
+                      ) : (
+                        <div className="w-full h-full bg-surface-container flex items-center justify-center">
+                          <span className="material-symbols-outlined text-[24px] text-outline">inventory_2</span>
+                        </div>
+                      )}
+
+                      {/* Dark gradient overlay at bottom for name */}
+                      <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 via-black/30 to-transparent pt-4 pb-1 px-1.5">
+                        <span className="text-[9px] sm:text-[10px] font-bold text-white leading-tight block truncate text-center">
+                          {color.name}
+                        </span>
+                      </div>
+
+                      {/* Selected checkmark */}
+                      {isSelected && (
+                        <div className="absolute top-1 right-1 w-5 h-5 bg-primary rounded-full flex items-center justify-center shadow-md">
+                          <span className="material-symbols-outlined text-[14px] text-on-primary font-bold">check</span>
+                        </div>
+                      )}
+
+                      {/* Out of stock badge */}
+                      {!isInStock && (
+                        <div className="absolute top-1 left-1 bg-error/90 text-white text-[7px] font-bold px-1.5 py-0.5 rounded-md uppercase tracking-wide">
+                          Agotado
+                        </div>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Right: Product Details (4 columns) */}
@@ -284,105 +395,6 @@ export default function ProductDetail({ products, onAddToCart, onAddToWishlist, 
             )}
           </div>
 
-          {/* Variant / Color Selector — shown for any product with a colors array */}
-          {product.colors && selectedColor && (
-            <div className="mb-lg relative">
-              <label className="block font-label-md text-on-surface-variant text-xs uppercase tracking-wider mb-2 ml-1 font-semibold">
-                {product.categorySlug === 'sleeves' ? 'Color del Protector' : 'Seleccionar Tipo'}
-              </label>
-
-              {/* Dropdown Trigger Button */}
-              <button
-                type="button"
-                onClick={() => setIsColorMenuOpen(!isColorMenuOpen)}
-                className="w-full md:max-w-xs flex items-center justify-between bg-surface-container-low border border-outline-variant/40 hover:border-primary rounded-xl px-4 py-3.5 text-sm transition-all focus:ring-2 focus:ring-primary outline-none card-shadow"
-              >
-                <div className="flex items-center gap-3">
-                  {(variantImages[selectedColor.id] || selectedColor.image || product.image) ? (
-                    <div className="w-10 h-10 rounded-lg overflow-hidden border border-outline-variant/30 shrink-0 bg-surface-container-low">
-                      <img src={variantImages[selectedColor.id] || selectedColor.image || product.image} alt={selectedColor.name} className="w-full h-full object-cover" />
-                    </div>
-                  ) : selectedColor.hex && selectedColor.hex !== '#888888' ? (
-                    <div
-                      className="w-10 h-10 rounded-lg border border-outline-variant/40 shadow-sm shrink-0"
-                      style={{ backgroundColor: selectedColor.hex }}
-                      {...(selectedColor.id === 'clear-gloss' ? { className: "w-10 h-10 rounded-lg border border-outline-variant/40 shadow-sm shrink-0 bg-[linear-gradient(45deg,#ccc_25%,transparent_25%),linear-gradient(-45deg,#ccc_25%,transparent_25%),linear-gradient(45deg,transparent_75%,#ccc_75%),linear-gradient(-45deg,transparent_75%,#ccc_75%)] bg-[size:6px_6px]" } : {})}
-                    ></div>
-                  ) : (
-                    <div className="w-10 h-10 rounded-lg border border-outline-variant/20 bg-surface-container shrink-0 flex items-center justify-center">
-                      <span className="material-symbols-outlined text-[18px] text-outline">inventory_2</span>
-                    </div>
-                  )}
-                  <span className="font-bold text-on-surface">{selectedColor.name}</span>
-                </div>
-                <span className={`material-symbols-outlined text-outline transition-transform duration-200 ${isColorMenuOpen ? 'rotate-180' : ''}`}>
-                  expand_more
-                </span>
-              </button>
-
-              {/* Click-outside backdrop */}
-              {isColorMenuOpen && (
-                <div
-                  className="fixed inset-0 z-20"
-                  onClick={() => setIsColorMenuOpen(false)}
-                ></div>
-              )}
-
-              {/* Dropdown Options Menu */}
-              {isColorMenuOpen && (
-                <div className="absolute left-0 top-full mt-1.5 w-full md:max-w-xs bg-surface dark:bg-inverse-surface border border-outline-variant/30 rounded-xl shadow-lg z-30 py-1.5 flex flex-col gap-0.5 card-shadow max-h-60 overflow-y-auto">
-                  {product.colors.map((color, idx) => {
-                    const isSelected = color.id === selectedColor.id;
-                    const isInStock = color.inStock;
-
-                    return (
-                      <button
-                        key={color.id}
-                        type="button"
-                        onClick={() => {
-                          setSelectedColor(color);
-                          setActiveImageIndex(idx);
-                          setIsColorMenuOpen(false);
-                        }}
-                        className={`w-full text-left px-3 py-2 hover:bg-surface-container-low transition-colors flex items-center justify-between gap-3 ${isSelected ? 'bg-primary/5 text-primary' : 'text-on-surface'
-                          }`}
-                      >
-                        <div className="flex items-center gap-2.5 min-w-0">
-                          {/* Variant image thumbnail */}
-                          {(variantImages[color.id] || color.image || product.image) ? (
-                            <div className="w-10 h-10 rounded-lg overflow-hidden border border-outline-variant/20 shrink-0 bg-surface-container-low">
-                              <img src={variantImages[color.id] || color.image || product.image} alt={color.name} className="w-full h-full object-cover" />
-                            </div>
-                          ) : color.hex && color.hex !== '#888888' ? (
-                            <div
-                              className="w-10 h-10 rounded-lg border border-outline-variant/30 shadow-sm shrink-0"
-                              style={{ backgroundColor: color.hex }}
-                            ></div>
-                          ) : (
-                            <div className="w-10 h-10 rounded-lg border border-outline-variant/20 bg-surface-container-low shrink-0 flex items-center justify-center">
-                              <span className="material-symbols-outlined text-[18px] text-outline">inventory_2</span>
-                            </div>
-                          )}
-                          <div className="min-w-0">
-                            <span className="text-xs font-bold block truncate">{color.name}</span>
-                            {color.price && color.price !== product.price && (
-                              <span className="text-xs text-primary font-bold">${color.price.toFixed(2)}</span>
-                            )}
-                          </div>
-                        </div>
-
-                        {!isInStock && (
-                          <span className="text-[9px] font-bold text-error bg-error/10 px-2 py-0.5 rounded-full shrink-0">
-                            Agotado
-                          </span>
-                        )}
-                      </button>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-          )}
 
           <p className="font-body-md text-body-md text-on-surface-variant mb-lg leading-relaxed">
             {product.description}

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, useLocation } from 'react-router-dom';
 
 // Layout & Drawers
 import Layout from './components/Layout';
@@ -18,6 +18,15 @@ import OrdersPage from './pages/OrdersPage';
 
 // Initial Data
 import { products as initialProducts } from './data/products';
+
+// Scroll to top on route change and page reload
+function ScrollToTop() {
+  const { pathname } = useLocation();
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, [pathname]);
+  return null;
+}
 
 export default function App() {
   const [productList, setProductList] = useState(initialProducts); // Dynamic products state
@@ -461,6 +470,7 @@ export default function App() {
 
   return (
     <BrowserRouter>
+      <ScrollToTop />
       {/* Page Routing within persistent layout */}
       <Routes>
         <Route
