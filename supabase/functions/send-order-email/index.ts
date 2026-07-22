@@ -231,6 +231,23 @@ Deno.serve(async (req: Request) => {
               ⏳ <strong>Estado:</strong> ${order.status} — Pendiente de verificación
             </p>
           </div>
+
+          <!-- Quick Action Buttons -->
+          <div style="margin-top: 24px; padding-top: 20px; border-top: 1px solid #e8e8f0; text-align: center;">
+            <p style="margin: 0 0 14px; font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: #6c757d;">Acciones de Administrador</p>
+            <div style="display: flex; gap: 10px; justify-content: center;">
+              <a href="${supabaseUrl}/functions/v1/process-order-action?order_id=${order.id}&action=confirm"
+                 target="_blank"
+                 style="display: inline-block; background-color: #10b981; color: #ffffff; text-decoration: none; font-size: 13px; font-weight: 700; padding: 12px 20px; border-radius: 10px; box-shadow: 0 2px 8px rgba(16,185,129,0.25);">
+                ✅ Confirmar Pedido
+              </a>
+              <a href="${supabaseUrl}/functions/v1/process-order-action?order_id=${order.id}&action=reject"
+                 target="_blank"
+                 style="display: inline-block; background-color: #ef4444; color: #ffffff; text-decoration: none; font-size: 13px; font-weight: 700; padding: 12px 20px; border-radius: 10px; box-shadow: 0 2px 8px rgba(239,68,68,0.25);">
+                ❌ Rechazar Pedido (Devolver Stock)
+              </a>
+            </div>
+          </div>
         </div>
 
         <!-- Footer -->
