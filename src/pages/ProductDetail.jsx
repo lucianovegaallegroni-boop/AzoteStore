@@ -16,7 +16,7 @@ export default function ProductDetail({ products, onAddToCart, onAddToWishlist, 
         const { supabase } = await import('../supabaseClient');
         const { data: p, error } = await supabase
           .from('products')
-          .select('id, name, price, description, image, category, stock, featured, division, product_variants(id, product_id, title, price, stock)')
+          .select('id, name, price, description, image, category, stock, featured, division, product_variants(id, product_id, title, price, stock, image)')
           .eq('id', id)
           .single();
 
@@ -44,7 +44,7 @@ export default function ProductDetail({ products, onAddToCart, onAddToWishlist, 
               id: v.id,
               name: v.title,
               hex: '#888888',
-              image: null,
+              image: v.image,
               stock: v.stock,
               inStock: v.stock > 0,
               price: parseFloat(v.price || p.price)

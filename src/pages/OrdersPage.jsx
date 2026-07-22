@@ -23,7 +23,7 @@ export default function OrdersPage({ currentUser }) {
         // Fetch products and their variants to get correct images
         const { data: dbProducts, error: pErr } = await supabase
           .from('products')
-          .select('id, name, price, description, image, category, stock, featured, division, product_variants(id, product_id, title, price, stock)');
+          .select('id, name, price, description, image, category, stock, featured, division, product_variants(id, product_id, title, price, stock, image)');
 
         if (pErr) throw pErr;
 

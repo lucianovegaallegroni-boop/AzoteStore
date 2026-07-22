@@ -38,7 +38,7 @@ export default function AdminPage({ products: initialProducts, onCreateProduct, 
         // Fetch products and their variants
         const { data: prods, error: pErr } = await supabase
           .from('products')
-          .select('id, name, price, description, image, category, stock, featured, division, product_variants(id, product_id, title, price, stock)');
+          .select('id, name, price, description, image, category, stock, featured, division, product_variants(id, product_id, title, price, stock, image)');
         
         if (pErr) throw pErr;
 
@@ -224,15 +224,50 @@ export default function AdminPage({ products: initialProducts, onCreateProduct, 
         return;
       }
       setImageFile(file);
-      const reader = new FileReader();
-      reader.onloadend = () => { setImagePreview(reader.result); };
-      reader.readAsDataURL(file);
+      setImagePreview(URL.createObjectURL(file));
     }
+  };
+
+  // Upload a file or base64 data URI to Supabase Storage and return the public URL
+  const uploadImageToStorage = async (supabase, fileOrDataUri, folder, filename) => {
+    const ext = fileOrDataUri instanceof File
+      ? fileOrDataUri.name.split('.').pop() || 'png'
+      : ((fileOrDataUri.match(/^data:image\/(\w+);/) || [])[1] || 'png');
+    const path = `${folder}/${filename}-${Date.now()}.${ext}`;
+
+    let uploadBody, contentType;
+    if (fileOrDataUri instanceof File) {
+      uploadBody = fileOrDataUri;
+      contentType = fileOrDataUri.type;
+    } else if (typeof fileOrDataUri === 'string' && fileOrDataUri.startsWith('data:')) {
+      // base64 data URI — decode to binary
+      const match = fileOrDataUri.match(/^data:(image\/\w+);base64,(.+)$/s);
+      if (!match) return fileOrDataUri; // can't decode, return as-is
+      contentType = match[1];
+      const binaryStr = atob(match[2]);
+      const bytes = new Uint8Array(binaryStr.length);
+      for (let i = 0; i < binaryStr.length; i++) bytes[i] = binaryStr.charCodeAt(i);
+      uploadBody = bytes;
+    } else {
+      return fileOrDataUri; // already a URL, return as-is
+    }
+
+    const { data, error } = await supabase.storage
+      .from('product-images')
+      .upload(path, uploadBody, { contentType, upsert: true });
+
+    if (error) throw new Error('Error subiendo imagen: ' + error.message);
+
+    const { data: urlData } = supabase.storage
+      .from('product-images')
+      .getPublicUrl(data.path);
+
+    return urlData.publicUrl;
   };
 
   // Variant helpers
   const addVariant = () => {
-    setVariants(prev => [...prev, { id: Date.now(), title: '', stock: '', price: '', image: '', imagePreview: '' }]);
+    setVariants(prev => [...prev, { id: Date.now(), title: '', stock: '', price: '', image: '', imagePreview: '', imageFile: null }]);
   };
   const removeVariant = (id) => {
     if (variants.length <= 1) return;
@@ -244,9 +279,7 @@ export default function AdminPage({ products: initialProducts, onCreateProduct, 
   const handleVariantImage = (id, e) => {
     const file = e.target.files[0];
     if (!file || !file.type.startsWith('image/')) return;
-    const reader = new FileReader();
-    reader.onloadend = () => updateVariant(id, 'imagePreview', reader.result);
-    reader.readAsDataURL(file);
+    setVariants(prev => prev.map(v => v.id === id ? { ...v, imageFile: file, imagePreview: URL.createObjectURL(file) } : v));
   };
 
   const handleRestockSubmit = (productId, amount, colorId = null) => {
@@ -491,6 +524,38 @@ export default function AdminPage({ products: initialProducts, onCreateProduct, 
       try {
         const { supabase } = await import('../supabaseClient');
 
+        // Upload main product image to Storage if it's a new file
+        let mainImageUrl = imagePreview || (hasVariants ? variants[0].imagePreview : '');
+        if (imageFile) {
+          const safeName = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').slice(0, 40);
+          mainImageUrl = await uploadImageToStorage(supabase, imageFile, 'products', `main-${safeName}`);
+        } else if (mainImageUrl && mainImageUrl.startsWith('data:')) {
+          const safeName = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').slice(0, 40);
+          mainImageUrl = await uploadImageToStorage(supabase, mainImageUrl, 'products', `main-${safeName}`);
+        }
+
+        // Upload variant images to Storage
+        const uploadedVariants = [];
+        if (hasVariants) {
+          for (const v of variants) {
+            let varImageUrl = v.imagePreview || v.image || null;
+            if (v.imageFile) {
+              const safeTitle = v.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').slice(0, 30);
+              varImageUrl = await uploadImageToStorage(supabase, v.imageFile, 'variants', `variant-${safeTitle}`);
+            } else if (varImageUrl && varImageUrl.startsWith('data:')) {
+              const safeTitle = v.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').slice(0, 30);
+              varImageUrl = await uploadImageToStorage(supabase, varImageUrl, 'variants', `variant-${safeTitle}`);
+            } else if (varImageUrl && varImageUrl.startsWith('blob:')) {
+              varImageUrl = v.image || null; // blob URLs can't be saved, use existing
+            }
+            uploadedVariants.push({ ...v, uploadedImageUrl: varImageUrl });
+          }
+          // If no main image was set, use first variant's uploaded image
+          if (!mainImageUrl || mainImageUrl.startsWith('blob:')) {
+            mainImageUrl = uploadedVariants[0]?.uploadedImageUrl || '';
+          }
+        }
+
         // 1. Prepare base product data
         const baseProduct = {
           name,
@@ -498,7 +563,7 @@ export default function AdminPage({ products: initialProducts, onCreateProduct, 
           price: hasVariants && samePrice ? parseFloat(price) : (!hasVariants ? parseFloat(price) : parseFloat(variants[0].price || 0)),
           stock: hasVariants ? variants.reduce((sum, v) => sum + parseInt(v.stock || 0), 0) : parseInt(stock),
           description,
-          image: imagePreview || (hasVariants ? variants[0].imagePreview : ''),
+          image: mainImageUrl,
           division: editingProduct ? editingProduct.division : null
         };
 
@@ -521,12 +586,12 @@ export default function AdminPage({ products: initialProducts, onCreateProduct, 
 
           // Re-insert new variants if hasVariants is true
           if (hasVariants) {
-            const variantsToInsert = variants.map(v => ({
+            const variantsToInsert = uploadedVariants.map(v => ({
               product_id: editingProduct.id,
               title: v.title,
               stock: parseInt(v.stock || 0),
               price: samePrice ? parseFloat(price) : parseFloat(v.price),
-              image: v.imagePreview || v.image || null
+              image: v.uploadedImageUrl || null
             }));
 
             const { error: variantsError } = await supabase
@@ -559,12 +624,12 @@ export default function AdminPage({ products: initialProducts, onCreateProduct, 
 
           // Insert variants if product has variants
           if (hasVariants && insertedProduct) {
-            const variantsToInsert = variants.map(v => ({
+            const variantsToInsert = uploadedVariants.map(v => ({
               product_id: insertedProduct.id,
               title: v.title,
               stock: parseInt(v.stock || 0),
               price: samePrice ? parseFloat(price) : parseFloat(v.price),
-              image: v.imagePreview || v.image || null
+              image: v.uploadedImageUrl || null
             }));
 
             const { error: variantsError } = await supabase
@@ -584,13 +649,13 @@ export default function AdminPage({ products: initialProducts, onCreateProduct, 
               stock: baseProduct.stock.toString(),
               description,
               image: baseProduct.image,
-              variants: variants.map(v => ({
+              variants: uploadedVariants.map(v => ({
                 id: v.title.toLowerCase().trim().replace(/[^a-z0-9]+/g, '-'),
                 name: v.title,
                 stock: parseInt(v.stock),
                 inStock: parseInt(v.stock) > 0,
                 price: samePrice ? parseFloat(price) : parseFloat(v.price),
-                image: v.imagePreview || v.image || null,
+                image: v.uploadedImageUrl || null,
               }))
             });
           } else {
