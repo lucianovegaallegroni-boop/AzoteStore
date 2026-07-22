@@ -38,6 +38,8 @@ export default function CartDrawer({
   const [paymentProof, setPaymentProof] = useState(null);
   const [paymentProofName, setPaymentProofName] = useState('');
   const [paymentProofPreview, setPaymentProofPreview] = useState('');
+  const [guestName, setGuestName] = useState('');
+  const [guestPhone, setGuestPhone] = useState('');
   const [createdOrder, setCreatedOrder] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -52,6 +54,8 @@ export default function CartDrawer({
       setPaymentProof(null);
       setPaymentProofName('');
       setPaymentProofPreview('');
+      setGuestName('');
+      setGuestPhone('');
       setCreatedOrder(null);
     }
     onClose();
@@ -72,7 +76,9 @@ export default function CartDrawer({
               ? 'Sucursal Sur (Av. de los Álamos 789)'
               : 'Recojo en Tienda General',
         paymentProofName,
-        paymentProofPreview
+        paymentProofPreview,
+        guestName,
+        guestPhone
       });
 
       setCreatedOrder(order);
@@ -92,7 +98,7 @@ export default function CartDrawer({
     }
   };
 
-  const isFormValid = !!paymentProofPreview;
+  const isFormValid = !!paymentProofPreview && (currentUser || (guestName.trim() !== '' && guestPhone.trim() !== ''));
 
   if (!shouldRender) return null;
 
@@ -217,32 +223,16 @@ export default function CartDrawer({
                 {/* <p className="text-xs text-on-surface-variant mb-6">
                         El costo total incluye los impuestos correspondientes. El recojo en cualquiera de nuestras sucursales es completamente gratuito.
                       </p> */}
-                {currentUser ? (
-                  <button
-                    onClick={() => setStep('payment')}
-                    className="w-full bg-primary text-on-primary font-headline-md text-headline-md py-4 rounded-xl shadow-[0_4px_14px_0_rgba(37,99,235,0.39)] hover:shadow-[0_6px_20px_rgba(37,99,235,0.23)] hover:-translate-y-0.5 active:translate-y-0 transition-all duration-200"
-                  >
-                    Proceder al Pago
-                  </button>
-                ) : (
-                  <div className="space-y-3">
-                    <div className="p-3 bg-error-container/20 border border-error/20 rounded-xl text-center">
-                      <p className="text-xs text-error font-semibold">Debes iniciar sesión para realizar pedidos.</p>
-                    </div>
-                    <button
-                      onClick={() => {
-                        handleCloseDrawer();
-                        // Delay navigate slightly so transition completes
-                        setTimeout(() => {
-                          window.location.href = '/login';
-                        }, 300);
-                      }}
-                      className="w-full bg-primary text-on-primary font-headline-md text-headline-md py-4 rounded-xl shadow-[0_4px_14px_0_rgba(37,99,235,0.39)] flex items-center justify-center gap-2 hover:scale-[1.02] transition-transform"
-                    >
-                      <span className="material-symbols-outlined text-[18px]">login</span>
-                      Iniciar Sesión
-                    </button>
-                  </div>
+                <button
+                  onClick={() => setStep('payment')}
+                  className="w-full bg-primary text-on-primary font-headline-md text-headline-md py-4 rounded-xl shadow-[0_4px_14px_0_rgba(37,99,235,0.39)] hover:shadow-[0_6px_20px_rgba(37,99,235,0.23)] hover:-translate-y-0.5 active:translate-y-0 transition-all duration-200"
+                >
+                  Proceder al Pago
+                </button>
+                {!currentUser && (
+                  <p className="text-[11px] text-center text-on-surface-variant mt-2">
+                    ¿Tienes una cuenta? <a href="/login" className="text-primary font-bold hover:underline">Inicia sesión</a> para guardar tus pedidos.
+                  </p>
                 )}
               </div>
             )}
@@ -269,6 +259,42 @@ export default function CartDrawer({
                   <div className="flex justify-between"><span>Monto a Transferir:</span> <span className="font-bold text-primary font-sans text-xs">${total.toFixed(2)}</span></div>
                 </div>
               </div>
+
+              {/* Guest Contact Information (only shown if not logged in) */}
+              {!currentUser && (
+                <div className="space-y-3 bg-surface-container-low border border-outline-variant/30 rounded-xl p-4">
+                  <h4 className="font-bold text-on-surface flex items-center gap-1.5 text-xs uppercase tracking-wider font-montserrat">
+                    <span className="material-symbols-outlined text-[16px] text-primary">person</span>
+                    Datos de Contacto (Invitado)
+                  </h4>
+
+                  <div>
+                    <label className="block text-[11px] font-semibold uppercase tracking-wider text-outline mb-1">
+                      Nombre Completo *
+                    </label>
+                    <input
+                      type="text"
+                      value={guestName}
+                      onChange={(e) => setGuestName(e.target.value)}
+                      placeholder="Ej. Juan Pérez"
+                      className="w-full bg-surface-container-lowest text-on-surface border border-outline-variant/40 rounded-xl px-3.5 py-2.5 focus:outline-none focus:ring-2 focus:ring-primary text-xs"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-semibold uppercase tracking-wider text-outline mb-1">
+                      Teléfono / WhatsApp *
+                    </label>
+                    <input
+                      type="tel"
+                      value={guestPhone}
+                      onChange={(e) => setGuestPhone(e.target.value)}
+                      placeholder="Ej. +507 6123-4567"
+                      className="w-full bg-surface-container-lowest text-on-surface border border-outline-variant/40 rounded-xl px-3.5 py-2.5 focus:outline-none focus:ring-2 focus:ring-primary text-xs"
+                    />
+                  </div>
+                </div>
+              )}
 
               {/* Pickup Locations */}
               {/* <div className="space-y-3">

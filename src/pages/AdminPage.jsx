@@ -94,6 +94,7 @@ export default function AdminPage({ products: initialProducts, onCreateProduct, 
             date: new Date(o.date).toLocaleString('es-ES'),
             clientName: o.client_name,
             clientEmail: o.client_email,
+            clientPhone: o.client_phone,
             total: parseFloat(o.total),
             pickupLocation: o.pickup_location,
             paymentProofName: o.payment_proof_name,
@@ -1935,7 +1936,12 @@ export default function AdminPage({ products: initialProducts, onCreateProduct, 
                                 </td>
                                 <td className="px-md py-4 align-top">
                                   <span className="font-bold text-on-surface block text-sm">{order.clientName}</span>
-                                  <span className="text-xs text-on-surface-variant block truncate max-w-[150px]">{order.clientEmail}</span>
+                                  {order.clientPhone && (
+                                    <span className="text-xs text-primary font-semibold block">{order.clientPhone}</span>
+                                  )}
+                                  {order.clientEmail && order.clientEmail !== 'N/A' && (
+                                    <span className="text-xs text-on-surface-variant block truncate max-w-[150px]">{order.clientEmail}</span>
+                                  )}
                                 </td>
                                 <td className="px-md py-4 align-top">
                                   <div className="space-y-1">

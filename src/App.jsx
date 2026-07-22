@@ -242,11 +242,16 @@ export default function App() {
     const orderId = `ORD-${Date.now().toString().slice(-6)}`;
     const totalAmount = cartItems.reduce((sum, item) => sum + item.product.price * item.quantity, 0);
 
+    const clientName = currentUser ? currentUser.name : (orderData.guestName || 'Invitado');
+    const clientEmail = currentUser ? currentUser.email : 'N/A';
+    const clientPhone = currentUser ? currentUser.phone : (orderData.guestPhone || null);
+
     const newOrder = {
       id: orderId,
       date: new Date().toISOString(),
-      clientName: currentUser ? currentUser.name : 'Invitado',
-      clientEmail: currentUser ? currentUser.email : 'invitado@azotestore.com',
+      clientName,
+      clientEmail,
+      clientPhone,
       items: [...cartItems],
       total: totalAmount,
       pickupLocation: orderData.pickupLocation,
@@ -268,6 +273,7 @@ export default function App() {
             user_id: currentUser ? currentUser.id : null,
             client_name: newOrder.clientName,
             client_email: newOrder.clientEmail,
+            client_phone: newOrder.clientPhone,
             total: newOrder.total,
             pickup_location: newOrder.pickupLocation,
             payment_proof_name: newOrder.paymentProofName,

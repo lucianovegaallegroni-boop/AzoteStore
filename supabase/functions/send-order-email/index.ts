@@ -18,6 +18,7 @@ interface OrderRecord {
   id: string;
   client_name: string;
   client_email: string;
+  client_phone?: string | null;
   total: number;
   pickup_location: string | null;
   payment_proof_name: string | null;
@@ -188,7 +189,8 @@ Deno.serve(async (req: Request) => {
           <div style="background: #f8f9ff; border-radius: 12px; padding: 16px 20px; margin-bottom: 20px; border-left: 4px solid #3b5bdb;">
             <h3 style="margin: 0 0 10px; font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px; color: #6c757d;">Información del Cliente</h3>
             <p style="margin: 4px 0; font-size: 14px; color: #1a1a2e;"><strong>Nombre:</strong> ${order.client_name}</p>
-            <p style="margin: 4px 0; font-size: 14px; color: #1a1a2e;"><strong>Email:</strong> ${order.client_email}</p>
+            ${order.client_phone ? `<p style="margin: 4px 0; font-size: 14px; color: #1a1a2e;"><strong>Teléfono / WhatsApp:</strong> ${order.client_phone}</p>` : ""}
+            ${order.client_email && order.client_email !== 'N/A' && !order.client_email.includes('invitado') ? `<p style="margin: 4px 0; font-size: 14px; color: #1a1a2e;"><strong>Email:</strong> ${order.client_email}</p>` : ""}
             ${order.pickup_location ? `<p style="margin: 4px 0; font-size: 14px; color: #1a1a2e;"><strong>Retiro:</strong> ${order.pickup_location}</p>` : ""}
           </div>
 
