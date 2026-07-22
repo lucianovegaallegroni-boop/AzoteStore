@@ -502,6 +502,7 @@ export default function App() {
           />
           <Route path="login" element={<LoginPage onLogin={handleLogin} />} />
           <Route path="register" element={<RegisterPage onRegister={handleRegister} />} />
+          <Route path="forgot-password" element={<ForgotPasswordPage />} />
           <Route path="orders" element={<OrdersPage products={productList} currentUser={currentUser} />} />
           <Route path="admin" element={
             currentUser && currentUser.role === 'admin' ? (
