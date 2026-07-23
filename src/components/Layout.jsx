@@ -412,15 +412,15 @@ export default function Layout({ cartCount, wishlistCount, currentUser, onLogout
             <Link to="/catalog" className="text-surface-variant hover:text-white transition-colors hover:underline decoration-secondary decoration-2 font-body-md text-body-md w-fit">
               Catálogo Completo
             </Link>
-            <a href="#" className="text-surface-variant hover:text-white transition-colors hover:underline decoration-secondary decoration-2 font-body-md text-body-md w-fit">
+            {/* <a href="#" className="text-surface-variant hover:text-white transition-colors hover:underline decoration-secondary decoration-2 font-body-md text-body-md w-fit">
               Localizador de Tiendas
             </a>
             <a href="#" className="text-surface-variant hover:text-white transition-colors hover:underline decoration-secondary decoration-2 font-body-md text-body-md w-fit">
               Calendario de Eventos
-            </a>
+            </a> */}
           </div>
 
-          <div className="flex flex-col gap-sm">
+          {/* <div className="flex flex-col gap-sm">
             <h3 className="font-label-md text-label-md text-primary-fixed uppercase tracking-wider mb-2">Soporte</h3>
             <a href="#" className="text-surface-variant hover:text-white transition-colors hover:underline decoration-secondary decoration-2 font-body-md text-body-md w-fit">
               Políticas de Envío
@@ -428,9 +428,9 @@ export default function Layout({ cartCount, wishlistCount, currentUser, onLogout
             <a href="#" className="text-surface-variant hover:text-white transition-colors hover:underline decoration-secondary decoration-2 font-body-md text-body-md w-fit">
               Contacto y Soporte
             </a>
-          </div>
+          </div> */}
 
-          <div className="flex flex-col gap-sm">
+          {/* <div className="flex flex-col gap-sm">
             <h3 className="font-label-md text-label-md text-primary-fixed uppercase tracking-wider mb-2">Mantente Actualizado</h3>
             <form onSubmit={(e) => { e.preventDefault(); alert('¡Te has registrado con éxito!'); }} className="flex mt-2">
               <input
@@ -443,7 +443,7 @@ export default function Layout({ cartCount, wishlistCount, currentUser, onLogout
                 Unirse
               </button>
             </form>
-          </div>
+          </div> */}
 
           <div className="md:col-span-4 mt-lg pt-lg border-t border-outline/30 flex flex-col md:flex-row justify-between items-center gap-4">
             <p className="font-body-md text-body-md text-surface-variant">
