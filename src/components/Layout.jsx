@@ -98,23 +98,23 @@ export default function Layout({ cartCount, wishlistCount, currentUser, onLogout
                 <div className="absolute top-full left-0 mt-1 bg-surface dark:bg-inverse-surface border border-outline-variant/30 rounded-xl shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50 py-2 w-44 flex flex-col gap-1 card-shadow">
                   <Link
                     to="/catalog?category=yu-gi-oh"
-                    className="px-4 py-2 text-xs font-semibold text-on-surface hover:bg-surface-container-low hover:text-primary transition-colors flex items-center gap-2"
+                    className="px-4 py-2 text-xs font-semibold text-on-surface hover:bg-surface-container-low hover:text-primary transition-colors flex items-center gap-2.5"
                   >
-                    <img src="https://upload.wikimedia.org/wikipedia/commons/1/11/Yu-Gi-Oh%21_%28Logo%29.png" alt="Yu-Gi-Oh" className="w-4 h-4 object-contain shrink-0" />
+                    <img src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQb_QJG__8waCiF9-EHaLoNyDavicTlcHbAk8fhh5-i6w&s" alt="Yu-Gi-Oh" className="w-[27px] h-[27px] object-contain shrink-0" />
                     Yu-Gi-Oh
                   </Link>
                   <Link
                     to="/catalog?category=pokemon"
-                    className="px-4 py-2 text-xs font-semibold text-on-surface hover:bg-surface-container-low hover:text-primary transition-colors flex items-center gap-2"
+                    className="px-4 py-2 text-xs font-semibold text-on-surface hover:bg-surface-container-low hover:text-primary transition-colors flex items-center gap-2.5"
                   >
-                    <img src="https://upload.wikimedia.org/wikipedia/commons/9/98/International_Pok%C3%A9mon_logo.svg" alt="Pokemon" className="w-4 h-4 object-contain shrink-0" />
+                    <img src="https://upload.wikimedia.org/wikipedia/commons/9/98/International_Pok%C3%A9mon_logo.svg" alt="Pokemon" className="w-[27px] h-[27px] object-contain shrink-0" />
                     Pokemon
                   </Link>
                   <Link
                     to="/catalog?category=magic"
-                    className="px-4 py-2 text-xs font-semibold text-on-surface hover:bg-surface-container-low hover:text-primary transition-colors flex items-center gap-2"
+                    className="px-4 py-2 text-xs font-semibold text-on-surface hover:bg-surface-container-low hover:text-primary transition-colors flex items-center gap-2.5"
                   >
-                    <img src="https://upload.wikimedia.org/wikipedia/commons/3/3f/Magic_the_gathering-logo.svg" alt="Magic" className="w-4 h-4 object-contain shrink-0" />
+                    <img src="https://1000logos.net/wp-content/uploads/2022/10/Magic-The-Gathering-logo.png" alt="Magic" className="w-[27px] h-[27px] object-contain shrink-0" />
                     Magic
                   </Link>
                 </div>
@@ -123,11 +123,6 @@ export default function Layout({ cartCount, wishlistCount, currentUser, onLogout
               {/* Sleeves Link */}
               <Link to="/catalog?category=sleeves" className="text-on-surface-variant dark:text-outline-variant font-body-md text-body-md hover:text-primary dark:hover:text-primary-fixed hover:scale-105 transition-all">
                 Sleeves
-              </Link>
-
-              {/* Board Games Link */}
-              <Link to="/catalog?category=board-games" className="text-on-surface-variant dark:text-outline-variant font-body-md text-body-md hover:text-primary dark:hover:text-primary-fixed hover:scale-105 transition-all">
-                Board Games
               </Link>
 
               {/* Add Product Button (Visible only to admin users) */}
@@ -267,7 +262,7 @@ export default function Layout({ cartCount, wishlistCount, currentUser, onLogout
           <div className={`absolute inset-y-0 right-0 w-72 max-w-xs bg-surface border-l border-outline-variant/30 shadow-2xl p-6 flex flex-col gap-6 transform transition-transform duration-300 ease-in-out ${mobileMenuOpen ? 'translate-x-0' : 'translate-x-full'}`}>
 
             {/* Drawer Header */}
-            <div className="flex items-center justify-between pb-4 border-b border-outline-variant/20">
+            <div className="flex items-center justify-between pb-4 border-b border-outline-variant/20 shrink-0">
               <Link to="/" onClick={() => setMobileMenuOpen(false)} className="flex items-center">
                 <img src={logo} alt="Azote Store" className="h-16 w-auto rounded-xl object-contain border border-outline-variant/10 shadow-md" />
               </Link>
@@ -280,8 +275,8 @@ export default function Layout({ cartCount, wishlistCount, currentUser, onLogout
               </button>
             </div>
 
-            {/* Links */}
-            <nav className="flex flex-col gap-2 flex-grow">
+            {/* Scrollable Nav Links Area (Scrolls above footer) */}
+            <nav className="flex-1 overflow-y-auto pr-1 flex flex-col gap-2 scrollbar-thin">
               <div className="text-[10px] text-outline uppercase tracking-wider font-bold mb-2 ml-3">Categorías</div>
 
               {/* TCG Accordion */}
@@ -303,25 +298,25 @@ export default function Layout({ cartCount, wishlistCount, currentUser, onLogout
                     <Link
                       to="/catalog?category=yu-gi-oh"
                       onClick={() => { setMobileMenuOpen(false); setTcgOpen(false); }}
-                      className="py-2 px-3 rounded-lg text-on-surface-variant font-semibold text-sm hover:bg-surface-container-low hover:text-primary transition-colors flex items-center gap-2"
+                      className="py-2 px-3 rounded-lg text-on-surface-variant font-semibold text-sm hover:bg-surface-container-low hover:text-primary transition-colors flex items-center gap-2.5"
                     >
-                      <img src="https://upload.wikimedia.org/wikipedia/commons/1/11/Yu-Gi-Oh%21_%28Logo%29.png" alt="Yu-Gi-Oh" className="w-[18px] h-[18px] object-contain shrink-0" />
+                      <img src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQb_QJG__8waCiF9-EHaLoNyDavicTlcHbAk8fhh5-i6w&s" alt="Yu-Gi-Oh" className="w-[27px] h-[27px] object-contain shrink-0" />
                       Yu-Gi-Oh
                     </Link>
                     <Link
                       to="/catalog?category=pokemon"
                       onClick={() => { setMobileMenuOpen(false); setTcgOpen(false); }}
-                      className="py-2 px-3 rounded-lg text-on-surface-variant font-semibold text-sm hover:bg-surface-container-low hover:text-primary transition-colors flex items-center gap-2"
+                      className="py-2 px-3 rounded-lg text-on-surface-variant font-semibold text-sm hover:bg-surface-container-low hover:text-primary transition-colors flex items-center gap-2.5"
                     >
-                      <img src="https://upload.wikimedia.org/wikipedia/commons/9/98/International_Pok%C3%A9mon_logo.svg" alt="Pokemon" className="w-[18px] h-[18px] object-contain shrink-0" />
+                      <img src="https://upload.wikimedia.org/wikipedia/commons/9/98/International_Pok%C3%A9mon_logo.svg" alt="Pokemon" className="w-[27px] h-[27px] object-contain shrink-0" />
                       Pokemon
                     </Link>
                     <Link
                       to="/catalog?category=magic"
                       onClick={() => { setMobileMenuOpen(false); setTcgOpen(false); }}
-                      className="py-2 px-3 rounded-lg text-on-surface-variant font-semibold text-sm hover:bg-surface-container-low hover:text-primary transition-colors flex items-center gap-2"
+                      className="py-2 px-3 rounded-lg text-on-surface-variant font-semibold text-sm hover:bg-surface-container-low hover:text-primary transition-colors flex items-center gap-2.5"
                     >
-                      <img src="https://upload.wikimedia.org/wikipedia/commons/3/3f/Magic_the_gathering-logo.svg" alt="Magic" className="w-[18px] h-[18px] object-contain shrink-0" />
+                      <img src="https://1000logos.net/wp-content/uploads/2022/10/Magic-The-Gathering-logo.png" alt="Magic" className="w-[27px] h-[27px] object-contain shrink-0" />
                       Magic
                     </Link>
                   </div>
@@ -376,9 +371,9 @@ export default function Layout({ cartCount, wishlistCount, currentUser, onLogout
               )}
             </nav>
 
-            {/* User Session Info in Drawer Footer */}
+            {/* Pinned User Session Info Footer */}
             {currentUser && (
-              <div className="border-t border-outline-variant/20 pt-4 mt-auto">
+              <div className="border-t border-outline-variant/20 pt-4 mt-auto shrink-0">
                 <div className="flex items-center gap-3">
                   <div className="w-9 h-9 rounded-full bg-primary text-on-primary font-bold text-sm flex items-center justify-center shadow-sm">
                     {currentUser.name.charAt(0).toUpperCase()}

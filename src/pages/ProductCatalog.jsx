@@ -194,10 +194,10 @@ export default function ProductCatalog({ products }) {
                       : 'bg-surface-container-lowest text-on-surface-variant hover:bg-surface-container-high'
                     }`}
                 >
-                  <span className="flex items-center gap-2">
-                    {cat.slug === 'yu-gi-oh' && <img src="https://upload.wikimedia.org/wikipedia/commons/1/11/Yu-Gi-Oh%21_%28Logo%29.png" alt="Yu-Gi-Oh" className="w-4 h-4 object-contain shrink-0" />}
-                    {cat.slug === 'pokemon' && <img src="https://upload.wikimedia.org/wikipedia/commons/9/98/International_Pok%C3%A9mon_logo.svg" alt="Pokemon" className="w-4 h-4 object-contain shrink-0" />}
-                    {cat.slug === 'magic' && <img src="https://upload.wikimedia.org/wikipedia/commons/3/3f/Magic_the_gathering-logo.svg" alt="Magic" className="w-4 h-4 object-contain shrink-0" />}
+                  <span className="flex items-center gap-2.5">
+                    {cat.slug === 'yu-gi-oh' && <img src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQb_QJG__8waCiF9-EHaLoNyDavicTlcHbAk8fhh5-i6w&s" alt="Yu-Gi-Oh" className="w-[27px] h-[27px] object-contain shrink-0" />}
+                    {cat.slug === 'pokemon' && <img src="https://upload.wikimedia.org/wikipedia/commons/9/98/International_Pok%C3%A9mon_logo.svg" alt="Pokemon" className="w-[27px] h-[27px] object-contain shrink-0" />}
+                    {cat.slug === 'magic' && <img src="https://1000logos.net/wp-content/uploads/2022/10/Magic-The-Gathering-logo.png" alt="Magic" className="w-[27px] h-[27px] object-contain shrink-0" />}
                     {cat.name}
                   </span>
                   {selectedCategory === cat.slug && (

@@ -136,7 +136,7 @@ export default function App() {
             let changed = false;
             const validatedItems = prevItems.filter((item) => {
               const dbProduct = formatted.find(p => String(p.id) === String(item.product.id));
-              
+
               if (!dbProduct) {
                 // Product no longer exists in DB
                 changed = true;
@@ -398,7 +398,6 @@ export default function App() {
       'Yu-Gi-Oh': 'https://lh3.googleusercontent.com/aida-public/AB6AXuAct3FZrbUkLdhtf_kIuFVe-SsAjjQF2TyHl0Z9heIFgJClU0DGBHnMVFINYeaIbb_B0JRF69Sf1JPn8BG-uHXAyrlcoB2V32G7XQIMQwGpPJoq1KYszZ43O2-ZjnU6cI4kdMetqGyPByPmC1-kXaSJiaT2O5mRMHIODP6v1AYNYIKqEUi2EMAqI4W5wOpZBtf1zrT0vVnkridLk8r2pPDmH9LgyMNCINBwKZACGdTxJeYhduMlOWoVRA',
       'Pokemon': 'https://lh3.googleusercontent.com/aida-public/AB6AXuDg74pfKIt2CvGPah78qzcEaybynQnf6wBwGQvhiMGjRdR484TlEvkm4wud7o8-87mxZkwbK_3XDik1VTKNTKqyBnuWMuQ3dS9mpm7Oj9oy8mlp0-_7kEpyrUjKbPOw6udpxFjr7W8aglp3Wu9TVU9uQVJlybu_5NElRWZbCUBmwaoSvD3igqlXvddRvkxlnwa5B7SOorhDAxf71omLV2dXus3Z2yWDtet0r9KG837jAG0RtuyA3KSSVg',
       'Magic': 'https://lh3.googleusercontent.com/aida-public/AB6AXuDnp2ZYe1od9ao4mo189r2IwJr4bdJbg123xgjyg6_WC8XxWSUItsmYjGGRRZBzCyCGLZ9MSYRidQGAYoU_9mKvyQFg1CTYvmfOsTPac31EKyl2cO2ld3pEUUGVxPbEnj8rE3yTcwTegzEFP8Z8pjWrFNS5yP5G39M1UeMCcArcEgmf07Pw21aWhOWJPpu6-XN2rDy7GWEVDCjT4RDpW3McfizB1pymdFamluA5DLA9dNgKVItFHjLMOQ',
-      'Board Games': 'https://lh3.googleusercontent.com/aida-public/AB6AXuDgCcj_1Jfe_rPfvZcnrHUnMZh0YeCjAJG7aFnucCn7qZOflrh3ys9MlyBzgWe3Y4RWk6CWdLM5Q3UsZ5zoUfwu5Bd3TZroaQIJIDhNBOnIy0vfuGveg6VKZG0pfaiwE5_fKsUcJWfOpQ6n59mauilTf26koWooTSYI_eGOa_dIUGLNEQFwnEFRK-HyhXroVsKB_4gzYhS2Z6il_0ijDrpINQ3-HIQTlildJxLuO__ohjcLtYY1WnFHLg'
     };
 
     const newProduct = {
@@ -407,8 +406,8 @@ export default function App() {
       subtitle: `${productData.category} Collectible Item`,
       price: parseFloat(productData.price),
       originalPrice: null,
-      image: productData.image || imageMap[productData.category] || imageMap['Board Games'],
-      gallery: [productData.image || imageMap[productData.category] || imageMap['Board Games']],
+      image: productData.image || imageMap[productData.category],
+      gallery: [productData.image || imageMap[productData.category]],
       category: productData.category,
       categorySlug: productData.category.toLowerCase().replace(/\s+/g, '-'),
       inStock: parseInt(productData.stock) > 0,

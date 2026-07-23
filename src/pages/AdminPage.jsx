@@ -6,7 +6,6 @@ const categoryOptions = [
   { value: "Yu-Gi-Oh", label: "Yu-Gi-Oh" },
   { value: "Pokemon", label: "Pokemon" },
   { value: "Magic", label: "Magic" },
-  { value: "Board Games", label: "Board Games" },
   { value: "Sleeves", label: "Sleeves" }
 ];
 
@@ -15,7 +14,6 @@ const restockCategoryOptions = [
   { value: "yu-gi-oh", label: "Yu-Gi-Oh" },
   { value: "pokemon", label: "Pokemon" },
   { value: "magic", label: "Magic" },
-  { value: "board-games", label: "Board Games" },
   { value: "sleeves", label: "Sleeves" }
 ];
 
@@ -39,7 +37,7 @@ export default function AdminPage({ products: initialProducts, onCreateProduct, 
         const { data: prods, error: pErr } = await supabase
           .from('products')
           .select('id, name, price, description, image, category, stock, featured, division, product_variants(id, product_id, title, price, stock, image)');
-        
+
         if (pErr) throw pErr;
 
         if (prods) {
@@ -373,15 +371,15 @@ export default function AdminPage({ products: initialProducts, onCreateProduct, 
             prevProducts.map((p) =>
               p.id === productId
                 ? {
-                    ...p,
-                    stock: newStock,
-                    inStock: newStock > 0,
-                    specifications: {
-                      ...p.specifications,
-                      Stock: String(newStock),
-                      Status: newStock > 0 ? 'Disponible' : 'Agotado'
-                    }
+                  ...p,
+                  stock: newStock,
+                  inStock: newStock > 0,
+                  specifications: {
+                    ...p.specifications,
+                    Stock: String(newStock),
+                    Status: newStock > 0 ? 'Disponible' : 'Agotado'
                   }
+                }
                 : p
             )
           );
@@ -403,7 +401,7 @@ export default function AdminPage({ products: initialProducts, onCreateProduct, 
     setEditingProduct(product);
     setName(product.name);
     setCategory(product.category);
-    
+
     // Check if product has variants
     if (product.colors && product.colors.length > 0) {
       setHasVariants(true);
@@ -411,7 +409,7 @@ export default function AdminPage({ products: initialProducts, onCreateProduct, 
       const allSame = product.colors.every(v => v.price === firstPrice);
       setSamePrice(allSame);
       setPrice(allSame ? String(firstPrice) : '');
-      
+
       setVariants(product.colors.map((v, index) => ({
         id: v.id || index + 1,
         title: v.name,
@@ -432,7 +430,7 @@ export default function AdminPage({ products: initialProducts, onCreateProduct, 
         { id: 1, title: '', stock: '', price: '', image: '', imagePreview: '' }
       ]);
     }
-    
+
     setDescription(product.description || '');
     setImageFile(null);
     setBtnText('Guardar Cambios');
@@ -447,7 +445,7 @@ export default function AdminPage({ products: initialProducts, onCreateProduct, 
             .from('product_variants')
             .select('id, title, price, stock, image')
             .eq('product_id', product.id);
-          
+
           if (!error && fullVariants) {
             setVariants(fullVariants.map((v, index) => ({
               id: v.id || index + 1,
@@ -715,7 +713,7 @@ export default function AdminPage({ products: initialProducts, onCreateProduct, 
 
   const handleToggleFeatured = (productId, currentVal) => {
     const newVal = !currentVal;
-    
+
     // Local update only - no API call until user confirms
     setDbProducts((prevProducts) =>
       prevProducts.map((p) =>
@@ -809,7 +807,7 @@ export default function AdminPage({ products: initialProducts, onCreateProduct, 
 
   const handleStatusChange = (orderId, newStatus) => {
     let prevStatus = 'Realizado';
-    
+
     // 1. Optimistic Update (instant UI feedback)
     setOrders((prevOrders) => {
       const target = prevOrders.find((o) => o.id === orderId);
@@ -1152,19 +1150,16 @@ export default function AdminPage({ products: initialProducts, onCreateProduct, 
                         <button
                           type="button"
                           onClick={() => setHasVariants(!hasVariants)}
-                          className={`flex items-center gap-3 w-full p-4 rounded-xl border-2 transition-all ${
-                            hasVariants
-                              ? 'border-primary bg-primary/5 text-primary'
-                              : 'border-outline-variant/40 hover:border-primary/50 text-on-surface-variant hover:text-on-surface'
-                          }`}
+                          className={`flex items-center gap-3 w-full p-4 rounded-xl border-2 transition-all ${hasVariants
+                            ? 'border-primary bg-primary/5 text-primary'
+                            : 'border-outline-variant/40 hover:border-primary/50 text-on-surface-variant hover:text-on-surface'
+                            }`}
                         >
                           {/* Toggle pill */}
-                          <div className={`w-11 h-6 rounded-full relative transition-colors shrink-0 ${
-                            hasVariants ? 'bg-primary' : 'bg-outline-variant/50'
-                          }`}>
-                            <div className={`absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${
-                              hasVariants ? 'translate-x-5' : 'translate-x-0.5'
-                            }`} />
+                          <div className={`w-11 h-6 rounded-full relative transition-colors shrink-0 ${hasVariants ? 'bg-primary' : 'bg-outline-variant/50'
+                            }`}>
+                            <div className={`absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${hasVariants ? 'translate-x-5' : 'translate-x-0.5'
+                              }`} />
                           </div>
                           <div className="text-left">
                             <p className="font-bold text-sm">Este producto tiene múltiples tipos</p>
@@ -1188,13 +1183,11 @@ export default function AdminPage({ products: initialProducts, onCreateProduct, 
                             <button
                               type="button"
                               onClick={() => setSamePrice(!samePrice)}
-                              className={`w-11 h-6 rounded-full relative transition-colors shrink-0 ${
-                                samePrice ? 'bg-primary' : 'bg-secondary'
-                              }`}
+                              className={`w-11 h-6 rounded-full relative transition-colors shrink-0 ${samePrice ? 'bg-primary' : 'bg-secondary'
+                                }`}
                             >
-                              <div className={`absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${
-                                samePrice ? 'translate-x-5' : 'translate-x-0.5'
-                              }`} />
+                              <div className={`absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${samePrice ? 'translate-x-5' : 'translate-x-0.5'
+                                }`} />
                             </button>
                           </div>
 
@@ -1531,7 +1524,7 @@ export default function AdminPage({ products: initialProducts, onCreateProduct, 
                         <h3 className="font-headline-md text-headline-md text-on-surface">Catálogo de Productos</h3>
                         <p className="text-on-surface-variant text-xs mt-0.5">Busca cualquier producto de la tienda para agregarlo o removerlo de las secciones de la Landing Page.</p>
                       </div>
-                      
+
                       {/* Search and Filters */}
                       <div className="flex flex-col sm:flex-row gap-base w-full md:w-auto items-stretch">
                         {/* Search */}
@@ -1539,8 +1532,8 @@ export default function AdminPage({ products: initialProducts, onCreateProduct, 
                           <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant group-focus-within:text-primary transition-colors">
                             search
                           </span>
-                          <input 
-                            type="text" 
+                          <input
+                            type="text"
                             placeholder="Buscar producto..."
                             value={featuredSearch}
                             onChange={(e) => setFeaturedSearch(e.target.value)}
@@ -1558,7 +1551,7 @@ export default function AdminPage({ products: initialProducts, onCreateProduct, 
                         </div>
                         {/* Reset Button */}
                         {(featuredSearch || featuredCategory) && (
-                          <button 
+                          <button
                             onClick={() => { setFeaturedSearch(''); setFeaturedCategory(''); }}
                             className="py-2 px-4 rounded-lg bg-surface border border-outline-variant/30 text-xs font-bold text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high transition-colors"
                           >
@@ -1620,7 +1613,7 @@ export default function AdminPage({ products: initialProducts, onCreateProduct, 
                                     </td>
                                     <td className="px-md py-4 text-on-surface-variant text-xs font-semibold">{p.category}</td>
                                     <td className="px-md py-4 text-center text-xs font-bold text-on-surface-variant">${p.price.toFixed(2)}</td>
-                                    
+
                                     {/* Hero Carousel Toggle */}
                                     <td className="px-md py-4 text-center">
                                       <div className="flex flex-col items-center gap-1.5">
@@ -1641,11 +1634,10 @@ export default function AdminPage({ products: initialProducts, onCreateProduct, 
                                         <button
                                           type="button"
                                           onClick={() => handleToggleHero(p.id, p.division)}
-                                          className={`px-3 py-1 rounded-md font-bold text-[10px] transition-all flex items-center justify-center gap-0.5 ${
-                                            p.division === 'hero' 
-                                              ? 'bg-outline-variant/20 hover:bg-error/15 text-on-surface-variant hover:text-error' 
-                                              : 'bg-primary text-on-primary hover:bg-primary/90'
-                                          }`}
+                                          className={`px-3 py-1 rounded-md font-bold text-[10px] transition-all flex items-center justify-center gap-0.5 ${p.division === 'hero'
+                                            ? 'bg-outline-variant/20 hover:bg-error/15 text-on-surface-variant hover:text-error'
+                                            : 'bg-primary text-on-primary hover:bg-primary/90'
+                                            }`}
                                         >
                                           <span className="material-symbols-outlined text-[12px]">
                                             {p.division === 'hero' ? 'close' : 'view_carousel'}
@@ -1675,11 +1667,10 @@ export default function AdminPage({ products: initialProducts, onCreateProduct, 
                                         <button
                                           type="button"
                                           onClick={() => handleToggleFeatured(p.id, p.featured)}
-                                          className={`px-3 py-1 rounded-md font-bold text-[10px] transition-all flex items-center justify-center gap-0.5 ${
-                                            p.featured 
-                                              ? 'bg-outline-variant/20 hover:bg-error/15 text-on-surface-variant hover:text-error' 
-                                              : 'bg-primary text-on-primary hover:bg-primary/90'
-                                          }`}
+                                          className={`px-3 py-1 rounded-md font-bold text-[10px] transition-all flex items-center justify-center gap-0.5 ${p.featured
+                                            ? 'bg-outline-variant/20 hover:bg-error/15 text-on-surface-variant hover:text-error'
+                                            : 'bg-primary text-on-primary hover:bg-primary/90'
+                                            }`}
                                         >
                                           <span className="material-symbols-outlined text-[12px]">
                                             {p.featured ? 'close' : 'star'}
@@ -2087,7 +2078,7 @@ export default function AdminPage({ products: initialProducts, onCreateProduct, 
 
       {/* Lightbox Modal for Receipt Verification */}
       {selectedProofUrl && (
-        <div 
+        <div
           onClick={(e) => {
             if (e.target === e.currentTarget) {
               setSelectedProofUrl(null);
@@ -2130,7 +2121,7 @@ export default function AdminPage({ products: initialProducts, onCreateProduct, 
 
       {/* Delete Product Confirmation Modal */}
       {productToDelete && (
-        <div 
+        <div
           onClick={(e) => {
             if (e.target === e.currentTarget) {
               setProductToDelete(null);
@@ -2142,15 +2133,15 @@ export default function AdminPage({ products: initialProducts, onCreateProduct, 
             <div className="w-16 h-16 bg-error/10 text-error rounded-full flex items-center justify-center mx-auto mb-2">
               <span className="material-symbols-outlined text-[36px]">warning</span>
             </div>
-            
+
             <h3 className="text-headline-md font-bold text-on-background">
               ¿Eliminar Producto?
             </h3>
-            
+
             <p className="text-sm text-on-surface-variant leading-relaxed">
               Estás a punto de eliminar permanentemente el producto <span className="font-bold text-on-surface">"{productToDelete.name}"</span> y todas sus variantes de catálogo.
             </p>
-            
+
             <div className="p-3.5 bg-error-container/20 border border-error/25 rounded-xl text-left flex items-start gap-3">
               <span className="material-symbols-outlined text-error text-[20px] shrink-0 mt-0.5">info</span>
               <p className="text-xs text-error font-semibold leading-relaxed">
