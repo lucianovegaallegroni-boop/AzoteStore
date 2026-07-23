@@ -308,10 +308,28 @@ export default function ProductDetail({ products, onAddToCart, onAddToWishlist, 
                     <button
                       key={color.id}
                       type="button"
-                      onClick={() => {
+                      onClick={(e) => {
                         if (wasDragged.current) return;
                         setSelectedColor(color);
                         setActiveImageIndex(idx);
+
+                        // Auto-scroll list in both directions depending on click position
+                        const btn = e.currentTarget;
+                        const container = variantStripRef.current;
+                        if (btn && container) {
+                          const containerRect = container.getBoundingClientRect();
+                          const btnRect = btn.getBoundingClientRect();
+                          const nextBtn = btn.nextElementSibling;
+                          const prevBtn = btn.previousElementSibling;
+
+                          if (btnRect.right >= containerRect.right - 100 && nextBtn) {
+                            nextBtn.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'nearest' });
+                          } else if (btnRect.left <= containerRect.left + 100 && prevBtn) {
+                            prevBtn.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'nearest' });
+                          } else {
+                            btn.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'nearest' });
+                          }
+                        }
                       }}
                       className={`relative shrink-0 w-20 h-20 sm:w-[88px] sm:h-[88px] rounded-xl overflow-hidden border-2 transition-all duration-200 group focus:outline-none
                         ${isSelected
