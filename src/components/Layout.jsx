@@ -100,21 +100,21 @@ export default function Layout({ cartCount, wishlistCount, currentUser, onLogout
                     to="/catalog?category=yu-gi-oh"
                     className="px-4 py-2 text-xs font-semibold text-on-surface hover:bg-surface-container-low hover:text-primary transition-colors flex items-center gap-2"
                   >
-                    <span className="material-symbols-outlined text-[16px] text-outline">style</span>
+                    <img src="https://upload.wikimedia.org/wikipedia/commons/1/11/Yu-Gi-Oh%21_%28Logo%29.png" alt="Yu-Gi-Oh" className="w-4 h-4 object-contain shrink-0" />
                     Yu-Gi-Oh
                   </Link>
                   <Link
                     to="/catalog?category=pokemon"
                     className="px-4 py-2 text-xs font-semibold text-on-surface hover:bg-surface-container-low hover:text-primary transition-colors flex items-center gap-2"
                   >
-                    <span className="material-symbols-outlined text-[16px] text-outline">pets</span>
+                    <img src="https://upload.wikimedia.org/wikipedia/commons/9/98/International_Pok%C3%A9mon_logo.svg" alt="Pokemon" className="w-4 h-4 object-contain shrink-0" />
                     Pokemon
                   </Link>
                   <Link
                     to="/catalog?category=magic"
                     className="px-4 py-2 text-xs font-semibold text-on-surface hover:bg-surface-container-low hover:text-primary transition-colors flex items-center gap-2"
                   >
-                    <span className="material-symbols-outlined text-[16px] text-outline">auto_awesome</span>
+                    <img src="https://upload.wikimedia.org/wikipedia/commons/3/3f/Magic_the_gathering-logo.svg" alt="Magic" className="w-4 h-4 object-contain shrink-0" />
                     Magic
                   </Link>
                 </div>
@@ -305,7 +305,7 @@ export default function Layout({ cartCount, wishlistCount, currentUser, onLogout
                       onClick={() => { setMobileMenuOpen(false); setTcgOpen(false); }}
                       className="py-2 px-3 rounded-lg text-on-surface-variant font-semibold text-sm hover:bg-surface-container-low hover:text-primary transition-colors flex items-center gap-2"
                     >
-                      <span className="material-symbols-outlined text-[18px] text-outline">style</span>
+                      <img src="https://upload.wikimedia.org/wikipedia/commons/1/11/Yu-Gi-Oh%21_%28Logo%29.png" alt="Yu-Gi-Oh" className="w-[18px] h-[18px] object-contain shrink-0" />
                       Yu-Gi-Oh
                     </Link>
                     <Link
@@ -313,7 +313,7 @@ export default function Layout({ cartCount, wishlistCount, currentUser, onLogout
                       onClick={() => { setMobileMenuOpen(false); setTcgOpen(false); }}
                       className="py-2 px-3 rounded-lg text-on-surface-variant font-semibold text-sm hover:bg-surface-container-low hover:text-primary transition-colors flex items-center gap-2"
                     >
-                      <span className="material-symbols-outlined text-[18px] text-outline">pets</span>
+                      <img src="https://upload.wikimedia.org/wikipedia/commons/9/98/International_Pok%C3%A9mon_logo.svg" alt="Pokemon" className="w-[18px] h-[18px] object-contain shrink-0" />
                       Pokemon
                     </Link>
                     <Link
@@ -321,7 +321,7 @@ export default function Layout({ cartCount, wishlistCount, currentUser, onLogout
                       onClick={() => { setMobileMenuOpen(false); setTcgOpen(false); }}
                       className="py-2 px-3 rounded-lg text-on-surface-variant font-semibold text-sm hover:bg-surface-container-low hover:text-primary transition-colors flex items-center gap-2"
                     >
-                      <span className="material-symbols-outlined text-[18px] text-outline">auto_awesome</span>
+                      <img src="https://upload.wikimedia.org/wikipedia/commons/3/3f/Magic_the_gathering-logo.svg" alt="Magic" className="w-[18px] h-[18px] object-contain shrink-0" />
                       Magic
                     </Link>
                   </div>
