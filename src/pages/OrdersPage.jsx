@@ -52,6 +52,7 @@ export default function OrdersPage({ currentUser }) {
             paymentProofName: o.payment_proof_name,
             paymentProofPreview: o.payment_proof_preview,
             status: o.status || 'Realizado',
+            dateRaw: o.date,
             items: o.order_items ? o.order_items.map(oi => {
               // Find matching product in DB products
               const productObj = dbProducts.find(p => String(p.id) === String(oi.product_id));
@@ -76,8 +77,8 @@ export default function OrdersPage({ currentUser }) {
             }) : []
           }));
 
-          // Sort by ID/date descending (newest first)
-          formattedOrders.sort((a, b) => b.id.localeCompare(a.id));
+          // Sort by date descending (newest first)
+          formattedOrders.sort((a, b) => new Date(b.dateRaw) - new Date(a.dateRaw));
           setOrders(formattedOrders);
         }
       } catch (err) {

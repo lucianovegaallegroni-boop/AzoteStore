@@ -90,6 +90,7 @@ export default function AdminPage({ products: initialProducts, onCreateProduct, 
           const formattedOrders = dbOrders.map(o => ({
             id: o.id,
             date: new Date(o.date).toLocaleString('es-ES'),
+            dateRaw: o.date,
             clientName: o.client_name,
             clientEmail: o.client_email,
             clientPhone: o.client_phone,
@@ -111,8 +112,8 @@ export default function AdminPage({ products: initialProducts, onCreateProduct, 
               } : null
             })) : []
           }));
-          // Sort by date descending
-          formattedOrders.sort((a, b) => b.id.localeCompare(a.id));
+          // Sort by date descending (newest first)
+          formattedOrders.sort((a, b) => new Date(b.dateRaw) - new Date(a.dateRaw));
           setOrders(formattedOrders);
         }
       } catch (err) {
@@ -153,6 +154,18 @@ export default function AdminPage({ products: initialProducts, onCreateProduct, 
   const [originalFeaturedState, setOriginalFeaturedState] = useState({});
   const [isSavingFeatured, setIsSavingFeatured] = useState(false);
   const [featuredSaveSuccess, setFeaturedSaveSuccess] = useState(false);
+
+  // Orders pagination
+  const [ordersCurrentPage, setOrdersCurrentPage] = useState(1);
+  const ORDERS_PER_PAGE = 8;
+
+  // Reset orders page if it exceeds total pages
+  useEffect(() => {
+    const totalPages = Math.ceil(orders.length / ORDERS_PER_PAGE);
+    if (ordersCurrentPage > totalPages && totalPages > 0) {
+      setOrdersCurrentPage(totalPages);
+    }
+  }, [orders, ordersCurrentPage]);
 
   // Compute pending featured/hero changes
   const pendingFeaturedChanges = dbProducts.filter(p => {
@@ -1910,101 +1923,152 @@ export default function AdminPage({ products: initialProducts, onCreateProduct, 
                 </div>
               )}
 
-              {activeTab === 'orders' && (
-                <div className="space-y-md animate-fade-in">
-                  {orders.length === 0 ? (
-                    <div className="bg-surface-container-lowest border border-outline-variant/30 rounded-xl p-12 text-center flex flex-col items-center justify-center gap-4 collector-card-shadow">
-                      <span className="material-symbols-outlined text-[4rem] text-outline/35">receipt_long</span>
-                      <h3 className="font-headline-md text-headline-md text-on-surface">No hay pedidos registrados</h3>
-                      <p className="text-on-surface-variant text-xs max-w-sm">
-                        Los pedidos que realicen los coleccionistas en la tienda aparecerán listados aquí para su procesamiento y validación.
-                      </p>
-                    </div>
-                  ) : (
-                    <div className="bg-surface-container-lowest border border-outline-variant/30 rounded-xl collector-card-shadow overflow-hidden">
-                      <div className="overflow-x-auto">
-                        <table className="w-full text-left">
-                          <thead className="bg-surface-container text-on-surface-variant font-label-md uppercase tracking-wider text-[11px] border-b border-outline-variant/30">
-                            <tr>
-                              <th className="px-md py-4">Orden ID</th>
-                              <th className="px-md py-4">Cliente</th>
-                              <th className="px-md py-4">Detalle Compra</th>
-                              <th className="px-md py-4">Punto Retiro</th>
-                              <th className="px-md py-4 text-right">Total</th>
-                              <th className="px-md py-4 text-center">Comprobante</th>
-                              <th className="px-md py-4 text-center">Estado</th>
-                            </tr>
-                          </thead>
-                          <tbody className="divide-y divide-outline-variant/35 align-middle">
-                            {orders.map((order) => (
-                              <tr key={order.id} className="hover:bg-surface-container-low/20 transition-colors">
-                                <td className="px-md py-4 align-top">
-                                  <span className="font-mono font-bold text-primary block text-sm">{order.id}</span>
-                                  <span className="text-[10px] text-outline block mt-0.5">{order.date}</span>
-                                </td>
-                                <td className="px-md py-4 align-top">
-                                  <span className="font-bold text-on-surface block text-sm">{order.clientName}</span>
-                                  {order.clientPhone && (
-                                    <span className="text-xs text-primary font-semibold block">{order.clientPhone}</span>
-                                  )}
-                                  {order.clientEmail && order.clientEmail !== 'N/A' && (
-                                    <span className="text-xs text-on-surface-variant block truncate max-w-[150px]">{order.clientEmail}</span>
-                                  )}
-                                </td>
-                                <td className="px-md py-4 align-top">
-                                  <div className="space-y-1">
-                                    {order.items.map((item) => (
-                                      <div key={`${item.product.id}-${item.color ? item.color.id : 'default'}`} className="text-xs text-on-surface-variant flex justify-between gap-4 max-w-[220px]">
-                                        <span className="truncate flex flex-col">
-                                          <span>{item.product.name}</span>
-                                          {item.color && (
-                                            <span className="text-[10px] text-outline font-semibold">Color: {item.color.name}</span>
-                                          )}
-                                        </span>
-                                        <span className="font-semibold text-on-surface shrink-0">x{item.quantity}</span>
-                                      </div>
-                                    ))}
-                                  </div>
-                                </td>
-                                <td className="px-md py-4 align-top">
-                                  <span className="text-xs font-medium text-on-surface-variant block mt-0.5">{order.pickupLocation}</span>
-                                </td>
-                                <td className="px-md py-4 align-top text-right font-bold text-on-surface text-sm">
-                                  ${order.total.toFixed(2)}
-                                </td>
-                                <td className="px-md py-4 align-top text-center">
-                                  {order.paymentProofPreview ? (
-                                    <button
-                                      type="button"
-                                      onClick={() => setSelectedProofUrl(order.paymentProofPreview)}
-                                      className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-primary/5 text-primary border border-primary/20 rounded-lg text-xs font-bold hover:bg-primary hover:text-white transition-all transform active:scale-95"
-                                    >
-                                      <span className="material-symbols-outlined text-[16px]">visibility</span>
-                                      Ver recibo
-                                    </button>
-                                  ) : (
-                                    <span className="text-xs text-outline font-medium">Sin comprobante</span>
-                                  )}
-                                </td>
-                                <td className="px-md py-4 align-top text-center">
-                                  <div className="w-36 mx-auto">
-                                    <CustomDropdown
-                                      value={order.status}
-                                      onChange={(val) => handleStatusChange(order.id, val)}
-                                      options={orderStatusOptions}
-                                      align="full"
-                                    />
-                                  </div>
-                                </td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
+              {activeTab === 'orders' && (() => {
+                const totalOrdersPages = Math.ceil(orders.length / ORDERS_PER_PAGE);
+                const paginatedOrders = orders.slice(
+                  (ordersCurrentPage - 1) * ORDERS_PER_PAGE,
+                  ordersCurrentPage * ORDERS_PER_PAGE
+                );
+
+                return (
+                  <div className="space-y-md animate-fade-in">
+                    {orders.length === 0 ? (
+                      <div className="bg-surface-container-lowest border border-outline-variant/30 rounded-xl p-12 text-center flex flex-col items-center justify-center gap-4 collector-card-shadow">
+                        <span className="material-symbols-outlined text-[4rem] text-outline/35">receipt_long</span>
+                        <h3 className="font-headline-md text-headline-md text-on-surface">No hay pedidos registrados</h3>
+                        <p className="text-on-surface-variant text-xs max-w-sm">
+                          Los pedidos que realicen los coleccionistas en la tienda aparecerán listados aquí para su procesamiento y validación.
+                        </p>
                       </div>
-                    </div>
-                  )}
-                </div>
-              )}
+                    ) : (
+                      <div className="bg-surface-container-lowest border border-outline-variant/30 rounded-xl collector-card-shadow overflow-hidden">
+                        <div className="overflow-x-auto">
+                          <table className="w-full text-left">
+                            <thead className="bg-surface-container text-on-surface-variant font-label-md uppercase tracking-wider text-[11px] border-b border-outline-variant/30">
+                              <tr>
+                                <th className="px-md py-4">Orden ID</th>
+                                <th className="px-md py-4">Cliente</th>
+                                <th className="px-md py-4">Detalle Compra</th>
+                                <th className="px-md py-4">Punto Retiro</th>
+                                <th className="px-md py-4 text-right">Total</th>
+                                <th className="px-md py-4 text-center">Comprobante</th>
+                                <th className="px-md py-4 text-center">Estado</th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-outline-variant/35 align-middle">
+                              {paginatedOrders.map((order) => (
+                                <tr key={order.id} className="hover:bg-surface-container-low/20 transition-colors">
+                                  <td className="px-md py-4 align-top">
+                                    <span className="font-mono font-bold text-primary block text-sm">{order.id}</span>
+                                    <span className="text-[10px] text-outline block mt-0.5">{order.date}</span>
+                                  </td>
+                                  <td className="px-md py-4 align-top">
+                                    <span className="font-bold text-on-surface block text-sm">{order.clientName}</span>
+                                    {order.clientPhone && (
+                                      <span className="text-xs text-primary font-semibold block">{order.clientPhone}</span>
+                                    )}
+                                    {order.clientEmail && order.clientEmail !== 'N/A' && (
+                                      <span className="text-xs text-on-surface-variant block truncate max-w-[150px]">{order.clientEmail}</span>
+                                    )}
+                                  </td>
+                                  <td className="px-md py-4 align-top">
+                                    <div className="space-y-1">
+                                      {order.items.map((item) => (
+                                        <div key={`${item.product.id}-${item.color ? item.color.id : 'default'}`} className="text-xs text-on-surface-variant flex justify-between gap-4 max-w-[220px]">
+                                          <span className="truncate flex flex-col">
+                                            <span>{item.product.name}</span>
+                                            {item.color && (
+                                              <span className="text-[10px] text-outline font-semibold">Color: {item.color.name}</span>
+                                            )}
+                                          </span>
+                                          <span className="font-semibold text-on-surface shrink-0">x{item.quantity}</span>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  </td>
+                                  <td className="px-md py-4 align-top">
+                                    <span className="text-xs font-medium text-on-surface-variant block mt-0.5">{order.pickupLocation}</span>
+                                  </td>
+                                  <td className="px-md py-4 align-top text-right font-bold text-on-surface text-sm">
+                                    ${order.total.toFixed(2)}
+                                  </td>
+                                  <td className="px-md py-4 align-top text-center">
+                                    {order.paymentProofPreview ? (
+                                      <button
+                                        type="button"
+                                        onClick={() => setSelectedProofUrl(order.paymentProofPreview)}
+                                        className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-primary/5 text-primary border border-primary/20 rounded-lg text-xs font-bold hover:bg-primary hover:text-white transition-all transform active:scale-95"
+                                      >
+                                        <span className="material-symbols-outlined text-[16px]">visibility</span>
+                                        Ver recibo
+                                      </button>
+                                    ) : (
+                                      <span className="text-xs text-outline font-medium">Sin comprobante</span>
+                                    )}
+                                  </td>
+                                  <td className="px-md py-4 align-top text-center">
+                                    <div className="w-36 mx-auto">
+                                      <CustomDropdown
+                                        value={order.status}
+                                        onChange={(val) => handleStatusChange(order.id, val)}
+                                        options={orderStatusOptions}
+                                        align="full"
+                                      />
+                                    </div>
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+
+                        {/* Pagination controls */}
+                        {totalOrdersPages > 1 && (
+                          <div className="flex flex-col sm:flex-row items-center justify-between gap-4 px-md py-4 border-t border-outline-variant/30 bg-surface-container-low">
+                            <div className="text-xs text-on-surface-variant font-medium">
+                              Mostrando <span className="font-bold text-on-surface">{Math.min(orders.length, (ordersCurrentPage - 1) * ORDERS_PER_PAGE + 1)}</span> a <span className="font-bold text-on-surface">{Math.min(orders.length, ordersCurrentPage * ORDERS_PER_PAGE)}</span> de <span className="font-bold text-on-surface">{orders.length}</span> pedidos
+                            </div>
+                            <div className="flex items-center gap-1">
+                              <button
+                                type="button"
+                                disabled={ordersCurrentPage === 1}
+                                onClick={() => setOrdersCurrentPage(prev => Math.max(1, prev - 1))}
+                                className="p-2 rounded-lg text-on-surface hover:bg-surface-container-high transition-colors disabled:opacity-40 disabled:hover:bg-transparent"
+                              >
+                                <span className="material-symbols-outlined text-[20px] block">chevron_left</span>
+                              </button>
+                              
+                              {Array.from({ length: totalOrdersPages }, (_, i) => i + 1).map((pageNum) => (
+                                <button
+                                  key={pageNum}
+                                  type="button"
+                                  onClick={() => setOrdersCurrentPage(pageNum)}
+                                  className={`w-9 h-9 rounded-lg text-xs font-bold transition-all ${
+                                    ordersCurrentPage === pageNum
+                                      ? 'bg-primary text-on-primary shadow-sm'
+                                      : 'text-on-surface hover:bg-surface-container-high'
+                                  }`}
+                                >
+                                  {pageNum}
+                                </button>
+                              ))}
+
+                              <button
+                                type="button"
+                                disabled={ordersCurrentPage === totalOrdersPages}
+                                onClick={() => setOrdersCurrentPage(prev => Math.min(totalOrdersPages, prev + 1))}
+                                className="p-2 rounded-lg text-on-surface hover:bg-surface-container-high transition-colors disabled:opacity-40 disabled:hover:bg-transparent"
+                              >
+                                <span className="material-symbols-outlined text-[20px] block">chevron_right</span>
+                              </button>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
 
               {activeTab === 'presale' && (
                 <div className="bg-surface-container-lowest border border-outline-variant/30 rounded-xl collector-card-shadow p-xl flex flex-col items-center justify-center text-center gap-6 min-h-[450px] animate-fade-in">
