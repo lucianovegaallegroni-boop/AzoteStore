@@ -18,6 +18,15 @@ export default function ProductCatalog({ products }) {
   const [sortBy, setSortBy] = useState('featured');
   const [searchQuery, setSearchQuery] = useState('');
 
+  // Pagination States
+  const [currentPage, setCurrentPage] = useState(1);
+  const PRODUCTS_PER_PAGE = 9;
+
+  // Reset pagination to page 1 whenever filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [selectedCategory, searchQuery, onlyInStock, sortBy]);
+
   const [dbProducts, setDbProducts] = useState(products || []);
   const [loading, setLoading] = useState(!products || products.length === 0);
 
@@ -150,6 +159,12 @@ export default function ProductCatalog({ products }) {
     filteredProducts.sort((a, b) => a.name.localeCompare(b.name));
   }
 
+  const totalPages = Math.ceil(filteredProducts.length / PRODUCTS_PER_PAGE);
+  const paginatedProducts = filteredProducts.slice(
+    (currentPage - 1) * PRODUCTS_PER_PAGE,
+    currentPage * PRODUCTS_PER_PAGE
+  );
+
   return (
     <div className="w-full max-w-[1440px] mx-auto px-margin-mobile md:px-margin-desktop py-lg">
 
@@ -259,52 +274,106 @@ export default function ProductCatalog({ products }) {
               </button>
             </div>
           ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-gutter">
-              {filteredProducts.map((product) => (
-                <div
-                  key={product.id}
-                  onClick={() => navigate(`/product/${product.id}`)}
-                  className="bg-surface rounded-xl overflow-hidden cursor-pointer group border border-outline-variant/20 card-shadow transition-all duration-300 hover:-translate-y-1 hover:shadow-lg flex flex-col h-full"
-                >
-                  <div className="h-[200px] overflow-hidden bg-surface-container-low relative">
-                    <img
-                      src={product.image}
-                      alt={product.name}
-                      className={`w-full h-full object-cover transition-transform duration-500 group-hover:scale-105 ${!product.inStock ? 'grayscale opacity-60' : ''}`}
-                    />
-                    {!product.inStock && (
-                      <div className="absolute inset-0 bg-black/40 backdrop-blur-[1px] flex items-center justify-center transition-all duration-300 group-hover:bg-black/45">
-                        <span className="border-2 border-error text-error bg-error/10 font-headline-md text-xs font-bold uppercase tracking-widest px-4 py-2 rounded-lg shadow-sm">
-                          Sin Stock
+            <>
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-gutter">
+                {paginatedProducts.map((product) => (
+                  <div
+                    key={product.id}
+                    onClick={() => navigate(`/product/${product.id}`)}
+                    className="bg-surface rounded-xl overflow-hidden cursor-pointer group border border-outline-variant/20 card-shadow transition-all duration-300 hover:-translate-y-1 hover:shadow-lg flex flex-col h-full"
+                  >
+                    <div className="h-[200px] overflow-hidden bg-surface-container-low relative">
+                      <img
+                        src={product.image}
+                        alt={product.name}
+                        className={`w-full h-full object-cover transition-transform duration-500 group-hover:scale-105 ${!product.inStock ? 'grayscale opacity-60' : ''}`}
+                      />
+                      {!product.inStock && (
+                        <div className="absolute inset-0 bg-black/40 backdrop-blur-[1px] flex items-center justify-center transition-all duration-300 group-hover:bg-black/45">
+                          <span className="border-2 border-error text-error bg-error/10 font-headline-md text-xs font-bold uppercase tracking-widest px-4 py-2 rounded-lg shadow-sm">
+                            Sin Stock
+                          </span>
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="p-sm flex flex-col flex-1 justify-between">
+                      <div>
+                        <span className="text-xs text-on-surface-variant uppercase tracking-wider font-semibold font-body-md">{product.category}</span>
+                        <h3 className="font-headline-md text-[16px] text-on-background group-hover:text-primary transition-colors line-clamp-1 mt-1">
+                          {product.name}
+                        </h3>
+                        <p className="text-xs text-on-surface-variant mt-1 line-clamp-2">{product.description}</p>
+                      </div>
+
+                      <div className="flex justify-between items-center mt-4 pt-4 border-t border-outline-variant/20">
+                        <div className="flex items-baseline gap-2">
+                          <span className="font-headline-md text-primary">${product.price.toFixed(2)}</span>
+                          {product.originalPrice && (
+                            <span className="font-body-md text-xs text-outline line-through">${product.originalPrice.toFixed(2)}</span>
+                          )}
+                        </div>
+                        <span className="material-symbols-outlined text-primary group-hover:translate-x-1 transition-transform">
+                          arrow_forward
                         </span>
                       </div>
-                    )}
+                    </div>
                   </div>
+                ))}
+              </div>
 
-                  <div className="p-sm flex flex-col flex-1 justify-between">
-                    <div>
-                      <span className="text-xs text-on-surface-variant uppercase tracking-wider font-semibold font-body-md">{product.category}</span>
-                      <h3 className="font-headline-md text-[16px] text-on-background group-hover:text-primary transition-colors line-clamp-1 mt-1">
-                        {product.name}
-                      </h3>
-                      <p className="text-xs text-on-surface-variant mt-1 line-clamp-2">{product.description}</p>
-                    </div>
+              {/* Pagination Controls */}
+              {totalPages > 1 && (
+                <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mt-8 border-t border-outline-variant/20 pt-6">
+                  <div className="text-xs text-on-surface-variant font-medium">
+                    Mostrando <span className="font-bold text-on-surface">{Math.min(filteredProducts.length, (currentPage - 1) * PRODUCTS_PER_PAGE + 1)}</span> a <span className="font-bold text-on-surface">{Math.min(filteredProducts.length, currentPage * PRODUCTS_PER_PAGE)}</span> de <span className="font-bold text-on-surface">{filteredProducts.length}</span> productos
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <button
+                      type="button"
+                      disabled={currentPage === 1}
+                      onClick={() => {
+                        setCurrentPage(prev => Math.max(1, prev - 1));
+                        window.scrollTo({ top: 0, behavior: 'smooth' });
+                      }}
+                      className="p-2 rounded-lg text-on-surface hover:bg-surface-container-high transition-colors disabled:opacity-40 disabled:hover:bg-transparent"
+                    >
+                      <span className="material-symbols-outlined text-[20px] block">chevron_left</span>
+                    </button>
+                    
+                    {Array.from({ length: totalPages }, (_, i) => i + 1).map((pageNum) => (
+                      <button
+                        key={pageNum}
+                        type="button"
+                        onClick={() => {
+                          setCurrentPage(pageNum);
+                          window.scrollTo({ top: 0, behavior: 'smooth' });
+                        }}
+                        className={`w-9 h-9 rounded-lg text-xs font-bold transition-all ${
+                          currentPage === pageNum
+                            ? 'bg-primary text-on-primary shadow-sm'
+                            : 'text-on-surface hover:bg-surface-container-high'
+                        }`}
+                      >
+                        {pageNum}
+                      </button>
+                    ))}
 
-                    <div className="flex justify-between items-center mt-4 pt-4 border-t border-outline-variant/20">
-                      <div className="flex items-baseline gap-2">
-                        <span className="font-headline-md text-primary">${product.price.toFixed(2)}</span>
-                        {product.originalPrice && (
-                          <span className="font-body-md text-xs text-outline line-through">${product.originalPrice.toFixed(2)}</span>
-                        )}
-                      </div>
-                      <span className="material-symbols-outlined text-primary group-hover:translate-x-1 transition-transform">
-                        arrow_forward
-                      </span>
-                    </div>
+                    <button
+                      type="button"
+                      disabled={currentPage === totalPages}
+                      onClick={() => {
+                        setCurrentPage(prev => Math.min(totalPages, prev + 1));
+                        window.scrollTo({ top: 0, behavior: 'smooth' });
+                      }}
+                      className="p-2 rounded-lg text-on-surface hover:bg-surface-container-high transition-colors disabled:opacity-40 disabled:hover:bg-transparent"
+                    >
+                      <span className="material-symbols-outlined text-[20px] block">chevron_right</span>
+                    </button>
                   </div>
                 </div>
-              ))}
-            </div>
+              )}
+            </>
           )}
         </div>
 
