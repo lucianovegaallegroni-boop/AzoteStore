@@ -43,7 +43,7 @@ export default function Layout({ cartCount, currentUser, onLogout, onOpenCart })
     <div className="flex flex-col min-h-screen overflow-x-clip w-full">
 
       {/* Top Navigation Bar */}
-      <nav className="bg-[#283044] text-white shadow-md top-0 z-40 sticky transition-all duration-300 border-b border-white/10">
+      <nav className="bg-[#121358] text-white shadow-md top-0 z-40 sticky transition-all duration-300 border-b border-white/10">
         <div className="flex justify-between items-center w-full px-[clamp(8px,3vw,16px)] md:px-margin-desktop py-2 max-w-[1440px] mx-auto">
 
           <Link
@@ -210,12 +210,12 @@ export default function Layout({ cartCount, currentUser, onLogout, onOpenCart })
               {/* Cart Button */}
               <button
                 onClick={onOpenCart}
-                className="flex items-center justify-center p-1.5 min-[380px]:p-2 sm:px-4 sm:py-2 bg-primary text-on-primary font-label-md text-label-md rounded-full shadow-sm hover:shadow-md hover:bg-primary-container hover:scale-105 active:scale-95 transition-all relative"
+                className="flex items-center justify-center p-1.5 min-[380px]:p-2 sm:px-4 sm:py-2 bg-tertiary text-on-tertiary font-label-md text-label-md rounded-full shadow-sm hover:shadow-md hover:bg-tertiary/90 hover:scale-105 active:scale-95 transition-all relative"
               >
                 <span className="material-symbols-outlined text-[1.2em]">shopping_cart</span>
                 <span className="hidden sm:inline">Carrito</span>
                 {cartCount > 0 && (
-                  <span className="sm:relative absolute -top-1 -right-1 sm:top-auto sm:right-auto bg-white text-primary text-[9px] sm:text-[10px] w-3.5 h-3.5 sm:w-5 sm:h-5 rounded-full flex items-center justify-center font-bold sm:ml-1">
+                  <span className="sm:relative absolute -top-1 -right-1 sm:top-auto sm:right-auto bg-[#121358] text-white text-[9px] sm:text-[10px] w-3.5 h-3.5 sm:w-5 sm:h-5 rounded-full flex items-center justify-center font-bold sm:ml-1">
                     {cartCount}
                   </span>
                 )}
@@ -224,32 +224,29 @@ export default function Layout({ cartCount, currentUser, onLogout, onOpenCart })
               {/* Mobile Menu Toggle */}
               <button
                 onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-                className="p-1.5 min-[380px]:p-2 text-white/80 hover:text-white rounded-full hover:bg-white/10"
-                aria-label="Menu"
+                className="p-1 min-[380px]:p-1.5 sm:p-2 text-white hover:text-white/80 hover:bg-white/10 rounded-full transition-colors flex items-center justify-center"
+                aria-label="Abrir menú"
               >
-                <span className="material-symbols-outlined">
-                  {mobileMenuOpen ? 'close' : 'menu'}
-                </span>
+                <span className="material-symbols-outlined text-[20px] sm:text-[24px]">menu</span>
               </button>
 
             </div>
           </div>
         </div>
+      </nav>
 
-        {/* Mobile Navigation Drawer (Slide from Left) */}
-        <div className={`fixed inset-0 z-50 transition-all duration-300 ${mobileMenuOpen ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'}`}>
-          {/* Blurred Backdrop */}
-          <div
-            className="absolute inset-0 bg-black/60 backdrop-blur-sm transition-opacity"
-            onClick={() => setMobileMenuOpen(false)}
-          ></div>
-
-          {/* Drawer Body (slides left-to-right) */}
-          <div className={`absolute inset-y-0 right-0 w-72 max-w-xs bg-surface border-l border-outline-variant/30 shadow-2xl p-6 flex flex-col gap-6 transform transition-transform duration-300 ease-in-out ${mobileMenuOpen ? 'translate-x-0' : 'translate-x-full'}`}>
+      {/* Mobile Drawer Menu (Sidebar) */}
+      <div className={`fixed inset-0 z-50 transition-opacity duration-300 ${mobileMenuOpen ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'}`}>
+        <div
+          onClick={() => setMobileMenuOpen(false)}
+          className="absolute inset-0 bg-on-background/50 backdrop-blur-xs"
+        />
+        <div className="relative z-10 w-full h-full max-w-[1440px] mx-auto pointer-events-none">
+          <div className={`absolute inset-y-0 right-0 w-72 max-w-xs bg-surface border-l border-outline-variant/30 shadow-2xl p-6 flex flex-col gap-6 transform transition-transform duration-300 ease-in-out pointer-events-auto ${mobileMenuOpen ? 'translate-x-0' : 'translate-x-full'}`}>
 
             {/* Drawer Header */}
             <div className="flex items-center justify-between pb-4 border-b border-outline-variant/20 shrink-0">
-              <Link to="/" onClick={() => setMobileMenuOpen(false)} className="flex items-center bg-[#283044] px-2.5 py-1.5 rounded-xl border border-white/10">
+              <Link to="/" onClick={() => setMobileMenuOpen(false)} className="flex items-center bg-[#121358] px-2.5 py-1.5 rounded-xl border border-white/10">
                 <img src={logo} alt="Azote Store" className="h-11 w-auto object-contain" />
               </Link>
               <button
@@ -366,7 +363,7 @@ export default function Layout({ cartCount, currentUser, onLogout, onOpenCart })
             )}
           </div>
         </div>
-      </nav>
+      </div>
 
       {/* Main Content Area */}
       <main className="flex-grow w-full">

@@ -226,7 +226,7 @@ export default function CartDrawer({
                       </p> */}
                 <button
                   onClick={() => setStep('payment')}
-                  className="w-full bg-primary text-on-primary font-headline-md text-headline-md py-4 rounded-xl shadow-[0_4px_14px_0_rgba(37,99,235,0.39)] hover:shadow-[0_6px_20px_rgba(37,99,235,0.23)] hover:-translate-y-0.5 active:translate-y-0 transition-all duration-200"
+                  className="w-full bg-primary text-on-primary font-headline-md text-headline-md py-4 rounded-xl shadow-[0_4px_14px_0_rgba(35,47,114,0.35)] hover:shadow-[0_6px_20px_rgba(35,47,114,0.22)] hover:-translate-y-0.5 active:translate-y-0 transition-all duration-200"
                 >
                   Proceder al Pago
                 </button>
@@ -313,7 +313,7 @@ export default function CartDrawer({
                       type="button"
                       onClick={() => setPickupLocation(loc.id)}
                       className={`w-full text-left p-3.5 rounded-xl border transition-all duration-200 flex items-start gap-3 ${pickupLocation === loc.id
-                        ? 'border-primary bg-primary/5 shadow-[0_2px_8px_rgba(0,74,198,0.1)] -translate-y-0.5'
+                        ? 'border-primary bg-primary/5 shadow-[0_2px_8px_rgba(35,47,114,0.1)] -translate-y-0.5'
                         : 'border-outline-variant/30 bg-surface-container-lowest hover:bg-surface-container-low'
                         }`}
                     >
@@ -426,7 +426,7 @@ export default function CartDrawer({
                   disabled={!isFormValid || isSubmitting}
                   onClick={handleSubmitPayment}
                   className={`col-span-2 py-3.5 rounded-xl font-headline-md text-xs font-bold flex items-center justify-center gap-2 transition-all duration-200 ${isFormValid
-                    ? 'bg-primary text-on-primary shadow-[0_4px_14px_0_rgba(37,99,235,0.3)] hover:shadow-[0_6px_20px_rgba(37,99,235,0.2)] hover:-translate-y-0.5 active:translate-y-0'
+                    ? 'bg-primary text-on-primary shadow-[0_4px_14px_0_rgba(35,47,114,0.3)] hover:shadow-[0_6px_20px_rgba(35,47,114,0.2)] hover:-translate-y-0.5 active:translate-y-0'
                     : 'bg-outline-variant/40 text-on-surface-variant/40 cursor-not-allowed'
                     }`}
                 >
@@ -499,7 +499,7 @@ export default function CartDrawer({
             <button
               type="button"
               onClick={handleCloseDrawer}
-              className="w-full bg-primary text-on-primary font-headline-md py-4 rounded-xl shadow-[0_4px_14px_0_rgba(37,99,235,0.3)] hover:scale-[1.02] active:scale-[0.99] transition-all font-bold text-xs"
+              className="w-full bg-primary text-on-primary font-headline-md py-4 rounded-xl shadow-[0_4px_14px_0_rgba(35,47,114,0.3)] hover:scale-[1.02] active:scale-[0.99] transition-all font-bold text-xs"
             >
               Seguir Comprando
             </button>

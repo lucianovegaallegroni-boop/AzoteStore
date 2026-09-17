@@ -167,7 +167,7 @@ export default function RegisterPage({ onRegister }) {
           <button 
             type="submit"
             disabled={isLoading}
-            className="w-full bg-primary text-on-primary font-headline-md py-3 rounded-xl shadow-[0_4px_14px_0_rgba(37,99,235,0.39)] hover:shadow-[0_6px_20px_rgba(37,99,235,0.23)] hover:-translate-y-0.5 active:translate-y-0 disabled:opacity-50 disabled:pointer-events-none transition-all duration-200 flex items-center justify-center gap-2 mt-6"
+            className="w-full bg-primary text-on-primary font-headline-md py-3 rounded-xl shadow-[0_4px_14px_0_rgba(35,47,114,0.35)] hover:shadow-[0_6px_20px_rgba(35,47,114,0.22)] hover:-translate-y-0.5 active:translate-y-0 disabled:opacity-50 disabled:pointer-events-none transition-all duration-200 flex items-center justify-center gap-2 mt-6"
           >
             {isLoading ? (
               <>

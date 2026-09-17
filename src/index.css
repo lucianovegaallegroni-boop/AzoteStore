@@ -26,20 +26,20 @@
 }
 
 .chip-instock {
-    background-color: rgba(0, 74, 198, 0.1);
-    color: #004ac6;
+    background-color: rgba(54, 173, 163, 0.15);
+    color: #1a7a72;
 }
 
 .chip-rare {
-    background-color: rgba(157, 67, 0, 0.1);
-    color: #9d4300;
+    background-color: rgba(47, 87, 138, 0.15);
+    color: #2f578a;
 }
 
 /* Base resets & styles matching original styles */
 html, body {
   font-family: 'Inter', sans-serif;
-  background-color: #faf8ff;
-  color: #131b2e;
+  background-color: #f7f9fd;
+  color: #121358;
   overflow-x: clip;
   width: 100%;
 }

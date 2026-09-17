@@ -461,7 +461,7 @@ export default function ProductDetail({ products, onAddToCart }) {
             {isCurrentColorInStock ? (
               <button
                 onClick={() => onAddToCart(product, selectedColor)}
-                className="w-full bg-primary text-on-primary font-headline-md text-headline-md py-4 rounded-xl shadow-[0_4px_14px_0_rgba(37,99,235,0.39)] hover:shadow-[0_6px_20px_rgba(37,99,235,0.23)] hover:-translate-y-1 transition-all duration-200 flex items-center justify-center gap-2"
+                className="w-full bg-primary text-on-primary font-headline-md text-headline-md py-4 rounded-xl shadow-[0_4px_14px_0_rgba(35,47,114,0.35)] hover:shadow-[0_6px_20px_rgba(35,47,114,0.22)] hover:-translate-y-1 transition-all duration-200 flex items-center justify-center gap-2"
               >
                 <span className="material-symbols-outlined">shopping_cart_checkout</span>
                 Añadir al Carrito
