@@ -79,7 +79,7 @@ export default function CustomDropdown({
 
   const handleSelect = (val) => {
     if (onChange) {
-      onChange({ target: { value: val } });
+      onChange({ target: { value: val }, value: val, toString: () => val });
     }
     setIsOpen(false);
   };

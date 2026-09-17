@@ -221,12 +221,23 @@ export default function AdminPage({ products: initialProducts, onCreateProduct, 
     }
   };
 
-  // Filter products for restocking (from dbProducts instead of prop products)
-  const filteredRestockProducts = dbProducts.filter((p) => {
-    const matchesSearch = p.name.toLowerCase().includes(restockSearch.toLowerCase());
-    const matchesCategory = restockCategory ? p.categorySlug === restockCategory : true;
-    return matchesSearch && matchesCategory;
-  });
+  // Expanded states for restock accordion
+  const [expandedRestock, setExpandedRestock] = useState({});
+  const toggleRestockExpand = (productId) => {
+    setExpandedRestock((prev) => ({
+      ...prev,
+      [productId]: !prev[productId]
+    }));
+  };
+
+  // Filter products for restocking and sort by product name (A-Z)
+  const filteredRestockProducts = [...dbProducts]
+    .filter((p) => {
+      const matchesSearch = p.name.toLowerCase().includes(restockSearch.toLowerCase());
+      const matchesCategory = restockCategory ? p.categorySlug === restockCategory : true;
+      return matchesSearch && matchesCategory;
+    })
+    .sort((a, b) => a.name.localeCompare(b.name));
 
   const handleImageChange = (e) => {
     const file = e.target.files[0];
@@ -295,7 +306,7 @@ export default function AdminPage({ products: initialProducts, onCreateProduct, 
   };
 
   const handleRestockSubmit = (productId, amount, colorId = null) => {
-    const qty = parseInt(amount);
+    const qty = parseFloat(amount);
     if (isNaN(qty) || qty <= 0) {
       alert('Por favor, ingresa una cantidad válida mayor a cero.');
       return;
@@ -316,7 +327,7 @@ export default function AdminPage({ products: initialProducts, onCreateProduct, 
 
           if (getErr) throw getErr;
 
-          const newStock = (currentVar.stock || 0) + qty;
+          const newStock = Number(((parseFloat(currentVar.stock) || 0) + qty).toFixed(2));
           const { error: updateErr } = await supabase
             .from('product_variants')
             .update({ stock: newStock })
@@ -331,7 +342,7 @@ export default function AdminPage({ products: initialProducts, onCreateProduct, 
             .eq('product_id', currentVar.product_id);
 
           if (!listErr && variantsList) {
-            const totalStock = variantsList.reduce((sum, v) => sum + (v.stock || 0), 0);
+            const totalStock = Number(variantsList.reduce((sum, v) => sum + (parseFloat(v.stock) || 0), 0).toFixed(2));
             await supabase
               .from('products')
               .update({ stock: totalStock })
@@ -371,7 +382,7 @@ export default function AdminPage({ products: initialProducts, onCreateProduct, 
 
           if (getErr) throw getErr;
 
-          const newStock = (currentProd.stock || 0) + qty;
+          const newStock = Number(((parseFloat(currentProd.stock) || 0) + qty).toFixed(2));
           const { error: updateErr } = await supabase
             .from('products')
             .update({ stock: newStock })
@@ -508,7 +519,7 @@ export default function AdminPage({ products: initialProducts, onCreateProduct, 
       }
       for (const v of variants) {
         if (!v.title) { setError('Cada tipo debe tener un título.'); return; }
-        if (!v.stock || parseInt(v.stock) < 0) { setError(`El tipo "${v.title}" necesita una cantidad de stock válida.`); return; }
+        if (v.stock === '' || isNaN(parseFloat(v.stock)) || parseFloat(v.stock) < 0) { setError(`El tipo "${v.title}" necesita una cantidad de stock válida.`); return; }
         if (!v.imagePreview && !v.image) { setError(`El tipo "${v.title}" necesita una imagen.`); return; }
         if (!samePrice && (!v.price || parseFloat(v.price) <= 0)) { setError(`El tipo "${v.title}" necesita un precio válido.`); return; }
       }
@@ -522,7 +533,7 @@ export default function AdminPage({ products: initialProducts, onCreateProduct, 
         setError('Por favor, sube una imagen para el producto.');
         return;
       }
-      if (parseFloat(price) <= 0 || parseInt(stock) < 0) {
+      if (parseFloat(price) <= 0 || parseFloat(stock) < 0) {
         setError('El precio debe ser mayor a 0 y el stock no puede ser negativo.');
         return;
       }
@@ -573,7 +584,7 @@ export default function AdminPage({ products: initialProducts, onCreateProduct, 
           name,
           category,
           price: hasVariants && samePrice ? parseFloat(price) : (!hasVariants ? parseFloat(price) : parseFloat(variants[0].price || 0)),
-          stock: hasVariants ? variants.reduce((sum, v) => sum + parseInt(v.stock || 0), 0) : parseInt(stock),
+          stock: hasVariants ? Number(variants.reduce((sum, v) => sum + (parseFloat(v.stock) || 0), 0).toFixed(2)) : parseFloat(stock || 0),
           description,
           image: mainImageUrl,
           division: editingProduct ? editingProduct.division : null
@@ -601,7 +612,7 @@ export default function AdminPage({ products: initialProducts, onCreateProduct, 
             const variantsToInsert = uploadedVariants.map(v => ({
               product_id: editingProduct.id,
               title: v.title,
-              stock: parseInt(v.stock || 0),
+              stock: parseFloat(v.stock || 0),
               price: samePrice ? parseFloat(price) : parseFloat(v.price),
               image: v.uploadedImageUrl || null
             }));
@@ -639,7 +650,7 @@ export default function AdminPage({ products: initialProducts, onCreateProduct, 
             const variantsToInsert = uploadedVariants.map(v => ({
               product_id: insertedProduct.id,
               title: v.title,
-              stock: parseInt(v.stock || 0),
+              stock: parseFloat(v.stock || 0),
               price: samePrice ? parseFloat(price) : parseFloat(v.price),
               image: v.uploadedImageUrl || null
             }));
@@ -664,8 +675,8 @@ export default function AdminPage({ products: initialProducts, onCreateProduct, 
               variants: uploadedVariants.map(v => ({
                 id: v.title.toLowerCase().trim().replace(/[^a-z0-9]+/g, '-'),
                 name: v.title,
-                stock: parseInt(v.stock),
-                inStock: parseInt(v.stock) > 0,
+                stock: parseFloat(v.stock),
+                inStock: parseFloat(v.stock) > 0,
                 price: samePrice ? parseFloat(price) : parseFloat(v.price),
                 image: v.uploadedImageUrl || null,
               }))
@@ -714,8 +725,8 @@ export default function AdminPage({ products: initialProducts, onCreateProduct, 
   };
 
   const getStockBadgeClass = (qty) => {
-    const quantity = parseInt(qty);
-    if (quantity === 0) {
+    const quantity = parseFloat(qty);
+    if (isNaN(quantity) || quantity === 0) {
       return 'bg-error/10 text-error';
     } else if (quantity < 5) {
       return 'bg-secondary-fixed text-on-secondary-fixed';
@@ -812,13 +823,17 @@ export default function AdminPage({ products: initialProducts, onCreateProduct, 
   };
 
   const getStockStatusText = (qty) => {
-    const quantity = parseInt(qty);
-    if (quantity === 0) return 'Out of Stock';
+    const quantity = parseFloat(qty);
+    if (isNaN(quantity) || quantity === 0) return 'Out of Stock';
     if (quantity < 5) return 'Low Stock';
     return 'In Stock';
   };
 
-  const handleStatusChange = (orderId, newStatus) => {
+  const handleStatusChange = (orderId, rawStatus) => {
+    const newStatus = typeof rawStatus === 'string'
+      ? rawStatus
+      : (rawStatus?.target?.value || rawStatus?.value || String(rawStatus));
+
     let prevStatus = 'Realizado';
 
     // 1. Optimistic Update (instant UI feedback)
@@ -883,92 +898,70 @@ export default function AdminPage({ products: initialProducts, onCreateProduct, 
   };
 
   return (
-    <div className="w-full max-w-[1440px] mx-auto px-margin-mobile md:px-margin-desktop py-xl">
+    <div className="w-full max-w-[1440px] mx-auto px-4 sm:px-6 lg:px-8 pt-4 pb-4 md:pt-6 md:pb-6">
 
       {/* Title */}
-      <div className="mb-md">
+      <div className="mb-4 sm:mb-6">
         <h1 className="font-headline-lg text-headline-lg text-on-surface">Panel de Administración</h1>
         <p className="text-on-surface-variant text-body-md mt-1">Gestiona el inventario de productos y administra los pedidos y comprobantes.</p>
       </div>
 
       {/* Navigation Tabs */}
-      <div className="flex overflow-x-auto border-b border-outline-variant/30 mb-8 gap-4 pb-1 scrollbar-thin">
+      <div className="flex overflow-x-auto border-b border-outline-variant/30 mb-6 gap-2 sm:gap-3 pb-1 scrollbar-thin w-full">
         <button
           onClick={() => setActiveTab('inventory')}
-          className={`pb-3 px-2 font-headline-md text-sm font-bold border-b-2 transition-all flex items-center gap-2 shrink-0 ${activeTab === 'inventory'
-            ? 'border-primary text-primary'
-            : 'border-transparent text-on-surface-variant hover:text-on-surface'
+          className={`flex-1 min-w-[190px] py-3 px-4 sm:px-6 font-headline-md text-sm sm:text-base font-bold border-b-2 transition-all flex items-center justify-center gap-2.5 shrink-0 ${activeTab === 'inventory'
+            ? 'border-primary text-primary bg-primary/5 rounded-t-lg shadow-xs'
+            : 'border-transparent text-on-surface-variant hover:text-on-surface hover:bg-surface-container-low rounded-t-lg'
             }`}
         >
-          <span className="material-symbols-outlined text-[20px]">inventory_2</span>
+          <span className="material-symbols-outlined text-[22px]">inventory_2</span>
           Gestión de Catálogo
         </button>
 
         <button
           onClick={() => setActiveTab('featured')}
-          className={`pb-3 px-2 font-headline-md text-sm font-bold border-b-2 transition-all flex items-center gap-2 shrink-0 ${activeTab === 'featured'
-            ? 'border-primary text-primary'
-            : 'border-transparent text-on-surface-variant hover:text-on-surface'
+          className={`flex-1 min-w-[190px] py-3 px-4 sm:px-6 font-headline-md text-sm sm:text-base font-bold border-b-2 transition-all flex items-center justify-center gap-2.5 shrink-0 ${activeTab === 'featured'
+            ? 'border-primary text-primary bg-primary/5 rounded-t-lg shadow-xs'
+            : 'border-transparent text-on-surface-variant hover:text-on-surface hover:bg-surface-container-low rounded-t-lg'
             }`}
         >
-          <span className="material-symbols-outlined text-[20px]">star</span>
+          <span className="material-symbols-outlined text-[22px]">star</span>
           Productos Destacados
         </button>
 
         <button
           onClick={() => setActiveTab('restock')}
-          className={`pb-3 px-2 font-headline-md text-sm font-bold border-b-2 transition-all flex items-center gap-2 shrink-0 ${activeTab === 'restock'
-            ? 'border-primary text-primary'
-            : 'border-transparent text-on-surface-variant hover:text-on-surface'
+          className={`flex-1 min-w-[190px] py-3 px-4 sm:px-6 font-headline-md text-sm sm:text-base font-bold border-b-2 transition-all flex items-center justify-center gap-2.5 shrink-0 ${activeTab === 'restock'
+            ? 'border-primary text-primary bg-primary/5 rounded-t-lg shadow-xs'
+            : 'border-transparent text-on-surface-variant hover:text-on-surface hover:bg-surface-container-low rounded-t-lg'
             }`}
         >
-          <span className="material-symbols-outlined text-[20px]">published_with_changes</span>
+          <span className="material-symbols-outlined text-[22px]">published_with_changes</span>
           Reabastecimientos
         </button>
 
         <button
           onClick={() => setActiveTab('orders')}
-          className={`pb-3 px-2 font-headline-md text-sm font-bold border-b-2 transition-all flex items-center gap-2 shrink-0 relative ${activeTab === 'orders'
-            ? 'border-primary text-primary'
-            : 'border-transparent text-on-surface-variant hover:text-on-surface'
+          className={`flex-1 min-w-[190px] py-3 px-4 sm:px-6 font-headline-md text-sm sm:text-base font-bold border-b-2 transition-all flex items-center justify-center gap-2.5 shrink-0 relative ${activeTab === 'orders'
+            ? 'border-primary text-primary bg-primary/5 rounded-t-lg shadow-xs'
+            : 'border-transparent text-on-surface-variant hover:text-on-surface hover:bg-surface-container-low rounded-t-lg'
             }`}
         >
-          <span className="material-symbols-outlined text-[20px]">receipt_long</span>
+          <span className="material-symbols-outlined text-[22px]">receipt_long</span>
           Control de Pedidos
           {orders.length > 0 && (
-            <span className="bg-primary text-on-primary text-[10px] w-5 h-5 rounded-full flex items-center justify-center font-bold absolute -top-1 -right-4">
+            <span className="bg-primary text-on-primary text-[11px] w-5 h-5 rounded-full flex items-center justify-center font-bold ml-1">
               {orders.length}
             </span>
           )}
         </button>
-
-        <button
-          onClick={() => setActiveTab('presale')}
-          className={`pb-3 px-2 font-headline-md text-sm font-bold border-b-2 transition-all flex items-center gap-2 shrink-0 ${activeTab === 'presale'
-            ? 'border-primary text-primary'
-            : 'border-transparent text-on-surface-variant hover:text-on-surface'
-            }`}
-        >
-          <span className="material-symbols-outlined text-[20px]">pending_actions</span>
-          Preventas
-        </button>
-
-        <button
-          onClick={() => setActiveTab('rare')}
-          className={`pb-3 px-2 font-headline-md text-sm font-bold border-b-2 transition-all flex items-center gap-2 shrink-0 ${activeTab === 'rare'
-            ? 'border-primary text-primary'
-            : 'border-transparent text-on-surface-variant hover:text-on-surface'
-            }`}
-        >
-          <span className="material-symbols-outlined text-[20px]">diamond</span>
-          Piezas Raras
-        </button>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-gutter items-start">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
 
         {/* Main Content Area */}
-        <section className="lg:col-span-12 space-y-xl">
+        <section className="lg:col-span-12 space-y-6">
 
           {loadingDb ? (
             <div className="flex flex-col items-center justify-center py-20 text-primary gap-4 bg-surface-container-lowest border border-outline-variant/30 rounded-2xl p-lg text-center card-shadow min-h-[450px]">
@@ -1095,10 +1088,12 @@ export default function AdminPage({ products: initialProducts, onCreateProduct, 
                           <span className="absolute left-4 top-1/2 -translate-y-1/2 font-bold text-on-surface-variant">$</span>
                           <input
                             type="number"
+                            step="any"
+                            min="0"
                             value={price}
                             onChange={(e) => setPrice(e.target.value)}
                             disabled={isSubmitting || isPublished}
-                            placeholder="0"
+                            placeholder="0.00"
                             className="w-full bg-surface-container-low border border-outline-variant/30 rounded-lg p-4 pl-8 text-body-md transition-all outline-none"
                           />
                         </div>
@@ -1108,6 +1103,8 @@ export default function AdminPage({ products: initialProducts, onCreateProduct, 
                         <label className="block font-label-md text-on-surface-variant ml-1">Cantidad de Stock</label>
                         <input
                           type="number"
+                          step="any"
+                          min="0"
                           value={stock}
                           onChange={(e) => setStock(e.target.value)}
                           disabled={isSubmitting || isPublished}
@@ -1239,6 +1236,7 @@ export default function AdminPage({ products: initialProducts, onCreateProduct, 
                                     <label className="block text-xs text-on-surface-variant font-semibold mb-1">Cantidad en stock</label>
                                     <input
                                       type="number"
+                                      step="any"
                                       min="0"
                                       value={v.stock}
                                       onChange={e => updateVariant(v.id, 'stock', e.target.value)}
@@ -1254,6 +1252,7 @@ export default function AdminPage({ products: initialProducts, onCreateProduct, 
                                         <span className="absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant font-bold text-sm">$</span>
                                         <input
                                           type="number"
+                                          step="any"
                                           min="0"
                                           value={v.price}
                                           onChange={e => updateVariant(v.id, 'price', e.target.value)}
@@ -1557,7 +1556,7 @@ export default function AdminPage({ products: initialProducts, onCreateProduct, 
                         <div className="w-full sm:w-48 shrink-0">
                           <CustomDropdown
                             value={featuredCategory}
-                            onChange={(val) => setFeaturedCategory(val)}
+                            onChange={(val) => setFeaturedCategory(typeof val === 'string' ? val : (val?.target?.value || ''))}
                             options={restockCategoryOptions}
                             placeholder="Filtrar por Categoría"
                           />
@@ -1766,9 +1765,9 @@ export default function AdminPage({ products: initialProducts, onCreateProduct, 
                       <table className="w-full text-left">
                         <thead className="bg-surface-container text-on-surface-variant font-label-md uppercase tracking-wider text-[11px] border-b border-outline-variant/30">
                           <tr>
-                            <th className="px-md py-4">Artículo / Variante</th>
+                            <th className="px-md py-4">Producto</th>
                             <th className="px-md py-4">Categoría</th>
-                            <th className="px-md py-4 text-center">Stock Actual</th>
+                            <th className="px-md py-4 text-center">Stock Total (Suma de Tipos)</th>
                             <th className="px-md py-4 text-center">Añadir Unidades</th>
                             <th className="px-md py-4 text-center">Acciones</th>
                             <th className="px-md py-4 text-right">Acción</th>
@@ -1777,142 +1776,206 @@ export default function AdminPage({ products: initialProducts, onCreateProduct, 
                         <tbody className="divide-y divide-outline-variant/35 align-middle">
                           {filteredRestockProducts.length === 0 ? (
                             <tr>
-                              <td colSpan="5" className="px-md py-8 text-center text-on-surface-variant text-xs font-semibold">
+                              <td colSpan="6" className="px-md py-8 text-center text-on-surface-variant text-xs font-semibold">
                                 No se encontraron productos coincidentes con los filtros.
                               </td>
                             </tr>
                           ) : (
                             filteredRestockProducts.map((p) => {
-                              if (p.colors) {
-                                return p.colors.map((color) => {
-                                  const variationKey = `${p.id}-${color.id}`;
-                                  const currentStock = color.stock !== undefined ? color.stock : (color.inStock ? 20 : 0);
-                                  return (
-                                    <tr key={variationKey} className="hover:bg-surface-container-low/20 transition-colors">
-                                      <td className="px-md py-4">
-                                        <div className="flex items-center gap-sm">
-                                          <div className="w-10 h-10 rounded-lg overflow-hidden border border-outline-variant/20 shrink-0">
-                                            <img src={color.image || color.imagePreview || p.image} alt={color.name} className="w-full h-full object-cover" />
-                                          </div>
-                                          <div className="flex flex-col">
-                                            <span className="font-bold text-on-surface text-sm">{p.name}</span>
-                                            <div className="flex items-center gap-1 mt-0.5">
-                                              <div
-                                                className={`w-2.5 h-2.5 rounded border border-outline-variant/30 shrink-0 ${color.id === 'clear-gloss' ? 'bg-[linear-gradient(45deg,#ccc_25%,transparent_25%),linear-gradient(-45deg,#ccc_25%,transparent_25%),linear-gradient(45deg,transparent_75%,#ccc_75%),linear-gradient(-45deg,transparent_75%,#ccc_75%)] bg-[size:3px_3px]' : ''}`}
-                                                style={color.id !== 'clear-gloss' ? { backgroundColor: color.hex } : {}}
-                                              ></div>
-                                              <span className="text-[10px] text-outline font-semibold">{color.name}</span>
-                                            </div>
-                                          </div>
+                              const hasTypes = Boolean(p.colors && p.colors.length > 0);
+                              const totalStock = hasTypes
+                                ? p.colors.reduce((sum, c) => sum + (c.stock !== undefined ? (parseInt(c.stock) || 0) : (c.inStock ? 20 : 0)), 0)
+                                : (p.stock !== undefined ? (parseInt(p.stock) || 0) : (p.specifications?.Stock ? parseInt(p.specifications.Stock) || 0 : (p.inStock ? 20 : 0)));
+                              const isExpanded = Boolean(expandedRestock[p.id]);
+
+                              return (
+                                <React.Fragment key={p.id}>
+                                  {/* Main Product Row */}
+                                  <tr className={`transition-colors ${isExpanded ? 'bg-primary/5' : 'hover:bg-surface-container-low/30'}`}>
+                                    <td className="px-md py-4">
+                                      <div className="flex items-center gap-sm">
+                                        <div className="w-11 h-11 rounded-lg overflow-hidden border border-outline-variant/30 shrink-0 bg-surface-container-low">
+                                          <img src={p.image} alt={p.name} className="w-full h-full object-cover" />
                                         </div>
-                                      </td>
-                                      <td className="px-md py-4 text-on-surface-variant text-xs font-semibold">{p.category}</td>
-                                      <td className="px-md py-4 text-center">
-                                        <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${getStockBadgeClass(currentStock)}`}>
-                                          {currentStock} ({getStockStatusText(currentStock)})
+                                        <div className="flex flex-col">
+                                          <span className="font-bold text-on-surface text-sm">{p.name}</span>
+                                          {hasTypes ? (
+                                            <button
+                                              type="button"
+                                              onClick={() => toggleRestockExpand(p.id)}
+                                              className="inline-flex items-center gap-1 mt-1 text-xs font-semibold text-primary hover:text-primary/80 bg-primary/10 hover:bg-primary/15 px-2.5 py-0.5 rounded-md transition-colors w-fit cursor-pointer"
+                                            >
+                                              <span className="material-symbols-outlined text-[16px] transition-transform duration-200" style={{ transform: isExpanded ? 'rotate(180deg)' : 'rotate(0deg)' }}>
+                                                expand_more
+                                              </span>
+                                              {isExpanded ? 'Ocultar tipos' : `Ver tipos (${p.colors.length})`}
+                                            </button>
+                                          ) : (
+                                            <span className="text-[11px] text-on-surface-variant mt-0.5">Producto sin tipos</span>
+                                          )}
+                                        </div>
+                                      </div>
+                                    </td>
+                                    <td className="px-md py-4 text-on-surface-variant text-xs font-semibold">{p.category}</td>
+                                    <td className="px-md py-4 text-center">
+                                      <div className="flex flex-col items-center">
+                                        <span className={`px-2.5 py-1 rounded-full text-xs font-bold ${getStockBadgeClass(totalStock)}`}>
+                                          {totalStock} ({getStockStatusText(totalStock)})
                                         </span>
-                                      </td>
-                                      <td className="px-md py-4 text-center">
-                                        <input
-                                          type="number"
-                                          min="1"
-                                          placeholder="Cant."
-                                          value={restockAmount[variationKey] || ''}
-                                          onChange={(e) => setRestockAmount({ ...restockAmount, [variationKey]: e.target.value })}
-                                          className="w-20 bg-surface border border-outline-variant/30 rounded-lg px-2.5 py-1.5 text-xs text-center outline-none focus:border-primary font-bold text-on-surface"
-                                        />
-                                      </td>
-                                      <td className="px-md py-4 text-center">
-                                        <div className="flex items-center justify-center gap-1">
-                                          <button
-                                            type="button"
-                                            onClick={() => handleEditClick(p)}
-                                            className="text-on-surface-variant hover:text-primary transition-colors p-1.5 hover:bg-error/5 rounded-full"
-                                            title="Editar Producto"
-                                          >
-                                            <span className="material-symbols-outlined text-[18px]">edit</span>
-                                          </button>
-                                          <button
-                                            type="button"
-                                            onClick={() => setProductToDelete(p)}
-                                            className="text-on-surface-variant hover:text-error transition-colors p-1.5 hover:bg-error/5 rounded-full"
-                                            title="Eliminar Producto"
-                                          >
-                                            <span className="material-symbols-outlined text-[18px]">delete</span>
-                                          </button>
-                                        </div>
-                                      </td>
-                                      <td className="px-md py-4 text-right">
+                                        {hasTypes && (
+                                          <span className="text-[10px] text-primary font-semibold mt-1 bg-primary/10 px-2 py-0.5 rounded-full">
+                                            Suma de {p.colors.length} tipos
+                                          </span>
+                                        )}
+                                      </div>
+                                    </td>
+                                    <td className="px-md py-4 text-center">
+                                      {hasTypes ? (
                                         <button
                                           type="button"
-                                          onClick={() => handleRestockSubmit(p.id, restockAmount[variationKey], color.id)}
+                                          onClick={() => toggleRestockExpand(p.id)}
+                                          className="text-xs text-primary font-semibold hover:underline cursor-pointer flex items-center justify-center gap-1 mx-auto"
+                                        >
+                                          <span className="material-symbols-outlined text-[16px]">tune</span>
+                                          {isExpanded ? 'Gestionando abajo ↓' : 'Desplegar para reabastecer'}
+                                        </button>
+                                      ) : (
+                                        <input
+                                          type="number"
+                                          step="any"
+                                          min="0.01"
+                                          placeholder="Cant."
+                                          value={restockAmount[p.id] || ''}
+                                          onChange={(e) => setRestockAmount({ ...restockAmount, [p.id]: e.target.value })}
+                                          className="w-20 bg-surface border border-outline-variant/30 rounded-lg px-2.5 py-1.5 text-xs text-center outline-none focus:border-primary font-bold text-on-surface"
+                                        />
+                                      )}
+                                    </td>
+                                    <td className="px-md py-4 text-center">
+                                      <div className="flex items-center justify-center gap-1">
+                                        <button
+                                          type="button"
+                                          onClick={() => handleEditClick(p)}
+                                          className="text-on-surface-variant hover:text-primary transition-colors p-1.5 hover:bg-surface-container rounded-full"
+                                          title="Editar Producto"
+                                        >
+                                          <span className="material-symbols-outlined text-[18px]">edit</span>
+                                        </button>
+                                        <button
+                                          type="button"
+                                          onClick={() => setProductToDelete(p)}
+                                          className="text-on-surface-variant hover:text-error transition-colors p-1.5 hover:bg-error/5 rounded-full"
+                                          title="Eliminar Producto"
+                                        >
+                                          <span className="material-symbols-outlined text-[18px]">delete</span>
+                                        </button>
+                                      </div>
+                                    </td>
+                                    <td className="px-md py-4 text-right">
+                                      {hasTypes ? (
+                                        <button
+                                          type="button"
+                                          onClick={() => toggleRestockExpand(p.id)}
+                                          className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all shadow-xs flex items-center gap-1 ml-auto border ${
+                                            isExpanded
+                                              ? 'bg-surface text-on-surface border-outline-variant/40'
+                                              : 'bg-primary/10 text-primary border-primary/25 hover:bg-primary hover:text-on-primary'
+                                          }`}
+                                        >
+                                          <span className="material-symbols-outlined text-[16px]">
+                                            {isExpanded ? 'expand_less' : 'expand_more'}
+                                          </span>
+                                          {isExpanded ? 'Cerrar desplegable' : 'Desplegar tipos'}
+                                        </button>
+                                      ) : (
+                                        <button
+                                          type="button"
+                                          onClick={() => handleRestockSubmit(p.id, restockAmount[p.id], null)}
                                           className="px-3.5 py-1.5 bg-primary text-on-primary rounded-lg text-xs font-bold hover:scale-105 active:scale-95 transition-all shadow-sm flex items-center gap-1 ml-auto"
                                         >
                                           <span className="material-symbols-outlined text-[14px]">add</span> Reabastecer
                                         </button>
+                                      )}
+                                    </td>
+                                  </tr>
+
+                                  {/* Expanded Types Dropdown Subrow */}
+                                  {hasTypes && isExpanded && (
+                                    <tr className="bg-surface-container-low/40 border-b border-outline-variant/30">
+                                      <td colSpan="6" className="p-0">
+                                        <div className="py-3 px-4 sm:px-6 bg-gradient-to-r from-primary/5 via-surface-container-low/30 to-surface-container-low/10 border-l-4 border-primary">
+                                          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-2.5">
+                                            <div className="flex items-center gap-2">
+                                              <span className="material-symbols-outlined text-primary text-[18px]">account_tree</span>
+                                              <span className="text-xs font-bold text-on-surface uppercase tracking-wider">
+                                                Tipos de "{p.name}" ({p.colors.length} tipos)
+                                              </span>
+                                            </div>
+                                            <span className="text-xs font-semibold text-primary bg-primary/10 px-2.5 py-0.5 rounded-full w-fit">
+                                              Suma total de tipos: {totalStock} unidades
+                                            </span>
+                                          </div>
+
+                                          <div className="bg-surface rounded-lg border border-outline-variant/30 overflow-hidden shadow-xs">
+                                            <table className="w-full text-left">
+                                              <thead className="bg-surface-container text-on-surface-variant font-label-md uppercase tracking-wider text-[10px] border-b border-outline-variant/20">
+                                                <tr>
+                                                  <th className="px-4 py-2">Tipo / Variante</th>
+                                                  <th className="px-4 py-2 text-center">Stock de este Tipo</th>
+                                                  <th className="px-4 py-2 text-center">Añadir Unidades</th>
+                                                  <th className="px-4 py-2 text-right">Acción</th>
+                                                </tr>
+                                              </thead>
+                                              <tbody className="divide-y divide-outline-variant/20">
+                                                {p.colors.map((color) => {
+                                                  const variationKey = `${p.id}-${color.id}`;
+                                                  const currentStock = color.stock !== undefined ? (parseInt(color.stock) || 0) : (color.inStock ? 20 : 0);
+                                                  return (
+                                                    <tr key={variationKey} className="hover:bg-primary/5 transition-colors">
+                                                      <td className="px-4 py-2.5">
+                                                        <div className="flex items-center gap-2.5">
+                                                          <div className="w-8 h-8 rounded-md overflow-hidden border border-outline-variant/20 shrink-0 bg-surface-container">
+                                                            <img src={color.image || color.imagePreview || p.image} alt={color.name} className="w-full h-full object-cover" />
+                                                          </div>
+                                                          <span className="font-semibold text-xs text-on-surface">{color.name}</span>
+                                                        </div>
+                                                      </td>
+                                                      <td className="px-4 py-2.5 text-center">
+                                                        <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${getStockBadgeClass(currentStock)}`}>
+                                                          {currentStock} ({getStockStatusText(currentStock)})
+                                                        </span>
+                                                      </td>
+                                                      <td className="px-4 py-2.5 text-center">
+                                                        <input
+                                                          type="number"
+                                                          step="any"
+                                                          min="0.01"
+                                                          placeholder="Cant."
+                                                          value={restockAmount[variationKey] || ''}
+                                                          onChange={(e) => setRestockAmount({ ...restockAmount, [variationKey]: e.target.value })}
+                                                          className="w-20 bg-surface border border-outline-variant/30 rounded-lg px-2 py-1 text-xs text-center outline-none focus:border-primary font-bold text-on-surface"
+                                                        />
+                                                      </td>
+                                                      <td className="px-4 py-2.5 text-right">
+                                                        <button
+                                                          type="button"
+                                                          onClick={() => handleRestockSubmit(p.id, restockAmount[variationKey], color.id)}
+                                                          className="px-3 py-1 bg-primary text-on-primary rounded-lg text-xs font-bold hover:scale-105 active:scale-95 transition-all shadow-xs flex items-center gap-1 ml-auto"
+                                                        >
+                                                          <span className="material-symbols-outlined text-[13px]">add</span> Reabastecer tipo
+                                                        </button>
+                                                      </td>
+                                                    </tr>
+                                                  );
+                                                })}
+                                              </tbody>
+                                            </table>
+                                          </div>
+                                        </div>
                                       </td>
                                     </tr>
-                                  );
-                                });
-                              }
-
-                              const currentStock = p.specifications?.Stock ? parseInt(p.specifications.Stock) : (p.inStock ? 20 : 0);
-                              return (
-                                <tr key={p.id} className="hover:bg-surface-container-low/20 transition-colors">
-                                  <td className="px-md py-4">
-                                    <div className="flex items-center gap-sm">
-                                      <div className="w-10 h-10 rounded-lg overflow-hidden border border-outline-variant/20 shrink-0">
-                                        <img src={p.image} alt={p.name} className="w-full h-full object-cover" />
-                                      </div>
-                                      <span className="font-bold text-on-surface text-sm truncate max-w-[180px]">{p.name}</span>
-                                    </div>
-                                  </td>
-                                  <td className="px-md py-4 text-on-surface-variant text-xs font-semibold">{p.category}</td>
-                                  <td className="px-md py-4 text-center">
-                                    <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${getStockBadgeClass(currentStock)}`}>
-                                      {currentStock} ({getStockStatusText(currentStock)})
-                                    </span>
-                                  </td>
-                                  <td className="px-md py-4 text-center">
-                                    <input
-                                      type="number"
-                                      min="1"
-                                      placeholder="Cant."
-                                      value={restockAmount[p.id] || ''}
-                                      onChange={(e) => setRestockAmount({ ...restockAmount, [p.id]: e.target.value })}
-                                      className="w-20 bg-surface border border-outline-variant/30 rounded-lg px-2.5 py-1.5 text-xs text-center outline-none focus:border-primary font-bold text-on-surface"
-                                    />
-                                  </td>
-                                  <td className="px-md py-4 text-center">
-                                    <div className="flex items-center justify-center gap-1">
-                                      <button
-                                        type="button"
-                                        onClick={() => handleEditClick(p)}
-                                        className="text-on-surface-variant hover:text-primary transition-colors p-1.5 hover:bg-error/5 rounded-full"
-                                        title="Editar Producto"
-                                      >
-                                        <span className="material-symbols-outlined text-[18px]">edit</span>
-                                      </button>
-                                      <button
-                                        type="button"
-                                        onClick={() => setProductToDelete(p)}
-                                        className="text-on-surface-variant hover:text-error transition-colors p-1.5 hover:bg-error/5 rounded-full"
-                                        title="Eliminar Producto"
-                                      >
-                                        <span className="material-symbols-outlined text-[18px]">delete</span>
-                                      </button>
-                                    </div>
-                                  </td>
-                                  <td className="px-md py-4 text-right">
-                                    <button
-                                      type="button"
-                                      onClick={() => handleRestockSubmit(p.id, restockAmount[p.id], null)}
-                                      className="px-3.5 py-1.5 bg-primary text-on-primary rounded-lg text-xs font-bold hover:scale-105 active:scale-95 transition-all shadow-sm flex items-center gap-1 ml-auto"
-                                    >
-                                      <span className="material-symbols-outlined text-[14px]">add</span> Reabastecer
-                                    </button>
-                                  </td>
-                                </tr>
+                                  )}
+                                </React.Fragment>
                               );
                             })
                           )}
@@ -2069,70 +2132,6 @@ export default function AdminPage({ products: initialProducts, onCreateProduct, 
                   </div>
                 );
               })()}
-
-              {activeTab === 'presale' && (
-                <div className="bg-surface-container-lowest border border-outline-variant/30 rounded-xl collector-card-shadow p-xl flex flex-col items-center justify-center text-center gap-6 min-h-[450px] animate-fade-in">
-                  <div className="relative">
-                    <div className="absolute inset-0 bg-primary/15 rounded-full blur-xl scale-125 animate-pulse"></div>
-                    <div className="relative bg-primary/10 text-primary w-24 h-24 rounded-full flex items-center justify-center border border-primary/20 shadow-inner">
-                      <span className="material-symbols-outlined text-[3.5rem] animate-pulse">calendar_today</span>
-                    </div>
-                  </div>
-
-                  <div className="space-y-2 max-w-lg">
-                    <span className="text-[10px] text-primary font-bold uppercase tracking-widest bg-primary/15 px-3 py-1 rounded-full border border-primary/20">
-                      Módulo en Desarrollo
-                    </span>
-                    <h2 className="font-headline-lg text-headline-lg text-on-surface">Gestión de Preventas TCG</h2>
-                    <p className="font-body-md text-on-surface-variant leading-relaxed">
-                      Este panel te permitirá configurar lanzamientos anticipados de Yu-Gi-Oh, Pokémon y Magic. Podrás definir límites de compra por usuario y calendarios de liberación de stock.
-                    </p>
-                  </div>
-
-                  {/* Progress Indicator */}
-                  <div className="w-full max-w-xs space-y-2 mt-2">
-                    <div className="flex justify-between text-xs font-bold text-outline">
-                      <span>Estado del Módulo</span>
-                      <span className="text-primary">87%</span>
-                    </div>
-                    <div className="w-full h-2 bg-surface-container-high rounded-full overflow-hidden border border-outline-variant/20">
-                      <div className="w-[87%] h-full bg-primary rounded-full transition-all duration-1000"></div>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {activeTab === 'rare' && (
-                <div className="bg-surface-container-lowest border border-outline-variant/30 rounded-xl collector-card-shadow p-xl flex flex-col items-center justify-center text-center gap-6 min-h-[450px] animate-fade-in">
-                  <div className="relative">
-                    <div className="absolute inset-0 bg-secondary/15 rounded-full blur-xl scale-125 animate-pulse"></div>
-                    <div className="relative bg-secondary/10 text-secondary w-24 h-24 rounded-full flex items-center justify-center border border-secondary/20 shadow-inner">
-                      <span className="material-symbols-outlined text-[3.5rem] animate-pulse">diamond</span>
-                    </div>
-                  </div>
-
-                  <div className="space-y-2 max-w-lg">
-                    <span className="text-[10px] text-secondary font-bold uppercase tracking-widest bg-secondary/15 px-3 py-1 rounded-full border border-secondary/20">
-                      Área Clasificada
-                    </span>
-                    <h2 className="font-headline-lg text-headline-lg text-on-surface">Galería de Piezas Raras</h2>
-                    <p className="font-body-md text-on-surface-variant leading-relaxed">
-                      La exhibición virtual de piezas únicas, autografiadas y tesoros de colección de grado de museo está siendo restaurada para soportar subastas en tiempo real y tasaciones certificadas.
-                    </p>
-                  </div>
-
-                  {/* Progress Indicator */}
-                  <div className="w-full max-w-xs space-y-2 mt-2">
-                    <div className="flex justify-between text-xs font-bold text-outline">
-                      <span>Restauración de Vitrina</span>
-                      <span className="text-secondary">64%</span>
-                    </div>
-                    <div className="w-full h-2 bg-surface-container-high rounded-full overflow-hidden border border-outline-variant/20">
-                      <div className="w-[64%] h-full bg-secondary rounded-full transition-all duration-1000"></div>
-                    </div>
-                  </div>
-                </div>
-              )}
             </>
           )}
 

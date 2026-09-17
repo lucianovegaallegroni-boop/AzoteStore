@@ -144,7 +144,7 @@ export default function App() {
                 }
               } else {
                 // Check standard product stock
-                const currentStock = dbProduct.specifications?.Stock ? parseInt(dbProduct.specifications.Stock) : (dbProduct.inStock ? 20 : 0);
+                const currentStock = dbProduct.specifications?.Stock ? parseFloat(dbProduct.specifications.Stock) : (dbProduct.inStock ? 20 : 0);
                 if (currentStock <= 0) {
                   changed = true;
                   return false;
@@ -166,7 +166,7 @@ export default function App() {
   // Cart operations
   const handleAddToCart = (product, color = null) => {
     // Get max available stock
-    const maxStock = color ? (color.stock !== undefined ? color.stock : 20) : (product.specifications?.Stock ? parseInt(product.specifications.Stock) : 20);
+    const maxStock = color ? (color.stock !== undefined ? color.stock : 20) : (product.specifications?.Stock ? parseFloat(product.specifications.Stock) : 20);
     if (maxStock <= 0) return;
 
     setCartItems((prevItems) => {
@@ -195,7 +195,7 @@ export default function App() {
         const itemColorId = item.color?.id || null;
         const targetColorId = colorId || null;
         if (item.product.id === productId && itemColorId === targetColorId) {
-          const maxStock = item.color ? (item.color.stock !== undefined ? item.color.stock : 20) : (item.product.specifications?.Stock ? parseInt(item.product.specifications.Stock) : 20);
+          const maxStock = item.color ? (item.color.stock !== undefined ? item.color.stock : 20) : (item.product.specifications?.Stock ? parseFloat(item.product.specifications.Stock) : 20);
           return { ...item, quantity: Math.min(maxStock, newQty) };
         }
         return item;
@@ -370,13 +370,13 @@ export default function App() {
       gallery: [productData.image || imageMap[productData.category]],
       category: productData.category,
       categorySlug: productData.category.toLowerCase().replace(/\s+/g, '-'),
-      inStock: parseInt(productData.stock) > 0,
+      inStock: parseFloat(productData.stock) > 0,
       // grade: 'Premium Grade',
       description: productData.description,
       specifications: {
         Stock: productData.stock,
         Category: productData.category,
-        Status: parseInt(productData.stock) > 0 ? 'Disponible' : 'Agotado'
+        Status: parseFloat(productData.stock) > 0 ? 'Disponible' : 'Agotado'
       },
       // Attach color/variant array if the product was created with multiple types
       ...(productData.variants && productData.variants.length > 0 && {
@@ -402,7 +402,7 @@ export default function App() {
           if (colorId && p.colors) {
             const updatedColors = p.colors.map((c) => {
               if (c.id === colorId) {
-                const currentStock = c.stock !== undefined ? c.stock : (c.inStock ? 20 : 0);
+                const currentStock = c.stock !== undefined ? (parseFloat(c.stock) || 0) : (c.inStock ? 20 : 0);
                 const newStock = Math.max(0, currentStock + amountToAdd);
                 return { ...c, stock: newStock, inStock: newStock > 0 };
               }
@@ -414,7 +414,7 @@ export default function App() {
               inStock: updatedColors.some((c) => c.inStock)
             };
           } else {
-            const currentStock = p.specifications?.Stock ? parseInt(p.specifications.Stock) : (p.inStock ? 20 : 0);
+            const currentStock = p.specifications?.Stock ? parseFloat(p.specifications.Stock) : (p.inStock ? 20 : 0);
             const newStock = Math.max(0, currentStock + amountToAdd);
             return {
               ...p,
