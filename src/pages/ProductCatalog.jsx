@@ -1,31 +1,33 @@
 import React, { useState, useEffect } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
-import CustomDropdown from '../components/CustomDropdown';
 
 const sortOptions = [
-  { value: "featured", label: "Destacados" },
-  { value: "price-low", label: "Precio: Bajo a Alto" },
-  { value: "price-high", label: "Precio: Alto a Bajo" },
+  { value: "featured", label: "Mejor Coincidencia" },
+  { value: "price-low", label: "Precio: Menor a Mayor" },
+  { value: "price-high", label: "Precio: Mayor a Menor" },
   { value: "name", label: "Nombre: A-Z" }
 ];
+
 export default function ProductCatalog({ products }) {
   const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
 
+  // View mode: 'grid' or 'list'
+  const [viewMode, setViewMode] = useState('grid');
+
   // Filter States
   const [selectedCategory, setSelectedCategory] = useState('');
-  const [onlyInStock, setOnlyInStock] = useState(false);
   const [sortBy, setSortBy] = useState('featured');
   const [searchQuery, setSearchQuery] = useState('');
 
   // Pagination States
   const [currentPage, setCurrentPage] = useState(1);
-  const PRODUCTS_PER_PAGE = 9;
+  const PRODUCTS_PER_PAGE = 8;
 
   // Reset pagination to page 1 whenever filters change
   useEffect(() => {
     setCurrentPage(1);
-  }, [selectedCategory, searchQuery, onlyInStock, sortBy]);
+  }, [selectedCategory, searchQuery, sortBy]);
 
   const [dbProducts, setDbProducts] = useState(products || []);
   const [loading, setLoading] = useState(!products || products.length === 0);
@@ -62,27 +64,34 @@ export default function ProductCatalog({ products }) {
         if (error) throw error;
 
         if (prods) {
-          const formatted = prods.map(p => ({
-            id: p.id,
-            name: p.name,
-            subtitle: `${p.category} Collectible Item`,
-            price: parseFloat(p.price),
-            originalPrice: null,
-            image: p.image,
-            category: p.category,
-            categorySlug: p.category.toLowerCase().replace(/\s+/g, '-'),
-            inStock: p.stock > 0,
-            description: p.description,
-            colors: p.product_variants && p.product_variants.length > 0 ? p.product_variants.map(v => ({
-              id: v.id,
-              name: v.title,
-              hex: '#888888',
-              image: v.image,
-              stock: v.stock,
-              inStock: v.stock > 0,
-              price: parseFloat(v.price || p.price)
-            })) : null
-          }));
+          const formatted = prods.map(p => {
+            const hasVariants = p.product_variants && p.product_variants.length > 0;
+            const inStockVariants = hasVariants ? p.product_variants.filter(v => (v.stock || 0) > 0) : [];
+            const hasStock = hasVariants ? inStockVariants.length > 0 : (p.stock > 0);
+
+            return {
+              id: p.id,
+              name: p.name,
+              subtitle: `${p.category} Collectible Item`,
+              price: parseFloat(p.price),
+              originalPrice: null,
+              image: p.image,
+              category: p.category,
+              categorySlug: p.category.toLowerCase().replace(/\s+/g, '-'),
+              stock: p.stock,
+              inStock: hasStock,
+              description: p.description,
+              colors: hasVariants && inStockVariants.length > 0 ? inStockVariants.map(v => ({
+                id: v.id,
+                name: v.title,
+                hex: '#888888',
+                image: v.image,
+                stock: v.stock,
+                inStock: true,
+                price: parseFloat(v.price || p.price)
+              })) : null
+            };
+          });
           setDbProducts(formatted);
         }
       } catch (err) {
@@ -99,8 +108,8 @@ export default function ProductCatalog({ products }) {
   // Categories list based on our product data
   const categories = [
     { name: "Todos", slug: "" },
-    { name: "Yu-Gi-Oh", slug: "yu-gi-oh" },
-    { name: "Pokemon", slug: "pokemon" },
+    { name: "Yu-Gi-Oh!", slug: "yu-gi-oh" },
+    { name: "Pokémon", slug: "pokemon" },
     { name: "Magic", slug: "magic" },
     { name: "Sleeves", slug: "sleeves" }
   ];
@@ -119,12 +128,20 @@ export default function ProductCatalog({ products }) {
   // Handler for clearing all filters
   const handleClearFilters = () => {
     setSearchParams({});
-    setOnlyInStock(false);
     setSortBy('featured');
   };
 
   // Process Products: Filter & Sort
   let filteredProducts = activeProducts.filter(product => {
+    // 0. Stock Filter (Strict rule: out-of-stock products are never shown)
+    const hasVariantStock = product.colors && product.colors.length > 0
+      ? product.colors.some(c => (c.stock !== undefined ? c.stock > 0 : c.inStock))
+      : true;
+    const hasBaseStock = product.stock !== undefined ? product.stock > 0 : product.inStock;
+    if (!hasBaseStock || !hasVariantStock) {
+      return false;
+    }
+
     // 1. Category Filter
     if (selectedCategory) {
       const matchCategory = product.categorySlug === selectedCategory ||
@@ -140,11 +157,6 @@ export default function ProductCatalog({ products }) {
         product.description.toLowerCase().includes(query) ||
         product.category.toLowerCase().includes(query);
       if (!matchQuery) return false;
-    }
-
-    // 3. Stock Filter
-    if (onlyInStock && !product.inStock) {
-      return false;
     }
 
     return true;
@@ -165,219 +177,376 @@ export default function ProductCatalog({ products }) {
     currentPage * PRODUCTS_PER_PAGE
   );
 
+  const hasActiveFilters = selectedCategory || searchQuery || sortBy !== 'featured';
+
+  const currentCategoryName = categories.find(c => c.slug === selectedCategory)?.name || (selectedCategory ? selectedCategory : 'Coleccionables');
+
   return (
-    <div className="w-full max-w-[1440px] mx-auto px-margin-mobile md:px-margin-desktop py-lg">
+    <div className="w-full max-w-[1440px] mx-auto px-4 sm:px-6 lg:px-8 py-6 md:py-8">
 
-      {/* Title & Stats */}
-      <div className="mb-lg flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-        <div>
-          <h1 className="font-headline-lg text-headline-lg text-on-background">Catálogo de Coleccionables</h1>
-          <p className="font-body-md text-body-md text-on-surface-variant">
-            {searchQuery ? `Resultados para "${searchQuery}"` : 'Explora nuestra exclusiva bóveda.'}
-            <span className="font-semibold text-primary ml-2">({filteredProducts.length} productos)</span>
-          </p>
-        </div>
+      {/* Main Layout */}
+      <main className="w-full flex flex-col md:flex-row gap-6 md:gap-8 items-start">
 
-        {/* Sorting Dropdown */}
-        <div className="flex items-center gap-2 self-end md:self-auto bg-surface-container-high px-4 py-1.5 rounded-full border border-outline-variant/30">
-          <span className="text-xs text-on-surface-variant font-semibold uppercase tracking-wider">Ordenar por:</span>
-          <CustomDropdown
-            value={sortBy}
-            onChange={(e) => setSortBy(e.target.value)}
-            options={sortOptions}
-            className="bg-transparent border-none px-0 py-0 w-auto rounded-none focus:ring-0 shadow-none text-sm font-semibold text-on-surface"
-            align="right"
-          />
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-4 gap-gutter">
-
-        {/* Filters Sidebar */}
-        <div className="lg:col-span-1 flex flex-col gap-6">
-
-          {/* Categories Filter Box */}
-          <div className="bg-surface-container-low border border-outline-variant/30 rounded-xl p-md shadow-sm">
-            <h3 className="font-label-md text-label-md text-on-background mb-4 uppercase tracking-widest text-outline">Categorías</h3>
-            <div className="flex flex-wrap lg:flex-col gap-2">
-              {categories.map((cat) => (
-                <button
-                  key={cat.slug}
-                  onClick={() => handleCategorySelect(cat.slug)}
-                  className={`px-4 py-2 rounded-full lg:rounded-lg text-left text-sm font-medium transition-all flex justify-between items-center ${selectedCategory === cat.slug
-                      ? 'bg-primary text-on-primary shadow-sm'
-                      : 'bg-surface-container-lowest text-on-surface-variant hover:bg-surface-container-high'
-                    }`}
+        {/* Sidebar Filters */}
+        <aside className="w-full md:w-64 flex-shrink-0">
+          <div className="bg-surface-container-low rounded-xl p-4 border border-outline-variant/30 sticky top-24 shadow-sm">
+            <h2 className="font-headline-md text-base font-bold text-on-surface mb-4 flex items-center justify-between">
+              Filtros
+              {hasActiveFilters && (
+                <span
+                  onClick={handleClearFilters}
+                  className="text-xs font-semibold text-primary cursor-pointer hover:underline"
                 >
-                  <span className="flex items-center gap-2.5">
-                    {cat.slug === 'yu-gi-oh' && <img src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQb_QJG__8waCiF9-EHaLoNyDavicTlcHbAk8fhh5-i6w&s" alt="Yu-Gi-Oh" className="w-[27px] h-[27px] object-contain shrink-0" />}
-                    {cat.slug === 'pokemon' && <img src="https://upload.wikimedia.org/wikipedia/commons/9/98/International_Pok%C3%A9mon_logo.svg" alt="Pokemon" className="w-[27px] h-[27px] object-contain shrink-0" />}
-                    {cat.slug === 'magic' && <img src="https://1000logos.net/wp-content/uploads/2022/10/Magic-The-Gathering-logo.png" alt="Magic" className="w-[27px] h-[27px] object-contain shrink-0" />}
-                    {cat.name}
-                  </span>
-                  {selectedCategory === cat.slug && (
-                    <span className="material-symbols-outlined text-[16px] hidden lg:block">check</span>
-                  )}
+                  Limpiar
+                </span>
+              )}
+            </h2>
+
+            <div className="space-y-5">
+              {/* Set / Category Filter */}
+              <div>
+                <h3 className="text-xs font-bold text-on-surface-variant mb-2.5 uppercase tracking-wider">
+                  Colección (Set)
+                </h3>
+                <div className="space-y-1.5 max-h-56 overflow-y-auto pr-1">
+                  {categories.map((cat) => {
+                    const isSelected = selectedCategory === cat.slug;
+                    return (
+                      <label
+                        key={cat.slug}
+                        onClick={() => handleCategorySelect(cat.slug)}
+                        className={`flex items-center justify-between gap-2 px-2.5 py-1.5 rounded-lg cursor-pointer transition-colors group ${
+                          isSelected ? 'bg-primary text-on-primary font-semibold' : 'hover:bg-surface-container text-on-surface'
+                        }`}
+                      >
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="radio"
+                            name="category-filter"
+                            checked={isSelected}
+                            onChange={() => {}}
+                            className="rounded-full border-outline-variant/50 text-primary focus:ring-primary w-3.5 h-3.5"
+                          />
+                          <span className="text-xs">{cat.name}</span>
+                        </div>
+                        {isSelected && (
+                          <span className="material-symbols-outlined text-[14px]">check</span>
+                        )}
+                      </label>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Reset button inside sidebar if active */}
+              {hasActiveFilters && (
+                <button
+                  type="button"
+                  onClick={handleClearFilters}
+                  className="w-full mt-2 py-2 px-3 border border-primary text-primary font-semibold text-xs rounded-lg hover:bg-primary/10 transition-colors flex items-center justify-center gap-1.5"
+                >
+                  <span className="material-symbols-outlined text-[16px]">filter_alt_off</span>
+                  Restablecer filtros
                 </button>
-              ))}
+              )}
+            </div>
+          </div>
+        </aside>
+
+        {/* Product Grid Area */}
+        <div className="flex-1 w-full flex flex-col gap-4">
+
+          {/* Banner / Promo */}
+          <div className="w-full h-28 sm:h-32 rounded-xl bg-primary-container text-on-primary-container flex items-center justify-center relative overflow-hidden border border-outline-variant/20 shadow-sm">
+            <div
+              className="absolute inset-0 bg-cover bg-center opacity-25"
+              style={{
+                backgroundImage: `url('https://lh3.googleusercontent.com/aida-public/AB6AXuAjLD6TIcEZBcXndWh2yEMKwmGiO4XyX1_0KhpisOH_b9gE2U_Qsj7wwHZUVss_3J7JjYbsHo6dwVklL2eqVzDGz1ufwsBfezxhOqQnyV1fPm-CUUvUvTm0_0dw4fAvNZMJ4ShKTZEGq4-x1p3K6TEJLhyI9GoU_NrdyM-NFbxkjBZJ3isQ91BN8lRFDIevHUmgVsVMzQqEX0N-MtjgWfl0XzUEZd3qbtCnEfGJTs0XGJfby4XUQRmFng')`
+              }}
+            ></div>
+            <div className="relative z-10 text-center px-4">
+              <h2 className="font-headline-md text-base sm:text-xl font-bold text-white tracking-tight">
+                Colecciones &amp; Accesorios Oficiales
+              </h2>
+              <p className="text-xs sm:text-sm text-white/90 mt-1">
+                Cartas TCG, sleeves de alta gama y material coleccionable en Azote Store.
+              </p>
             </div>
           </div>
 
-          {/* Availability Filter Box */}
-          <div className="bg-surface-container-low border border-outline-variant/30 rounded-xl p-md shadow-sm">
-            <h3 className="font-label-md text-label-md text-on-background mb-4 uppercase tracking-widest text-outline">Disponibilidad</h3>
-            <label className="flex items-center gap-3 cursor-pointer text-on-surface-variant hover:text-on-surface transition-colors select-none font-body-md">
-              <input
-                type="checkbox"
-                checked={onlyInStock}
-                onChange={(e) => setOnlyInStock(e.target.checked)}
-                className="w-5 h-5 rounded text-primary focus:ring-primary border-outline-variant/50 focus:ring-offset-background"
-              />
-              <span className="text-sm font-medium">Solo en stock</span>
-            </label>
+          {/* Sorting & Tools */}
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center py-2.5 border-b border-outline-variant/30 gap-3">
+            <p className="text-xs sm:text-sm text-on-surface-variant font-medium">
+              <strong className="text-on-surface font-bold">{filteredProducts.length}</strong> resultados en <span className="font-semibold">{currentCategoryName}</span>
+            </p>
+
+            <div className="flex items-center gap-3 w-full sm:w-auto justify-between sm:justify-end">
+              <div className="flex items-center gap-2">
+                <label className="text-xs font-semibold text-on-surface-variant whitespace-nowrap">
+                  Ordenar por:
+                </label>
+                <select
+                  value={sortBy}
+                  onChange={(e) => setSortBy(e.target.value)}
+                  className="rounded-md border border-outline-variant/40 bg-surface text-xs font-medium text-on-surface focus:border-primary focus:ring-1 focus:ring-primary py-1 px-2.5"
+                >
+                  {sortOptions.map((opt) => (
+                    <option key={opt.value} value={opt.value}>
+                      {opt.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* View toggle (Grid / List) */}
+              <div className="flex border border-outline-variant/40 rounded-md overflow-hidden bg-surface shadow-xs">
+                <button
+                  type="button"
+                  onClick={() => setViewMode('grid')}
+                  className={`p-1.5 transition-colors ${
+                    viewMode === 'grid'
+                      ? 'bg-primary text-on-primary'
+                      : 'text-on-surface-variant hover:bg-surface-container-high'
+                  }`}
+                  title="Vista Cuadrícula"
+                >
+                  <span className="material-symbols-outlined text-[18px] block">grid_view</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setViewMode('list')}
+                  className={`p-1.5 transition-colors ${
+                    viewMode === 'list'
+                      ? 'bg-primary text-on-primary'
+                      : 'text-on-surface-variant hover:bg-surface-container-high'
+                  }`}
+                  title="Vista Lista"
+                >
+                  <span className="material-symbols-outlined text-[18px] block">view_list</span>
+                </button>
+              </div>
+            </div>
           </div>
 
-          {/* Reset Filters button */}
-          {(selectedCategory || onlyInStock || searchQuery || sortBy !== 'featured') && (
-            <button
-              onClick={handleClearFilters}
-              className="w-full border border-primary text-primary font-label-md py-3 rounded-xl hover:bg-primary-container/10 transition-colors flex items-center justify-center gap-2"
-            >
-              <span className="material-symbols-outlined text-[18px]">filter_alt_off</span>
-              Limpiar filtros
-            </button>
-          )}
-        </div>
-
-        {/* Product Grid */}
-        <div className="lg:col-span-3">
+          {/* Loading State */}
           {loading ? (
-            <div className="flex flex-col items-center justify-center py-20 text-primary gap-4">
-              <svg className="animate-spin h-10 w-10 text-primary" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+            <div className="flex flex-col items-center justify-center py-20 text-primary gap-3">
+              <svg className="animate-spin h-8 w-8 text-primary" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                 <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                 <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
               </svg>
-              <p className="font-headline-md text-sm text-on-surface-variant animate-pulse font-semibold">Abriendo la Bóveda...</p>
+              <p className="text-xs text-on-surface-variant animate-pulse font-semibold">Cargando productos...</p>
             </div>
           ) : filteredProducts.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-20 text-on-surface-variant gap-4 bg-surface border border-outline-variant/20 rounded-xl card-shadow">
-              <span className="material-symbols-outlined text-[5rem] text-outline/30">search_off</span>
-              <h3 className="font-headline-md text-headline-md">Sin resultados</h3>
-              <p className="font-body-md text-center max-w-md">
-                No encontramos productos que coincidan con tu selección. Prueba cambiando los filtros o buscando otro término.
+            /* Empty State */
+            <div className="flex flex-col items-center justify-center py-16 text-on-surface-variant gap-3 bg-surface border border-outline-variant/30 rounded-xl shadow-xs px-4 text-center">
+              <span className="material-symbols-outlined text-[4rem] text-outline/40">search_off</span>
+              <h3 className="font-headline-md text-base font-bold text-on-surface">Sin resultados</h3>
+              <p className="text-xs max-w-sm text-on-surface-variant">
+                No encontramos productos que coincidan con tu selección actual.
               </p>
               <button
                 onClick={handleClearFilters}
-                className="bg-primary text-on-primary font-label-md px-6 py-2 rounded-full hover:scale-105 transition-transform mt-2"
+                className="bg-primary text-on-primary text-xs font-semibold px-4 py-2 rounded-lg hover:bg-primary-container transition-colors mt-2"
               >
-                Restaurar Catálogo
+                Limpiar filtros
               </button>
             </div>
-          ) : (
-            <>
-              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-gutter">
-                {paginatedProducts.map((product) => (
+          ) : viewMode === 'grid' ? (
+            /* Product Grid */
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4">
+              {paginatedProducts.map((product) => (
+                <article
+                  key={product.id}
+                  className="bg-surface rounded-xl border border-outline-variant/30 hover:border-primary transition-all duration-200 p-3 hover:shadow-md flex flex-col h-full shadow-xs group"
+                >
+                  {/* Card Image 3/4 Aspect */}
                   <div
-                    key={product.id}
                     onClick={() => navigate(`/product/${product.id}`)}
-                    className="bg-surface rounded-xl overflow-hidden cursor-pointer group border border-outline-variant/20 card-shadow transition-all duration-300 hover:-translate-y-1 hover:shadow-lg flex flex-col h-full"
+                    className="aspect-[3/4] rounded-lg bg-surface-container-low border border-outline-variant/20 mb-3 overflow-hidden relative flex items-center justify-center cursor-pointer p-2"
                   >
-                    <div className="h-[200px] overflow-hidden bg-surface-container-low relative">
-                      <img
-                        src={product.image}
-                        alt={product.name}
-                        className={`w-full h-full object-cover transition-transform duration-500 group-hover:scale-105 ${!product.inStock ? 'grayscale opacity-60' : ''}`}
-                      />
-                      {!product.inStock && (
-                        <div className="absolute inset-0 bg-black/40 backdrop-blur-[1px] flex items-center justify-center transition-all duration-300 group-hover:bg-black/45">
-                          <span className="border-2 border-error text-error bg-error/10 font-headline-md text-xs font-bold uppercase tracking-widest px-4 py-2 rounded-lg shadow-sm">
-                            Sin Stock
-                          </span>
-                        </div>
-                      )}
-                    </div>
+                    <img
+                      src={product.image}
+                      alt={product.name}
+                      className={`w-full h-full object-contain transition-transform duration-300 group-hover:scale-105 ${
+                        !product.inStock ? 'grayscale opacity-60' : ''
+                      }`}
+                    />
 
-                    <div className="p-sm flex flex-col flex-1 justify-between">
-                      <div>
-                        <span className="text-xs text-on-surface-variant uppercase tracking-wider font-semibold font-body-md">{product.category}</span>
-                        <h3 className="font-headline-md text-[16px] text-on-background group-hover:text-primary transition-colors line-clamp-1 mt-1">
-                          {product.name}
-                        </h3>
-                        <p className="text-xs text-on-surface-variant mt-1 line-clamp-2">{product.description}</p>
-                      </div>
-
-                      <div className="flex justify-between items-center mt-4 pt-4 border-t border-outline-variant/20">
-                        <div className="flex items-baseline gap-2">
-                          <span className="font-headline-md text-primary">${product.price.toFixed(2)}</span>
-                          {product.originalPrice && (
-                            <span className="font-body-md text-xs text-outline line-through">${product.originalPrice.toFixed(2)}</span>
-                          )}
-                        </div>
-                        <span className="material-symbols-outlined text-primary group-hover:translate-x-1 transition-transform">
-                          arrow_forward
+                    {/* Out of Stock Overlay */}
+                    {!product.inStock && (
+                      <div className="absolute inset-0 bg-black/40 backdrop-blur-[1px] flex items-center justify-center">
+                        <span className="border border-error text-error bg-surface/90 text-[10px] font-bold uppercase tracking-widest px-2.5 py-1 rounded-md shadow-xs">
+                          Agotado
                         </span>
                       </div>
-                    </div>
+                    )}
                   </div>
-                ))}
-              </div>
 
-              {/* Pagination Controls */}
-              {totalPages > 1 && (
-                <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mt-8 border-t border-outline-variant/20 pt-6">
-                  <div className="text-xs text-on-surface-variant font-medium">
-                    Mostrando <span className="font-bold text-on-surface">{Math.min(filteredProducts.length, (currentPage - 1) * PRODUCTS_PER_PAGE + 1)}</span> a <span className="font-bold text-on-surface">{Math.min(filteredProducts.length, currentPage * PRODUCTS_PER_PAGE)}</span> de <span className="font-bold text-on-surface">{filteredProducts.length}</span> productos
-                  </div>
-                  <div className="flex items-center gap-1">
-                    <button
-                      type="button"
-                      disabled={currentPage === 1}
-                      onClick={() => {
-                        setCurrentPage(prev => Math.max(1, prev - 1));
-                        window.scrollTo({ top: 0, behavior: 'smooth' });
-                      }}
-                      className="p-2 rounded-lg text-on-surface hover:bg-surface-container-high transition-colors disabled:opacity-40 disabled:hover:bg-transparent"
+                  {/* Card Details */}
+                  <div className="flex-1 flex flex-col">
+                    <h3
+                      onClick={() => navigate(`/product/${product.id}`)}
+                      className="font-headline-md text-sm font-bold text-on-surface line-clamp-2 leading-tight mb-1 cursor-pointer group-hover:text-primary transition-colors"
+                      title={product.name}
                     >
-                      <span className="material-symbols-outlined text-[20px] block">chevron_left</span>
-                    </button>
-                    
-                    {Array.from({ length: totalPages }, (_, i) => i + 1).map((pageNum) => (
-                      <button
-                        key={pageNum}
-                        type="button"
-                        onClick={() => {
-                          setCurrentPage(pageNum);
-                          window.scrollTo({ top: 0, behavior: 'smooth' });
-                        }}
-                        className={`w-9 h-9 rounded-lg text-xs font-bold transition-all ${
-                          currentPage === pageNum
-                            ? 'bg-primary text-on-primary shadow-sm'
-                            : 'text-on-surface hover:bg-surface-container-high'
+                      {product.name}
+                    </h3>
+                    <p className="text-xs text-on-surface-variant mb-1 font-medium">
+                      {product.category}
+                    </p>
+                    <p className="text-xs font-semibold text-primary mb-auto">
+                      {product.subtitle || 'Ultra Rare'}
+                    </p>
+
+                    {/* Price & Stock Section */}
+                    <div className="mt-3 pt-2.5 border-t border-outline-variant/20">
+                      <p className="text-[11px] text-on-surface-variant mb-0.5">Precio</p>
+                      <p className="font-headline-md text-base sm:text-lg font-bold text-primary">
+                        ${product.price.toFixed(2)}
+                      </p>
+                      <p
+                        className={`text-[11px] mt-1 flex items-center gap-1 font-medium ${
+                          product.inStock ? 'text-emerald-600' : 'text-error'
                         }`}
                       >
-                        {pageNum}
-                      </button>
-                    ))}
-
-                    <button
-                      type="button"
-                      disabled={currentPage === totalPages}
-                      onClick={() => {
-                        setCurrentPage(prev => Math.min(totalPages, prev + 1));
-                        window.scrollTo({ top: 0, behavior: 'smooth' });
-                      }}
-                      className="p-2 rounded-lg text-on-surface hover:bg-surface-container-high transition-colors disabled:opacity-40 disabled:hover:bg-transparent"
-                    >
-                      <span className="material-symbols-outlined text-[20px] block">chevron_right</span>
-                    </button>
+                        <span className="material-symbols-outlined text-[13px]">
+                          {product.inStock ? 'check_circle' : 'cancel'}
+                        </span>
+                        {product.inStock ? 'En Stock' : 'Agotado'}
+                      </p>
+                    </div>
                   </div>
-                </div>
-              )}
-            </>
-          )}
-        </div>
+                </article>
+              ))}
+            </div>
+          ) : (
+            /* Product List View */
+            <div className="flex flex-col gap-3">
+              {paginatedProducts.map((product) => (
+                <article
+                  key={product.id}
+                  className="bg-surface rounded-xl border border-outline-variant/30 hover:border-primary transition-all duration-200 p-3 hover:shadow-md flex flex-col sm:flex-row gap-4 shadow-xs group items-center"
+                >
+                  <div
+                    onClick={() => navigate(`/product/${product.id}`)}
+                    className="w-24 sm:w-28 aspect-[3/4] shrink-0 rounded-lg bg-surface-container-low border border-outline-variant/20 overflow-hidden relative flex items-center justify-center cursor-pointer p-1.5"
+                  >
+                    <img
+                      src={product.image}
+                      alt={product.name}
+                      className={`w-full h-full object-contain transition-transform duration-300 group-hover:scale-105 ${
+                        !product.inStock ? 'grayscale opacity-60' : ''
+                      }`}
+                    />
+                    {!product.inStock && (
+                      <div className="absolute inset-0 bg-black/40 backdrop-blur-[1px] flex items-center justify-center">
+                        <span className="border border-error text-error bg-surface/90 text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded">
+                          Agotado
+                        </span>
+                      </div>
+                    )}
+                  </div>
 
-      </div>
+                  <div className="flex-1 w-full flex flex-col justify-between py-1">
+                    <div>
+                      <span className="text-[11px] font-semibold text-primary uppercase tracking-wider">
+                        {product.category}
+                      </span>
+                      <h3
+                        onClick={() => navigate(`/product/${product.id}`)}
+                        className="font-headline-md text-sm sm:text-base font-bold text-on-surface hover:text-primary transition-colors cursor-pointer mt-0.5"
+                      >
+                        {product.name}
+                      </h3>
+                      <p className="text-xs text-on-surface-variant line-clamp-2 mt-1">
+                        {product.description || product.subtitle}
+                      </p>
+                    </div>
+
+                    <div className="flex items-center gap-2 mt-2">
+                      <span
+                        className={`text-xs flex items-center gap-1 font-medium ${
+                          product.inStock ? 'text-emerald-600' : 'text-error'
+                        }`}
+                      >
+                        <span className="material-symbols-outlined text-[14px]">
+                          {product.inStock ? 'check_circle' : 'cancel'}
+                        </span>
+                        {product.inStock ? 'Disponible' : 'Sin Stock'}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div
+                    onClick={() => navigate(`/product/${product.id}`)}
+                    className="w-full sm:w-auto flex sm:flex-col items-center sm:items-end justify-between sm:justify-center shrink-0 border-t sm:border-t-0 pt-2 sm:pt-0 border-outline-variant/20 gap-1 cursor-pointer group-hover:text-primary transition-colors"
+                  >
+                    <p className="font-headline-md text-lg font-bold text-primary">
+                      ${product.price.toFixed(2)}
+                    </p>
+                    <span className="material-symbols-outlined text-primary text-[20px] group-hover:translate-x-1 transition-transform hidden sm:block">
+                      arrow_forward
+                    </span>
+                  </div>
+                </article>
+              ))}
+            </div>
+          )}
+
+          {/* Pagination */}
+          {totalPages > 1 && (
+            <div className="flex justify-center mt-6 pt-5 border-t border-outline-variant/20">
+              <nav className="flex items-center gap-1.5">
+                <button
+                  type="button"
+                  disabled={currentPage === 1}
+                  onClick={() => {
+                    setCurrentPage(prev => Math.max(1, prev - 1));
+                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                  }}
+                  className="p-1.5 rounded-md border border-outline-variant/40 text-on-surface-variant hover:bg-surface-container-high transition-colors disabled:opacity-40 disabled:hover:bg-transparent"
+                  title="Página anterior"
+                >
+                  <span className="material-symbols-outlined text-[16px] block">chevron_left</span>
+                </button>
+
+                {Array.from({ length: totalPages }, (_, i) => i + 1).map((pageNum) => (
+                  <button
+                    key={pageNum}
+                    type="button"
+                    onClick={() => {
+                      setCurrentPage(pageNum);
+                      window.scrollTo({ top: 0, behavior: 'smooth' });
+                    }}
+                    className={`w-8 h-8 flex items-center justify-center rounded-md text-xs font-bold transition-all ${
+                      currentPage === pageNum
+                        ? 'bg-primary text-on-primary shadow-xs'
+                        : 'border border-outline-variant/40 text-on-surface hover:bg-surface-container-high'
+                    }`}
+                  >
+                    {pageNum}
+                  </button>
+                ))}
+
+                <button
+                  type="button"
+                  disabled={currentPage === totalPages}
+                  onClick={() => {
+                    setCurrentPage(prev => Math.min(totalPages, prev + 1));
+                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                  }}
+                  className="p-1.5 rounded-md border border-outline-variant/40 text-on-surface-variant hover:bg-surface-container-high transition-colors disabled:opacity-40 disabled:hover:bg-transparent"
+                  title="Página siguiente"
+                >
+                  <span className="material-symbols-outlined text-[16px] block">chevron_right</span>
+                </button>
+              </nav>
+            </div>
+          )}
+
+        </div>
+      </main>
     </div>
   );
 }

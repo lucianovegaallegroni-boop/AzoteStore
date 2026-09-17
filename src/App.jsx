@@ -4,7 +4,6 @@ import { BrowserRouter, Routes, Route, useLocation } from 'react-router-dom';
 // Layout & Drawers
 import Layout from './components/Layout';
 import CartDrawer from './components/CartDrawer';
-import WishlistDrawer from './components/WishlistDrawer';
 
 // Pages
 import LandingPage from './pages/LandingPage';
@@ -35,10 +34,6 @@ export default function App() {
     const saved = localStorage.getItem('azote_cart');
     return saved ? JSON.parse(saved) : [];
   });
-  const [wishlistItems, setWishlistItems] = useState(() => {
-    const saved = localStorage.getItem('azote_wishlist');
-    return saved ? JSON.parse(saved) : [];
-  });
   const [currentUser, setCurrentUser] = useState(() => {
     const saved = localStorage.getItem('azote_user_session');
     return saved ? JSON.parse(saved) : null;
@@ -46,17 +41,11 @@ export default function App() {
   const [orders, setOrders] = useState([]); // Mock orders state
 
   const [isCartOpen, setIsCartOpen] = useState(false);
-  const [isWishlistOpen, setIsWishlistOpen] = useState(false);
 
   // Persist cart items
   useEffect(() => {
     localStorage.setItem('azote_cart', JSON.stringify(cartItems));
   }, [cartItems]);
-
-  // Persist wishlist items
-  useEffect(() => {
-    localStorage.setItem('azote_wishlist', JSON.stringify(wishlistItems));
-  }, [wishlistItems]);
 
   // Revalidate stored session against Supabase on mount to keep role in sync
   useEffect(() => {
@@ -114,7 +103,10 @@ export default function App() {
             image: p.image,
             category: p.category,
             categorySlug: p.category.toLowerCase().replace(/\s+/g, '-'),
-            inStock: p.stock > 0,
+            stock: p.stock,
+            inStock: (p.product_variants && p.product_variants.length > 0)
+              ? p.product_variants.some(v => (v.stock || 0) > 0)
+              : p.stock > 0,
             featured: p.featured,
             division: p.division,
             description: p.description,
@@ -163,29 +155,12 @@ export default function App() {
 
             return changed ? validatedItems : prevItems;
           });
-
-          // Validate and sync wishlist items against fresh stock
-          setWishlistItems((prevItems) => {
-            let changed = false;
-            const updatedItems = prevItems.map((item) => {
-              const dbProduct = formatted.find(p => String(p.id) === String(item.id));
-              if (dbProduct) {
-                const currentInStock = dbProduct.inStock;
-                if (item.inStock !== currentInStock) {
-                  changed = true;
-                  return { ...item, inStock: currentInStock };
-                }
-              }
-              return item;
-            });
-            return changed ? updatedItems : prevItems;
-          });
         }
       } catch (err) {
-        console.error('Error syncing products/validating cart and wishlist in App.jsx:', err);
+        console.error('Error syncing products/validating cart in App.jsx:', err);
       }
     })();
-  }, [isCartOpen, isWishlistOpen]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [isCartOpen]); // eslint-disable-line react-hooks/exhaustive-deps
 
 
   // Cart operations
@@ -360,21 +335,6 @@ export default function App() {
     setCartItems([]);
   };
 
-  // Wishlist operations
-  const handleAddToWishlist = (product) => {
-    setWishlistItems((prevItems) => {
-      const exists = prevItems.some((item) => item.id === product.id);
-      if (exists) {
-        return prevItems.filter((item) => item.id !== product.id);
-      }
-      return [...prevItems, product];
-    });
-  };
-
-  const handleRemoveFromWishlist = (productId) => {
-    setWishlistItems((prevItems) => prevItems.filter((item) => item.id !== productId));
-  };
-
   // Authentication operations
   const handleLogin = (user) => {
     setCurrentUser(user);
@@ -484,11 +444,9 @@ export default function App() {
           element={
             <Layout
               cartCount={cartCount}
-              wishlistCount={wishlistItems.length}
               currentUser={currentUser}
               onLogout={handleLogout}
               onOpenCart={() => setIsCartOpen(true)}
-              onOpenWishlist={() => setIsWishlistOpen(true)}
             />
           }
         >
@@ -500,8 +458,6 @@ export default function App() {
               <ProductDetail
                 products={productList}
                 onAddToCart={handleAddToCart}
-                onAddToWishlist={handleAddToWishlist}
-                wishlistItems={wishlistItems}
               />
             }
           />
@@ -534,14 +490,6 @@ export default function App() {
         onPlaceOrder={handlePlaceOrder}
         onClearCart={handleClearCart}
         currentUser={currentUser}
-      />
-
-      <WishlistDrawer
-        isOpen={isWishlistOpen}
-        onClose={() => setIsWishlistOpen(false)}
-        wishlistItems={wishlistItems}
-        onRemoveFromWishlist={handleRemoveFromWishlist}
-        onAddToCart={handleAddToCart}
       />
     </BrowserRouter>
   );

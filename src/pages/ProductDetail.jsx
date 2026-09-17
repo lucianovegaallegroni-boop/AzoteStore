@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 
-export default function ProductDetail({ products, onAddToCart, onAddToWishlist, wishlistItems }) {
+export default function ProductDetail({ products, onAddToCart }) {
   const { id } = useParams();
   const navigate = useNavigate();
   const [dbProduct, setDbProduct] = useState(null);
@@ -23,6 +23,10 @@ export default function ProductDetail({ products, onAddToCart, onAddToWishlist, 
         if (error) throw error;
 
         if (p) {
+          const hasVariants = p.product_variants && p.product_variants.length > 0;
+          const inStockVariants = hasVariants ? p.product_variants.filter(v => (v.stock || 0) > 0) : [];
+          const hasStock = hasVariants ? inStockVariants.length > 0 : (p.stock > 0);
+
           const formatted = {
             id: p.id,
             name: p.name,
@@ -32,21 +36,22 @@ export default function ProductDetail({ products, onAddToCart, onAddToWishlist, 
             image: p.image,
             category: p.category,
             categorySlug: p.category.toLowerCase().replace(/\s+/g, '-'),
-            inStock: p.stock > 0,
+            stock: p.stock,
+            inStock: hasStock,
             // grade: 'Premium Grade',
             description: p.description,
             specifications: {
               Stock: String(p.stock),
               Category: p.category,
-              Status: p.stock > 0 ? 'Disponible' : 'Agotado'
+              Status: hasStock ? 'Disponible' : 'Agotado'
             },
-            colors: p.product_variants && p.product_variants.length > 0 ? p.product_variants.map(v => ({
+            colors: hasVariants && inStockVariants.length > 0 ? inStockVariants.map(v => ({
               id: v.id,
               name: v.title,
               hex: '#888888',
               image: v.image,
               stock: v.stock,
-              inStock: v.stock > 0,
+              inStock: true,
               price: parseFloat(v.price || p.price)
             })) : null
           };
@@ -63,7 +68,24 @@ export default function ProductDetail({ products, onAddToCart, onAddToWishlist, 
     })();
   }, [id]);
 
-  const product = dbProduct || products.find(p => p.id === id);
+  const rawProduct = dbProduct || products.find(p => String(p.id) === String(id));
+
+  const product = React.useMemo(() => {
+    if (!rawProduct) return null;
+    const hasVariants = rawProduct.colors && rawProduct.colors.length > 0;
+    const inStockVariants = hasVariants
+      ? rawProduct.colors.filter(c => (c.stock !== undefined ? c.stock > 0 : c.inStock))
+      : [];
+    const hasStock = hasVariants
+      ? inStockVariants.length > 0
+      : (rawProduct.stock !== undefined ? rawProduct.stock > 0 : rawProduct.inStock);
+
+    return {
+      ...rawProduct,
+      colors: hasVariants && inStockVariants.length > 0 ? inStockVariants : null,
+      inStock: hasStock
+    };
+  }, [rawProduct]);
 
   const [selectedColor, setSelectedColor] = useState(null);
   const isCurrentColorInStock = selectedColor ? selectedColor.inStock : (product ? product.inStock : false);
@@ -187,20 +209,20 @@ export default function ProductDetail({ products, onAddToCart, onAddToWishlist, 
     );
   }
 
-  if (!product) {
+  if (!product || !product.inStock) {
     return (
       <div className="w-full max-w-[1440px] mx-auto px-margin-mobile md:px-margin-desktop py-xl text-center">
-        <span className="material-symbols-outlined text-[6rem] text-error/30 mb-4">warning</span>
-        <h2 className="font-headline-lg text-headline-lg text-on-background">Producto no encontrado</h2>
-        <p className="font-body-md text-on-surface-variant my-4">El coleccionable que buscas no existe o ha sido retirado de la bóveda.</p>
+        <span className="material-symbols-outlined text-[6rem] text-outline/30 mb-4">inventory_2</span>
+        <h2 className="font-headline-lg text-headline-lg text-on-background">Producto no disponible</h2>
+        <p className="font-body-md text-on-surface-variant my-4">
+          Este coleccionable se encuentra agotado o no está disponible en este momento.
+        </p>
         <Link to="/catalog" className="inline-block bg-primary text-on-primary font-label-md px-6 py-3 rounded-full hover:scale-105 transition-transform mt-2">
           Volver al Catálogo
         </Link>
       </div>
     );
   }
-
-  const isFavorite = wishlistItems.some(item => item.id === product.id);
 
   // Check if image is video (last item in RX-78-2 mockup is video)
   const isVideoIndex = (index) => {
@@ -331,13 +353,11 @@ export default function ProductDetail({ products, onAddToCart, onAddToWishlist, 
                           }
                         }
                       }}
-                      className={`relative shrink-0 w-20 h-20 sm:w-[88px] sm:h-[88px] rounded-xl overflow-hidden border-2 transition-all duration-200 group focus:outline-none
-                        ${isSelected
+                      className={`relative shrink-0 w-20 h-20 sm:w-[88px] sm:h-[88px] rounded-xl overflow-hidden border-2 transition-all duration-200 group focus:outline-none ${
+                        isSelected
                           ? 'border-primary shadow-[0_0_0_2px_var(--md-sys-color-primary)] scale-[1.02]'
                           : 'border-outline-variant/30 hover:border-primary/50 hover:shadow-md'
-                        }
-                        ${!isInStock ? 'opacity-60' : ''}
-                      `}
+                      }`}
                       title={color.name}
                     >
                       {imgSrc ? (
@@ -363,13 +383,6 @@ export default function ProductDetail({ products, onAddToCart, onAddToWishlist, 
                       {isSelected && (
                         <div className="absolute top-1 right-1 w-5 h-5 bg-primary rounded-full flex items-center justify-center shadow-md">
                           <span className="material-symbols-outlined text-[14px] text-on-primary font-bold">check</span>
-                        </div>
-                      )}
-
-                      {/* Out of stock badge */}
-                      {!isInStock && (
-                        <div className="absolute top-1 left-1 bg-error/90 text-white text-[7px] font-bold px-1.5 py-0.5 rounded-md uppercase tracking-wide">
-                          Agotado
                         </div>
                       )}
                     </button>
@@ -462,19 +475,6 @@ export default function ProductDetail({ products, onAddToCart, onAddToWishlist, 
                 Producto Agotado
               </button>
             )}
-
-            <button
-              onClick={() => onAddToWishlist(product)}
-              className={`w-full border-2 py-4 rounded-xl font-headline-md text-headline-md hover:bg-primary-container/10 transition-colors duration-200 flex items-center justify-center gap-2 ${isFavorite
-                ? 'border-secondary text-secondary hover:bg-secondary/10'
-                : 'border-primary text-primary'
-                }`}
-            >
-              <span className="material-symbols-outlined">
-                {isFavorite ? 'favorite' : 'favorite_border'}
-              </span>
-              {isFavorite ? 'Quitar de Favoritos' : 'Añadir a Favoritos'}
-            </button>
           </div>
 
           {/* <div className="mt-md flex items-center justify-center gap-2 text-on-surface-variant font-label-sm text-label-sm">

@@ -155,11 +155,17 @@ export default function LandingPage({ products }) {
     })();
   }, []);
 
-  const activeProducts = dbProducts.length > 0 ? dbProducts : products;
+  const activeProducts = (dbProducts.length > 0 ? dbProducts : products).filter(p => {
+    const hasVariantStock = p.colors && p.colors.length > 0
+      ? p.colors.some(c => (c.stock !== undefined ? c.stock > 0 : c.inStock))
+      : true;
+    const hasBaseStock = p.stock !== undefined ? p.stock > 0 : p.inStock;
+    return hasBaseStock && hasVariantStock;
+  });
 
-  // Get only products marked as featured, fallback to first 4 if none are flagged
+  // Get only products marked as featured, fallback to first 8 if none are flagged
   const flaggedProducts = activeProducts.filter(p => p.featured === true);
-  const featuredProducts = flaggedProducts.length > 0 ? flaggedProducts.slice(0, 4) : activeProducts.slice(0, 4);
+  const featuredProducts = flaggedProducts.length > 0 ? flaggedProducts.slice(0, 8) : activeProducts.slice(0, 8);
 
   return (
     <div className="w-full">
@@ -167,7 +173,7 @@ export default function LandingPage({ products }) {
       {/* Hero Section - Bento Grid Style */}
       <section className="w-full max-w-[1440px] mx-auto px-margin-mobile md:px-margin-desktop py-lg md:py-xl">
         {loading ? (
-          <div className="w-full h-[400px] lg:h-[600px] bg-surface-container-low rounded-xl border border-outline-variant/30 flex flex-col items-center justify-center text-primary gap-4 card-shadow">
+          <div className="w-full h-[400px] lg:h-[500px] bg-surface-container-low rounded-xl border border-outline-variant/30 flex flex-col items-center justify-center text-primary gap-4 card-shadow">
             <svg className="animate-spin h-10 w-10 text-primary" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
               <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
               <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
@@ -175,120 +181,70 @@ export default function LandingPage({ products }) {
             <p className="font-headline-md text-sm text-on-surface-variant animate-pulse font-semibold">Cargando Bóveda de Coleccionables...</p>
           </div>
         ) : (
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-gutter h-auto lg:h-[600px]">
-
-          {/* Main Feature (Left) */}
-          {/* Main Feature (Left) - Auto-rotating Slider */}
-          <div
-            onMouseDown={handleDragStart}
-            onMouseMove={handleDragMove}
-            onMouseUp={handleDragEnd}
-            onMouseLeave={handleDragEnd}
-            onTouchStart={handleDragStart}
-            onTouchMove={handleDragMove}
-            onTouchEnd={handleDragEnd}
-            onClick={handleContainerClick}
-            className="lg:col-span-8 bg-surface-container-low rounded-xl overflow-hidden relative group cursor-pointer shadow-[0_4px_20px_rgba(15,23,42,0.08)] h-[400px] lg:h-full transition-all duration-500 select-none"
-          >
-            {activeSlides.map((slide, idx) => (
-              <div
-                key={idx}
-                className={`absolute inset-0 transition-opacity duration-1000 ${idx === currentSlide ? 'opacity-100 z-10' : 'opacity-0 z-0 pointer-events-none'
-                  }`}
-              >
+          <div className="w-full h-[420px] md:h-[480px] lg:h-[520px]">
+            {/* Main Feature - Auto-rotating Slider */}
+            <div
+              onMouseDown={handleDragStart}
+              onMouseMove={handleDragMove}
+              onMouseUp={handleDragEnd}
+              onMouseLeave={handleDragEnd}
+              onTouchStart={handleDragStart}
+              onTouchMove={handleDragMove}
+              onTouchEnd={handleDragEnd}
+              onClick={handleContainerClick}
+              className="w-full h-full bg-surface-container-low rounded-xl overflow-hidden relative group cursor-pointer shadow-[0_4px_20px_rgba(15,23,42,0.08)] transition-all duration-500 select-none"
+            >
+              {activeSlides.map((slide, idx) => (
                 <div
-                  className="absolute inset-0 bg-cover bg-center transition-transform duration-700 group-hover:scale-105"
-                  style={{ backgroundImage: `url('${slide.image}')` }}
-                ></div>
-                <div className="absolute inset-0 bg-gradient-to-t from-on-background/80 via-on-background/20 to-transparent"></div>
-                <div className="absolute bottom-0 left-0 p-lg w-full">
-                  <span className={`inline-block ${slide.badgeColor} font-label-sm text-label-sm px-3 py-1 rounded-full mb-4 uppercase tracking-wider backdrop-blur-sm shadow-sm`}>
-                    {slide.subtitle}
-                  </span>
-                  <h1 className="font-display-lg-mobile md:font-display-lg text-display-lg-mobile md:text-display-lg text-white mb-2 leading-tight">
-                    {slide.title}
-                  </h1>
-                  <p className="font-body-lg text-body-lg text-white/90 mb-6 max-w-xl">
-                    {slide.description}
-                  </p>
+                  key={idx}
+                  className={`absolute inset-0 transition-opacity duration-1000 ${idx === currentSlide ? 'opacity-100 z-10' : 'opacity-0 z-0 pointer-events-none'
+                    }`}
+                >
+                  <div
+                    className="absolute inset-0 bg-cover bg-center transition-transform duration-700 group-hover:scale-105"
+                    style={{ backgroundImage: `url('${slide.image}')` }}
+                  ></div>
+                  <div className="absolute inset-0 bg-gradient-to-t from-on-background/85 via-on-background/30 to-transparent"></div>
+                  <div className="absolute bottom-0 left-0 p-lg md:p-xl w-full max-w-3xl">
+                    <span className={`inline-block ${slide.badgeColor} font-label-sm text-label-sm px-3 py-1 rounded-full mb-4 uppercase tracking-wider backdrop-blur-sm shadow-sm`}>
+                      {slide.subtitle}
+                    </span>
+                    <h1 className="font-display-lg-mobile md:font-display-lg text-display-lg-mobile md:text-display-lg text-white mb-2 leading-tight">
+                      {slide.title}
+                    </h1>
+                    <p className="font-body-lg text-body-lg text-white/90 mb-6 max-w-xl">
+                      {slide.description}
+                    </p>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        navigate(slide.link);
+                      }}
+                      className="bg-white text-on-background font-label-md text-label-md px-6 py-3 rounded-full hover:bg-surface-container-highest hover:scale-105 active:scale-95 transition-all shadow-md flex items-center gap-2"
+                    >
+                      {slide.buttonText} <span className="material-symbols-outlined text-[1.2em]">arrow_forward</span>
+                    </button>
+                  </div>
+                </div>
+              ))}
+
+              {/* Slide Indicators */}
+              <div className="absolute top-4 right-4 z-20 flex gap-2">
+                {activeSlides.map((_, idx) => (
                   <button
+                    key={idx}
                     onClick={(e) => {
                       e.stopPropagation();
-                      navigate(slide.link);
+                      setCurrentSlide(idx);
                     }}
-                    className="bg-white text-on-background font-label-md text-label-md px-6 py-3 rounded-full hover:bg-surface-container-highest hover:scale-105 active:scale-95 transition-all shadow-md flex items-center gap-2"
-                  >
-                    {slide.buttonText} <span className="material-symbols-outlined text-[1.2em]">arrow_forward</span>
-                  </button>
-                </div>
+                    className={`w-2.5 h-2.5 rounded-full transition-all duration-300 ${idx === currentSlide ? 'bg-white w-6' : 'bg-white/40 hover:bg-white/70'
+                      }`}
+                    aria-label={`Go to slide ${idx + 1}`}
+                  />
+                ))}
               </div>
-            ))}
-
-            {/* Slide Indicators */}
-            <div className="absolute top-4 right-4 z-20 flex gap-2">
-              {activeSlides.map((_, idx) => (
-                <button
-                  key={idx}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setCurrentSlide(idx);
-                  }}
-                  className={`w-2.5 h-2.5 rounded-full transition-all duration-300 ${idx === currentSlide ? 'bg-white w-6' : 'bg-white/40 hover:bg-white/70'
-                    }`}
-                  aria-label={`Go to slide ${idx + 1}`}
-                />
-              ))}
             </div>
           </div>
-
-          {/* Secondary Features (Right) */}
-          <div className="lg:col-span-4 flex flex-col gap-gutter h-full">
-
-            {/* Top Right */}
-            <div
-              onClick={() => navigate('/catalog?category=board-games')}
-              className="flex-1 bg-surface-container rounded-xl overflow-hidden relative group cursor-pointer shadow-[0_4px_20px_rgba(15,23,42,0.08)] min-h-[180px]"
-            >
-              <div
-                className="absolute inset-0 bg-cover bg-center transition-transform duration-500 group-hover:scale-110"
-                style={{ backgroundImage: "url('https://lh3.googleusercontent.com/aida-public/AB6AXuA_tvA7VyJYA3UBiwgNaiAVnSxltWGfbXLOpQU0uU7pUl7XkjgLIxBwIiTFtScLU9bPXQ5MElIEncb-2Lda6FOKjQXPUUdD71gEdioHPQLWEMZD5q8zvxCOrcTtY6DCHTLn30Hc5OWPCBsJfr3PSgNAxn8ve_nUVrtWqhpTRAu3KZ79iCoEXDFIFcl8cSGeIHsexlYcS1_3-okEBdZlx2Vmojc_5RS3k9UAqLVAnqsMqCSco25NHBHC7w')" }}
-              ></div>
-              <div className="absolute inset-0 bg-gradient-to-t from-on-background/70 to-transparent"></div>
-              <div className="absolute bottom-0 left-0 p-md w-full">
-                <h2 className="font-headline-md text-headline-md text-white mb-1">Estrategia y Táctica</h2>
-                <p className="font-body-md text-body-md text-white/80">Descubre juegos de mesa altamente valorados.</p>
-              </div>
-            </div>
-
-            {/* Bottom Right */}
-            <div
-              onClick={() => navigate('/catalog?category=yu-gi-oh')}
-              className="flex-1 bg-secondary-container text-on-secondary-container rounded-xl overflow-hidden relative group cursor-pointer shadow-[0_4px_20px_rgba(15,23,42,0.08)] p-md flex flex-col justify-between min-h-[180px] transition-transform duration-300 hover:scale-[1.01]"
-            >
-              <div className="absolute top-0 right-0 p-4 opacity-20">
-                <span className="material-symbols-outlined text-[6rem]">style</span>
-              </div>
-              <div>
-                <span className="inline-block bg-white/20 backdrop-blur-md text-on-secondary-container font-label-sm text-label-sm px-3 py-1 rounded-full mb-2">
-                  Alerta de Restock
-                </span>
-                <h2 className="font-headline-lg-mobile md:font-headline-lg text-headline-lg-mobile md:text-headline-lg font-bold leading-tight relative z-10">
-                  Cartas TCG Raras
-                </h2>
-              </div>
-              <div className="flex justify-between items-end relative z-10">
-                <p className="font-body-md text-body-md opacity-90 max-w-[150px]">
-                  Nuevas cajas de sobres acaban de llegar.
-                </p>
-                <button className="bg-on-secondary-container text-secondary-container rounded-full p-3 hover:scale-110 active:scale-95 transition-transform shadow-md">
-                  <span className="material-symbols-outlined">shopping_bag</span>
-                </button>
-              </div>
-            </div>
-
-          </div>
-
-        </div>
         )}
       </section>
 
@@ -329,15 +285,8 @@ export default function LandingPage({ products }) {
                   <img
                     src={product.image}
                     alt={product.name}
-                    className={`w-full h-full object-cover transition-transform duration-500 group-hover:scale-105 ${!product.inStock ? 'grayscale opacity-60' : ''}`}
+                    className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
                   />
-                  {!product.inStock && (
-                    <div className="absolute inset-0 bg-black/40 backdrop-blur-[1px] flex items-center justify-center transition-all duration-300 group-hover:bg-black/45">
-                      <span className="border-2 border-error text-error bg-error/10 font-headline-md text-xs font-bold uppercase tracking-widest px-4 py-2 rounded-lg shadow-sm">
-                        Sin Stock
-                      </span>
-                    </div>
-                  )}
                 </div>
 
                 <div className="p-md flex flex-col flex-1 justify-between">
@@ -375,15 +324,8 @@ export default function LandingPage({ products }) {
                   <img
                     src={product.image}
                     alt={product.name}
-                    className={`w-full h-full object-cover transition-transform duration-500 group-hover:scale-105 ${!product.inStock ? 'grayscale opacity-60' : ''}`}
+                    className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
                   />
-                  {!product.inStock && (
-                    <div className="absolute inset-0 bg-black/40 backdrop-blur-[1px] flex items-center justify-center transition-all duration-300 group-hover:bg-black/45">
-                      <span className="border-2 border-error text-error bg-error/10 font-headline-md text-xs font-bold uppercase tracking-widest px-4 py-2 rounded-lg shadow-sm">
-                        Sin Stock
-                      </span>
-                    </div>
-                  )}
                 </div>
 
                 <div className="p-md flex flex-col flex-1 justify-between">

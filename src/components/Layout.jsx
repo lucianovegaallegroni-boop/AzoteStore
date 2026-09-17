@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate, Outlet } from 'react-router-dom';
 import logo from '../assets/logo.webp';
 
-export default function Layout({ cartCount, wishlistCount, currentUser, onLogout, onOpenCart, onOpenWishlist }) {
+export default function Layout({ cartCount, currentUser, onLogout, onOpenCart }) {
   const [searchQuery, setSearchQuery] = useState('');
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
@@ -40,11 +40,11 @@ export default function Layout({ cartCount, wishlistCount, currentUser, onLogout
   };
 
   return (
-    <div className="flex flex-col min-h-screen overflow-x-hidden w-full">
+    <div className="flex flex-col min-h-screen overflow-x-clip w-full">
 
       {/* Top Navigation Bar */}
-      <nav className="bg-surface dark:bg-on-background shadow-sm top-0 z-40 sticky transition-all duration-300 border-b border-outline-variant/30">
-        <div className="flex justify-between items-center w-full px-[clamp(8px,3vw,16px)] md:px-margin-desktop py-4 max-w-[1440px] mx-auto">
+      <nav className="bg-[#283044] text-white shadow-md top-0 z-40 sticky transition-all duration-300 border-b border-white/10">
+        <div className="flex justify-between items-center w-full px-[clamp(8px,3vw,16px)] md:px-margin-desktop py-2 max-w-[1440px] mx-auto">
 
           <Link
             to="/"
@@ -54,13 +54,13 @@ export default function Layout({ cartCount, wishlistCount, currentUser, onLogout
             <img
               src={logo}
               alt="Azote Store"
-              className="hidden min-[421px]:block h-24 sm:h-28 md:h-32 w-auto rounded-xl object-contain border border-outline-variant/10 shadow-md"
+              className="hidden min-[421px]:block h-10 sm:h-12 md:h-14 w-auto object-contain rounded-lg"
             />
             {/* Very narrow mobile screens: favicon only */}
             <img
               src="/favicon.png"
               alt="Azote Store"
-              className="block min-[421px]:hidden h-10 w-10 rounded-lg object-contain border border-outline-variant/10 shadow-sm"
+              className="block min-[421px]:hidden h-8 w-8 object-contain rounded-md"
             />
           </Link>
 
@@ -138,28 +138,14 @@ export default function Layout({ cartCount, wishlistCount, currentUser, onLogout
             </div>
 
             {/* Icons */}
-            <div className="flex items-center gap-1 min-[380px]:gap-2 sm:gap-sm relative">
-
-              {/* Favorites */}
-              <button
-                onClick={onOpenWishlist}
-                className="p-1.5 min-[380px]:p-2 text-on-surface-variant hover:text-primary hover:scale-105 active:scale-95 transition-all rounded-full hover:bg-surface-container-high relative"
-                aria-label="Favorites"
-              >
-                <span className="material-symbols-outlined">favorite</span>
-                {wishlistCount > 0 && (
-                  <span className="absolute -top-0.5 -right-0.5 min-[380px]:top-1 min-[380px]:right-1 bg-secondary text-on-secondary text-[9px] min-[380px]:text-[10px] w-3.5 h-3.5 min-[380px]:w-4 min-[380px]:h-4 rounded-full flex items-center justify-center font-bold">
-                    {wishlistCount}
-                  </span>
-                )}
-              </button>
+            <div className="flex items-center gap-1.5 min-[380px]:gap-2 sm:gap-sm relative">
 
               {/* Account Dropdown or Login Button */}
               {currentUser ? (
                 <div className="relative" ref={userMenuRef}>
                   <button
                     onClick={() => setUserMenuOpen(!userMenuOpen)}
-                    className="flex items-center gap-1.5 p-0.5 min-[421px]:p-1.5 min-[421px]:pr-3 text-on-surface-variant hover:text-primary hover:bg-surface-container-high rounded-full transition-all border border-outline-variant/30 active:scale-95"
+                    className="flex items-center gap-1.5 p-0.5 min-[421px]:p-1.5 min-[421px]:pr-3 text-white hover:bg-white/10 rounded-full transition-all border border-white/20 active:scale-95"
                     aria-label="User Menu"
                   >
                     <div className="w-7 h-7 rounded-full bg-primary text-on-primary font-bold text-xs flex items-center justify-center shadow-sm shrink-0">
@@ -214,7 +200,7 @@ export default function Layout({ cartCount, wishlistCount, currentUser, onLogout
               ) : (
                 <button
                   onClick={() => navigate('/login')}
-                  className="p-1.5 min-[380px]:p-2 text-on-surface-variant hover:text-primary hover:scale-105 active:scale-95 transition-all rounded-full hover:bg-surface-container-high"
+                  className="p-1.5 min-[380px]:p-2 text-white/80 hover:text-white hover:scale-105 active:scale-95 transition-all rounded-full hover:bg-white/10"
                   aria-label="Login"
                 >
                   <span className="material-symbols-outlined">account_circle</span>
@@ -224,7 +210,7 @@ export default function Layout({ cartCount, wishlistCount, currentUser, onLogout
               {/* Cart Button */}
               <button
                 onClick={onOpenCart}
-                className="flex items-center justify-center p-1.5 min-[380px]:p-2 sm:px-4 sm:py-2 bg-primary text-on-primary font-label-md text-label-md rounded-full shadow-sm hover:shadow-md hover:scale-105 active:scale-95 transition-all relative"
+                className="flex items-center justify-center p-1.5 min-[380px]:p-2 sm:px-4 sm:py-2 bg-primary text-on-primary font-label-md text-label-md rounded-full shadow-sm hover:shadow-md hover:bg-primary-container hover:scale-105 active:scale-95 transition-all relative"
               >
                 <span className="material-symbols-outlined text-[1.2em]">shopping_cart</span>
                 <span className="hidden sm:inline">Carrito</span>
@@ -238,7 +224,7 @@ export default function Layout({ cartCount, wishlistCount, currentUser, onLogout
               {/* Mobile Menu Toggle */}
               <button
                 onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-                className="p-1.5 min-[380px]:p-2 text-on-surface-variant hover:text-primary rounded-full hover:bg-surface-container-high"
+                className="p-1.5 min-[380px]:p-2 text-white/80 hover:text-white rounded-full hover:bg-white/10"
                 aria-label="Menu"
               >
                 <span className="material-symbols-outlined">
@@ -254,7 +240,7 @@ export default function Layout({ cartCount, wishlistCount, currentUser, onLogout
         <div className={`fixed inset-0 z-50 transition-all duration-300 ${mobileMenuOpen ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'}`}>
           {/* Blurred Backdrop */}
           <div
-            className="absolute inset-0 bg-on-background/40 backdrop-blur-sm transition-opacity"
+            className="absolute inset-0 bg-black/60 backdrop-blur-sm transition-opacity"
             onClick={() => setMobileMenuOpen(false)}
           ></div>
 
@@ -263,8 +249,8 @@ export default function Layout({ cartCount, wishlistCount, currentUser, onLogout
 
             {/* Drawer Header */}
             <div className="flex items-center justify-between pb-4 border-b border-outline-variant/20 shrink-0">
-              <Link to="/" onClick={() => setMobileMenuOpen(false)} className="flex items-center">
-                <img src={logo} alt="Azote Store" className="h-16 w-auto rounded-xl object-contain border border-outline-variant/10 shadow-md" />
+              <Link to="/" onClick={() => setMobileMenuOpen(false)} className="flex items-center bg-[#283044] px-2.5 py-1.5 rounded-xl border border-white/10">
+                <img src={logo} alt="Azote Store" className="h-11 w-auto object-contain" />
               </Link>
               <button
                 onClick={() => setMobileMenuOpen(false)}
@@ -388,63 +374,32 @@ export default function Layout({ cartCount, wishlistCount, currentUser, onLogout
       </main>
 
       {/* Footer */}
-      <footer className="bg-inverse-surface dark:bg-surface-container-lowest border-t border-outline mt-auto">
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-gutter px-margin-mobile md:px-margin-desktop py-xl w-full max-w-[1440px] mx-auto">
+      <footer className="bg-inverse-surface dark:bg-surface-container-lowest border-t border-outline/30 mt-auto">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 px-margin-mobile md:px-margin-desktop py-6 sm:py-8 w-full max-w-[1440px] mx-auto">
 
-          <div className="md:col-span-1 flex flex-col gap-4">
+          <div className="md:col-span-1 flex flex-col gap-2">
             <Link to="/" className="flex items-center">
-              <img src={logo} alt="Azote Store" className="h-24 w-auto rounded-xl object-contain border border-outline-variant/10 shadow-lg" />
+              <img src={logo} alt="Azote Store" className="h-10 sm:h-12 w-auto rounded-lg object-contain border border-outline-variant/10 shadow-sm" />
             </Link>
-            <p className="font-body-md text-body-md text-surface-variant max-w-xs mt-2">
+            <p className="text-xs text-surface-variant/80 max-w-xs mt-1">
               Elevando la experiencia del coleccionista. Artículos premium, seleccionados por expertos.
             </p>
           </div>
 
-          <div className="flex flex-col gap-sm">
-            <h3 className="font-label-md text-label-md text-primary-fixed uppercase tracking-wider mb-2">Navegación</h3>
-            <Link to="/catalog" className="text-surface-variant hover:text-white transition-colors hover:underline decoration-secondary decoration-2 font-body-md text-body-md w-fit">
+          <div className="flex flex-col gap-1.5">
+            <h3 className="text-xs font-bold text-primary-fixed uppercase tracking-wider mb-1">Navegación</h3>
+            <Link to="/catalog" className="text-surface-variant hover:text-white transition-colors hover:underline decoration-secondary decoration-2 text-xs sm:text-sm w-fit">
               Catálogo Completo
             </Link>
-            {/* <a href="#" className="text-surface-variant hover:text-white transition-colors hover:underline decoration-secondary decoration-2 font-body-md text-body-md w-fit">
-              Localizador de Tiendas
-            </a>
-            <a href="#" className="text-surface-variant hover:text-white transition-colors hover:underline decoration-secondary decoration-2 font-body-md text-body-md w-fit">
-              Calendario de Eventos
-            </a> */}
           </div>
 
-          {/* <div className="flex flex-col gap-sm">
-            <h3 className="font-label-md text-label-md text-primary-fixed uppercase tracking-wider mb-2">Soporte</h3>
-            <a href="#" className="text-surface-variant hover:text-white transition-colors hover:underline decoration-secondary decoration-2 font-body-md text-body-md w-fit">
-              Políticas de Envío
-            </a>
-            <a href="#" className="text-surface-variant hover:text-white transition-colors hover:underline decoration-secondary decoration-2 font-body-md text-body-md w-fit">
-              Contacto y Soporte
-            </a>
-          </div> */}
-
-          {/* <div className="flex flex-col gap-sm">
-            <h3 className="font-label-md text-label-md text-primary-fixed uppercase tracking-wider mb-2">Mantente Actualizado</h3>
-            <form onSubmit={(e) => { e.preventDefault(); alert('¡Te has registrado con éxito!'); }} className="flex mt-2">
-              <input
-                type="email"
-                required
-                placeholder="Dirección de correo"
-                className="bg-on-background border border-outline text-white px-4 py-2 rounded-l-md w-full focus:outline-none focus:border-primary-fixed focus:ring-1 focus:ring-primary-fixed text-sm"
-              />
-              <button type="submit" className="bg-primary-fixed text-on-primary-fixed px-4 py-2 rounded-r-md font-label-md hover:bg-white transition-colors text-sm font-semibold">
-                Unirse
-              </button>
-            </form>
-          </div> */}
-
-          <div className="md:col-span-4 mt-lg pt-lg border-t border-outline/30 flex flex-col md:flex-row justify-between items-center gap-4">
-            <p className="font-body-md text-body-md text-surface-variant">
+          <div className="md:col-span-4 mt-6 pt-4 border-t border-outline/20 flex flex-col md:flex-row justify-between items-center gap-3">
+            <p className="text-xs text-surface-variant/80">
               © 2026 Azote Store Enthusiast Collective. Todos los derechos reservados.
             </p>
             <div className="flex gap-4">
               <a href="#" className="text-surface-variant hover:text-primary-fixed transition-colors">
-                <span className="material-symbols-outlined">share</span>
+                <span className="material-symbols-outlined text-[18px]">share</span>
               </a>
             </div>
           </div>
