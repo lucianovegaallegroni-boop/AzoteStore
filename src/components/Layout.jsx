@@ -2,13 +2,46 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate, Outlet } from 'react-router-dom';
 import logo from '../assets/logo.webp';
 
+const headerBanners = [
+  {
+    id: 1,
+    image: '/header-banners/BEYOND_THE_BRAVE_1.webp',
+    fallback: '/header-banners/BEYOND_THE_BRAVE_1.png',
+    alt: 'Beyond The Brave',
+    link: '/catalog?category=yu-gi-oh'
+  },
+  {
+    id: 2,
+    image: '/header-banners/share-fb-v1.webp',
+    fallback: '/header-banners/share-fb-v1.jpg.jpeg',
+    alt: 'Azote Store Coleccionables',
+    link: '/catalog'
+  },
+  {
+    id: 3,
+    image: '/header-banners/vorquelminta-1920x500.webp',
+    fallback: '/header-banners/vorquelminta-1920x500.png',
+    alt: 'Vorquelminta Promo',
+    link: '/catalog'
+  }
+];
+
 export default function Layout({ cartCount, currentUser, onLogout, onOpenCart }) {
   const [searchQuery, setSearchQuery] = useState('');
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const [tcgOpen, setTcgOpen] = useState(false);
+  const [currentBannerIndex, setCurrentBannerIndex] = useState(0);
   const navigate = useNavigate();
   const userMenuRef = useRef(null);
+
+  // Auto-rotate header showcase banner every 4.5 seconds
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setCurrentBannerIndex((prev) => (prev + 1) % headerBanners.length);
+    }, 4500);
+    return () => clearInterval(timer);
+  }, []);
 
   // Close user menu on clicking outside
   useEffect(() => {
@@ -43,45 +76,70 @@ export default function Layout({ cartCount, currentUser, onLogout, onOpenCart })
     <div className="flex flex-col min-h-screen overflow-x-clip w-full">
 
       {/* Top Navigation Bar */}
-      <nav className="bg-[#121358] text-white shadow-md top-0 z-40 sticky transition-all duration-300 border-b border-white/10">
-        <div className="flex justify-between items-center w-full px-[clamp(8px,3vw,16px)] md:px-margin-desktop py-2 max-w-[1440px] mx-auto">
+      <nav className="bg-[#121358] text-white shadow-md top-0 z-40 sticky transition-all duration-300 border-b border-white/10 w-full">
+        <div className="flex justify-between items-center w-full pl-2 sm:pl-4 md:pl-6 pr-1 sm:pr-2 h-16 sm:h-20 md:h-24 lg:h-28">
 
           <Link
             to="/"
-            className="hover:scale-[1.02] transition-transform shrink-0"
+            className="hover:scale-[1.02] transition-transform shrink-0 flex items-center py-2"
           >
             {/* Desktop & Standard Mobile Logo */}
             <img
               src={logo}
               alt="Azote Store"
-              className="hidden min-[421px]:block h-10 sm:h-12 md:h-14 w-auto object-contain rounded-lg"
+              className="hidden min-[421px]:block h-12 sm:h-16 md:h-20 w-auto object-contain rounded-lg"
             />
             {/* Very narrow mobile screens: favicon only */}
             <img
               src="/favicon.png"
               alt="Azote Store"
-              className="block min-[421px]:hidden h-8 w-8 object-contain rounded-md"
+              className="block min-[421px]:hidden h-9 w-9 object-contain rounded-md"
             />
           </Link>
 
-          {/* Search (Center, Desktop) */}
-          <form onSubmit={handleSearchSubmit} className="hidden">
-            <div className="relative w-full group">
-              <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant group-focus-within:text-primary transition-colors">
-                search
-              </span>
-              <input
-                type="text"
-                placeholder="Buscar Gundam, Cartas, Juegos..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full bg-surface-container-low text-on-surface font-body-md text-body-md pl-10 pr-4 py-2 rounded-full border-none focus:ring-2 focus:ring-primary focus:bg-white transition-all shadow-inner outline-none"
-              />
-            </div>
-          </form>
+          {/* Header Showcase Cuadro (Rotating Banner - Full Height, No Vertical Margins) */}
+          <div className="mx-2 sm:mx-6 flex-1 max-w-[220px] min-[400px]:max-w-[300px] sm:max-w-[460px] md:max-w-[620px] lg:max-w-[760px] self-stretch h-full flex justify-center">
+            <Link
+              to={headerBanners[currentBannerIndex].link}
+              className="relative w-full h-full overflow-hidden border-x border-white/15 hover:border-teal-accent/70 shadow-inner transition-all duration-300 group block bg-black/40"
+              title={headerBanners[currentBannerIndex].alt}
+            >
+              {headerBanners.map((banner, index) => (
+                <img
+                  key={banner.id}
+                  src={banner.image}
+                  alt={banner.alt}
+                  onError={(e) => {
+                    if (banner.fallback && e.currentTarget.src !== banner.fallback) {
+                      e.currentTarget.src = banner.fallback;
+                    }
+                  }}
+                  className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-700 ease-in-out group-hover:scale-105 transition-transform duration-500 ${
+                    index === currentBannerIndex ? 'opacity-100' : 'opacity-0 pointer-events-none'
+                  }`}
+                  loading="eager"
+                />
+              ))}
+
+              {/* Subtle gradient overlay for depth */}
+              <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-black/10 pointer-events-none" />
+
+              {/* Active Slide Indicators (Dots) */}
+              <div className="absolute bottom-2 right-3 flex items-center gap-1.5 z-10 pointer-events-none">
+                {headerBanners.map((_, idx) => (
+                  <span
+                    key={idx}
+                    className={`h-1.5 rounded-full transition-all duration-300 ${
+                      idx === currentBannerIndex ? 'w-4 bg-teal-accent shadow-sm' : 'w-1.5 bg-white/50'
+                    }`}
+                  />
+                ))}
+              </div>
+            </Link>
+          </div>
 
           {/* Navigation Links & Actions */}
-          <div className="flex items-center gap-1 min-[380px]:gap-2 sm:gap-md">
+          <div className="flex items-center gap-1 min-[380px]:gap-2 sm:gap-md shrink-0 py-2">
 
             {/* Desktop Categories - hidden, navigation via mobile drawer */}
             <div className="hidden">
@@ -241,8 +299,7 @@ export default function Layout({ cartCount, currentUser, onLogout, onOpenCart })
           onClick={() => setMobileMenuOpen(false)}
           className="absolute inset-0 bg-on-background/50 backdrop-blur-xs"
         />
-        <div className="relative z-10 w-full h-full max-w-[1440px] mx-auto pointer-events-none">
-          <div className={`absolute inset-y-0 right-0 w-72 max-w-xs bg-surface border-l border-outline-variant/30 shadow-2xl p-6 flex flex-col gap-6 transform transition-transform duration-300 ease-in-out pointer-events-auto ${mobileMenuOpen ? 'translate-x-0' : 'translate-x-full'}`}>
+        <div className={`absolute inset-y-0 right-0 z-10 w-72 max-w-xs bg-surface border-l border-outline-variant/30 shadow-2xl p-6 flex flex-col gap-6 transform transition-transform duration-300 ease-in-out pointer-events-auto ${mobileMenuOpen ? 'translate-x-0' : 'translate-x-full'}`}>
 
             {/* Drawer Header */}
             <div className="flex items-center justify-between pb-4 border-b border-outline-variant/20 shrink-0">
@@ -361,7 +418,6 @@ export default function Layout({ cartCount, currentUser, onLogout, onOpenCart })
                 </div>
               </div>
             )}
-          </div>
         </div>
       </div>
 
