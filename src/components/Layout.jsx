@@ -2,27 +2,33 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate, Outlet } from 'react-router-dom';
 import logo from '../assets/logo.webp';
 
-const headerBanners = [
+const defaultHeaderBanners = [
   {
-    id: 1,
+    id: 'default-1',
     image: '/header-banners/BEYOND_THE_BRAVE_1.webp',
     fallback: '/header-banners/BEYOND_THE_BRAVE_1.png',
     alt: 'Beyond The Brave',
-    link: '/catalog?category=yu-gi-oh'
+    link: '/catalog?category=yu-gi-oh',
+    position_x: 50,
+    position_y: 50
   },
   {
-    id: 2,
+    id: 'default-2',
     image: '/header-banners/share-fb-v1.webp',
     fallback: '/header-banners/share-fb-v1.jpg.jpeg',
     alt: 'Azote Store Coleccionables',
-    link: '/catalog'
+    link: '/catalog',
+    position_x: 50,
+    position_y: 50
   },
   {
-    id: 3,
+    id: 'default-3',
     image: '/header-banners/vorquelminta-1920x500.webp',
     fallback: '/header-banners/vorquelminta-1920x500.png',
     alt: 'Vorquelminta Promo',
-    link: '/catalog'
+    link: '/catalog',
+    position_x: 50,
+    position_y: 50
   }
 ];
 
@@ -31,17 +37,67 @@ export default function Layout({ cartCount, currentUser, onLogout, onOpenCart })
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const [tcgOpen, setTcgOpen] = useState(false);
+  const [banners, setBanners] = useState(defaultHeaderBanners);
   const [currentBannerIndex, setCurrentBannerIndex] = useState(0);
   const navigate = useNavigate();
   const userMenuRef = useRef(null);
 
+  // Fetch banners from Supabase
+  useEffect(() => {
+    let isMounted = true;
+    const loadBanners = async () => {
+      try {
+        const { supabase } = await import('../supabaseClient');
+        const { data, error } = await supabase
+          .from('header_banners')
+          .select('*')
+          .order('order_index', { ascending: true })
+          .order('created_at', { ascending: true });
+
+        if (!error && data && data.length > 0 && isMounted) {
+          setBanners(
+            data.map((b) => ({
+              id: b.id,
+              image: b.image_url,
+              alt: b.title || 'Azote Store',
+              link: (typeof b.link_url === 'string' && b.link_url.startsWith('{'))
+                ? (JSON.parse(b.link_url).value || '/catalog')
+                : (b.link_url || '/catalog'),
+              position_x: b.position_x !== null && b.position_x !== undefined ? b.position_x : 50,
+              position_y: b.position_y !== null && b.position_y !== undefined ? b.position_y : 50
+            }))
+          );
+        }
+      } catch (e) {
+        console.warn('Using default header banners:', e);
+      }
+    };
+
+    loadBanners();
+
+    const handleUpdate = () => {
+      loadBanners();
+    };
+
+    window.addEventListener('header_banners_updated', handleUpdate);
+    return () => {
+      isMounted = false;
+      window.removeEventListener('header_banners_updated', handleUpdate);
+    };
+  }, []);
+
+  // Safe active banner index
+  const safeBannerIndex = banners.length > 0 ? currentBannerIndex % banners.length : 0;
+  const activeBanner = banners[safeBannerIndex] || defaultHeaderBanners[0];
+
   // Auto-rotate header showcase banner every 4.5 seconds
   useEffect(() => {
+    if (banners.length <= 1) return;
     const timer = setInterval(() => {
-      setCurrentBannerIndex((prev) => (prev + 1) % headerBanners.length);
+      setCurrentBannerIndex((prev) => (prev + 1) % banners.length);
     }, 4500);
     return () => clearInterval(timer);
-  }, []);
+  }, [banners.length]);
 
   // Close user menu on clicking outside
   useEffect(() => {
@@ -100,22 +156,25 @@ export default function Layout({ cartCount, currentUser, onLogout, onOpenCart })
           {/* Header Showcase Cuadro (Rotating Banner - Full Height with Rounded Corners & Border) */}
           <div className="mx-2 sm:mx-6 flex-1 max-w-[220px] min-[400px]:max-w-[300px] sm:max-w-[460px] md:max-w-[620px] lg:max-w-[760px] self-stretch h-full flex justify-center py-1 sm:py-1.5">
             <Link
-              to={headerBanners[currentBannerIndex].link}
+              to={activeBanner.link}
               className="relative w-full h-full rounded-xl sm:rounded-2xl overflow-hidden border border-white/30 hover:border-teal-accent/80 shadow-md transition-all duration-300 group block bg-black/40"
-              title={headerBanners[currentBannerIndex].alt}
+              title={activeBanner.alt}
             >
-              {headerBanners.map((banner, index) => (
+              {banners.map((banner, index) => (
                 <img
                   key={banner.id}
                   src={banner.image}
                   alt={banner.alt}
+                  style={{
+                    objectPosition: `${banner.position_x ?? 50}% ${banner.position_y ?? 50}%`
+                  }}
                   onError={(e) => {
                     if (banner.fallback && e.currentTarget.src !== banner.fallback) {
                       e.currentTarget.src = banner.fallback;
                     }
                   }}
                   className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-700 ease-in-out group-hover:scale-105 transition-transform duration-500 ${
-                    index === currentBannerIndex ? 'opacity-100' : 'opacity-0 pointer-events-none'
+                    index === safeBannerIndex ? 'opacity-100' : 'opacity-0 pointer-events-none'
                   }`}
                   loading="eager"
                 />
@@ -125,16 +184,18 @@ export default function Layout({ cartCount, currentUser, onLogout, onOpenCart })
               <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-black/10 pointer-events-none" />
 
               {/* Active Slide Indicators (Dots) */}
-              <div className="absolute bottom-2 right-3 flex items-center gap-1.5 z-10 pointer-events-none">
-                {headerBanners.map((_, idx) => (
-                  <span
-                    key={idx}
-                    className={`h-1.5 rounded-full transition-all duration-300 ${
-                      idx === currentBannerIndex ? 'w-4 bg-teal-accent shadow-sm' : 'w-1.5 bg-white/50'
-                    }`}
-                  />
-                ))}
-              </div>
+              {banners.length > 1 && (
+                <div className="absolute bottom-2 right-3 flex items-center gap-1.5 z-10 pointer-events-none">
+                  {banners.map((_, idx) => (
+                    <span
+                      key={idx}
+                      className={`h-1.5 rounded-full transition-all duration-300 ${
+                        idx === safeBannerIndex ? 'w-4 bg-teal-accent shadow-sm' : 'w-1.5 bg-white/50'
+                      }`}
+                    />
+                  ))}
+                </div>
+              )}
             </Link>
           </div>
 

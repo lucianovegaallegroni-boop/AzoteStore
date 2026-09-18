@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useSearchParams, useNavigate } from 'react-router-dom';
+import { useSearchParams, useNavigate, useLocation } from 'react-router-dom';
 
 const sortOptions = [
   { value: "featured", label: "Mejor Coincidencia" },
@@ -105,14 +105,29 @@ export default function ProductCatalog({ products }) {
   // Use DB products if available, fallback to props
   const activeProducts = dbProducts.length > 0 ? dbProducts : products;
 
-  // Categories list based on our product data
-  const categories = [
-    { name: "Todos", slug: "" },
-    { name: "Yu-Gi-Oh!", slug: "yu-gi-oh" },
-    { name: "Pokémon", slug: "pokemon" },
-    { name: "Magic", slug: "magic" },
-    { name: "Sleeves", slug: "sleeves" }
-  ];
+  // Categories list dynamically derived from products
+  const categories = React.useMemo(() => {
+    const baseCats = [
+      { name: "Todos", slug: "" },
+      { name: "Yu-Gi-Oh!", slug: "yu-gi-oh" },
+      { name: "Pokémon", slug: "pokemon" },
+      { name: "Magic", slug: "magic" },
+      { name: "Sleeves", slug: "sleeves" }
+    ];
+    const catMap = new Map();
+    baseCats.forEach(c => catMap.set(c.slug, c.name));
+
+    activeProducts.forEach(p => {
+      if (p.category) {
+        const slug = p.categorySlug || p.category.toLowerCase().replace(/\s+/g, '-');
+        if (!catMap.has(slug)) {
+          catMap.set(slug, p.category);
+        }
+      }
+    });
+
+    return Array.from(catMap.entries()).map(([slug, name]) => ({ slug, name }));
+  }, [activeProducts]);
 
   // Handler for category click
   const handleCategorySelect = (slug) => {
@@ -144,8 +159,11 @@ export default function ProductCatalog({ products }) {
 
     // 1. Category Filter
     if (selectedCategory) {
-      const matchCategory = product.categorySlug === selectedCategory ||
-        (selectedCategory === 'tcg' && ['pokemon', 'yu-gi-oh', 'magic'].includes(product.categorySlug));
+      const targetCategory = selectedCategory.toLowerCase().trim();
+      const productSlug = (product.categorySlug || product.category || '').toLowerCase().replace(/\s+/g, '-').trim();
+      const matchCategory = productSlug === targetCategory ||
+        product.category?.toLowerCase() === targetCategory ||
+        (targetCategory === 'tcg' && ['pokemon', 'yu-gi-oh', 'magic'].includes(productSlug));
       if (!matchCategory) return false;
     }
 
@@ -210,7 +228,7 @@ export default function ProductCatalog({ products }) {
                 </h3>
                 <div className="space-y-1.5 max-h-56 overflow-y-auto pr-1">
                   {categories.map((cat) => {
-                    const isSelected = selectedCategory === cat.slug;
+                    const isSelected = selectedCategory.toLowerCase() === cat.slug.toLowerCase();
                     return (
                       <label
                         key={cat.slug}

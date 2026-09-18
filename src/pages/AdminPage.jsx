@@ -155,6 +155,120 @@ export default function AdminPage({ products: initialProducts, onCreateProduct, 
   const [isSavingFeatured, setIsSavingFeatured] = useState(false);
   const [featuredSaveSuccess, setFeaturedSaveSuccess] = useState(false);
 
+  // Header Banners states
+  const [headerBannersList, setHeaderBannersList] = useState([]);
+  const [loadingHeaderBanners, setLoadingHeaderBanners] = useState(false);
+  const [isSavingBanner, setIsSavingBanner] = useState(false);
+  const [bannerToDelete, setBannerToDelete] = useState(null);
+  const [cropModalOpen, setCropModalOpen] = useState(false);
+  const [cropModalData, setCropModalData] = useState({
+    id: null,
+    file: null,
+    previewUrl: '',
+    title: '',
+    link_url: '/catalog',
+    position_x: 50,
+    position_y: 50
+  });
+  const [isDraggingBanner, setIsDraggingBanner] = useState(false);
+  const bannerDragStartRef = React.useRef({ startX: 0, startY: 0, initialPosX: 50, initialPosY: 50 });
+
+  // Fetch header banners
+  const fetchHeaderBanners = async () => {
+    setLoadingHeaderBanners(true);
+    try {
+      const { supabase } = await import('../supabaseClient');
+      const { data, error } = await supabase
+        .from('header_banners')
+        .select('*')
+        .order('order_index', { ascending: true })
+        .order('created_at', { ascending: true });
+
+      if (!error && data) {
+        setHeaderBannersList(data);
+      }
+    } catch (err) {
+      console.error('Error fetching header banners:', err);
+    } finally {
+      setLoadingHeaderBanners(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchHeaderBanners();
+  }, [reloadTrigger]);
+
+  // Dynamic banner destination options based on products / categories
+  const headerBannerDestinationOptions = React.useMemo(() => {
+    // Base categories known
+    const baseKnownCategories = [
+      { name: "Yu-Gi-Oh", slug: "yu-gi-oh" },
+      { name: "Pokemon", slug: "pokemon" },
+      { name: "Magic", slug: "magic" },
+      { name: "Sleeves", slug: "sleeves" }
+    ];
+
+    // Gather all distinct categories present in dbProducts and initialProducts
+    const allProducts = [...(dbProducts || []), ...(initialProducts || [])];
+    const categoryMap = new Map();
+
+    baseKnownCategories.forEach(c => {
+      categoryMap.set(c.slug, c.name);
+    });
+
+    allProducts.forEach(p => {
+      if (p.category) {
+        const slug = p.categorySlug || p.category.toLowerCase().replace(/\s+/g, '-');
+        if (!categoryMap.has(slug)) {
+          categoryMap.set(slug, p.category);
+        }
+      }
+    });
+
+    const dynamicFilterOptions = Array.from(categoryMap.entries()).map(([slug, name]) => ({
+      value: `/catalog?category=${slug}`,
+      label: `Filtrar por: ${name}`
+    }));
+
+    return [
+      { value: "/catalog", label: "Catálogo Completo (Todos los productos)" },
+      ...dynamicFilterOptions
+    ];
+  }, [dbProducts, initialProducts]);
+
+  // Normalize string/object link_url safely
+  const normalizeBannerLinkUrl = (rawLink) => {
+    if (!rawLink) return '/catalog';
+    if (typeof rawLink === 'string') {
+      if (rawLink.startsWith('{') && rawLink.includes('value')) {
+        try {
+          const parsed = JSON.parse(rawLink);
+          return parsed.value || parsed.target?.value || '/catalog';
+        } catch {
+          return rawLink;
+        }
+      }
+      return rawLink;
+    }
+    if (typeof rawLink === 'object') {
+      return rawLink.value || rawLink.target?.value || '/catalog';
+    }
+    return String(rawLink);
+  };
+
+  // Get display text for banner destination
+  const getBannerDestinationLabel = (rawLink) => {
+    const cleanLink = normalizeBannerLinkUrl(rawLink);
+    const matched = headerBannerDestinationOptions.find(opt => opt.value === cleanLink);
+    if (matched) return matched.label;
+    if (cleanLink === '/catalog') return 'Catálogo Completo (Todos los productos)';
+    if (cleanLink.includes('category=')) {
+      const cat = cleanLink.split('category=')[1]?.split('&')[0];
+      return `Filtrar por: ${cat.charAt(0).toUpperCase() + cat.slice(1)}`;
+    }
+    return cleanLink;
+  };
+
   // Orders pagination
   const [ordersCurrentPage, setOrdersCurrentPage] = useState(1);
   const ORDERS_PER_PAGE = 8;
@@ -807,6 +921,156 @@ export default function AdminPage({ products: initialProducts, onCreateProduct, 
     }
   };
 
+  // Header banner handlers
+  const handleOpenNewBannerCrop = (file) => {
+    if (!file) return;
+    if (!file.type.startsWith('image/')) {
+      alert('Por favor selecciona un archivo de imagen válido.');
+      return;
+    }
+    const preview = URL.createObjectURL(file);
+    setCropModalData({
+      id: null,
+      file,
+      previewUrl: preview,
+      title: '',
+      link_url: '/catalog',
+      position_x: 50,
+      position_y: 50
+    });
+    setCropModalOpen(true);
+  };
+
+  const handleEditBannerCrop = (banner) => {
+    setCropModalData({
+      id: banner.id,
+      file: null,
+      previewUrl: banner.image_url,
+      title: banner.title || '',
+      link_url: normalizeBannerLinkUrl(banner.link_url),
+      position_x: banner.position_x !== null && banner.position_x !== undefined ? banner.position_x : 50,
+      position_y: banner.position_y !== null && banner.position_y !== undefined ? banner.position_y : 50
+    });
+    setCropModalOpen(true);
+  };
+
+  const handleDeleteBanner = async () => {
+    if (!bannerToDelete) return;
+    try {
+      const { supabase } = await import('../supabaseClient');
+      const { error } = await supabase
+        .from('header_banners')
+        .delete()
+        .eq('id', bannerToDelete.id);
+
+      if (error) throw error;
+
+      setHeaderBannersList(prev => prev.filter(b => b.id !== bannerToDelete.id));
+      setBannerToDelete(null);
+      window.dispatchEvent(new CustomEvent('header_banners_updated'));
+    } catch (err) {
+      console.error('Error al eliminar banner:', err);
+      alert('Error al eliminar el banner: ' + err.message);
+    }
+  };
+
+  const handleSaveBannerCrop = async () => {
+    if (!cropModalData.previewUrl) return;
+    setIsSavingBanner(true);
+    try {
+      const { supabase } = await import('../supabaseClient');
+      let finalImageUrl = cropModalData.previewUrl;
+      const cleanDestinationLink = normalizeBannerLinkUrl(cropModalData.link_url);
+
+      // If a new file was uploaded, upload to Supabase Storage
+      if (cropModalData.file) {
+        finalImageUrl = await uploadImageToStorage(
+          supabase,
+          cropModalData.file,
+          'header-banners',
+          'banner'
+        );
+      }
+
+      if (cropModalData.id) {
+        // Update existing banner
+        const { error } = await supabase
+          .from('header_banners')
+          .update({
+            image_url: finalImageUrl,
+            title: cropModalData.title,
+            link_url: cleanDestinationLink,
+            position_x: Math.round(cropModalData.position_x),
+            position_y: Math.round(cropModalData.position_y)
+          })
+          .eq('id', cropModalData.id);
+
+        if (error) throw error;
+      } else {
+        // Insert new banner
+        const nextOrder = headerBannersList.length;
+        const { error } = await supabase
+          .from('header_banners')
+          .insert({
+            image_url: finalImageUrl,
+            title: cropModalData.title,
+            link_url: cleanDestinationLink,
+            position_x: Math.round(cropModalData.position_x),
+            position_y: Math.round(cropModalData.position_y),
+            order_index: nextOrder
+          });
+
+        if (error) throw error;
+      }
+
+      await fetchHeaderBanners();
+      window.dispatchEvent(new CustomEvent('header_banners_updated'));
+      setCropModalOpen(false);
+    } catch (err) {
+      console.error('Error al guardar banner del header:', err);
+      alert('Error al guardar el banner: ' + err.message);
+    } finally {
+      setIsSavingBanner(false);
+    }
+  };
+
+  // Interactive drag handlers for repositioning banner
+  const handleBannerDragStart = (e) => {
+    const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+    const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+    setIsDraggingBanner(true);
+    bannerDragStartRef.current = {
+      startX: clientX,
+      startY: clientY,
+      initialPosX: cropModalData.position_x ?? 50,
+      initialPosY: cropModalData.position_y ?? 50
+    };
+  };
+
+  const handleBannerDragMove = (e) => {
+    if (!isDraggingBanner) return;
+    const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+    const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+
+    const deltaX = clientX - bannerDragStartRef.current.startX;
+    const deltaY = clientY - bannerDragStartRef.current.startY;
+
+    // Moving mouse to right reveals left of image -> decrease position_x
+    // Sensitivity factor: 0.25% per pixel
+    const newX = Math.min(100, Math.max(0, Math.round(bannerDragStartRef.current.initialPosX - deltaX * 0.25)));
+    const newY = Math.min(100, Math.max(0, Math.round(bannerDragStartRef.current.initialPosY - deltaY * 0.35)));
+
+    setCropModalData((prev) => ({
+      ...prev,
+      position_x: newX,
+      position_y: newY
+    }));
+  };
+
+  const handleBannerDragEnd = () => {
+    setIsDraggingBanner(false);
+  };
+
   const handleDiscardFeaturedChanges = () => {
     setDbProducts((prevProducts) =>
       prevProducts.map((p) => {
@@ -1375,6 +1639,112 @@ export default function AdminPage({ products: initialProducts, onCreateProduct, 
                       </div>
                     </div>
                   )}
+
+                  {/* Banners del Header Section */}
+                  <div className="bg-surface-container-lowest border border-outline-variant/30 rounded-xl collector-card-shadow p-md md:p-lg space-y-5">
+                    <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 pb-4 border-b border-outline-variant/20">
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <span className="material-symbols-outlined text-primary text-[26px]">ad_units</span>
+                          <h2 className="font-headline-lg text-headline-lg text-on-surface">Banners del Header (Cuadro Superior)</h2>
+                        </div>
+                        <p className="text-on-surface-variant text-body-md mt-1">
+                          Sube y administra las imágenes rotativas que aparecen en el recuadro superior del menú de navegación. Puedes ajustar la posición exacta con vista previa en tiempo real.
+                        </p>
+                      </div>
+
+                      <label className="cursor-pointer px-4 py-2.5 rounded-xl bg-primary hover:bg-primary/90 text-on-primary text-xs font-bold transition-all shadow-sm flex items-center gap-2 shrink-0">
+                        <span className="material-symbols-outlined text-[18px]">add_photo_alternate</span>
+                        Subir Imagen para Header
+                        <input
+                          type="file"
+                          accept="image/*"
+                          className="hidden"
+                          onChange={(e) => {
+                            if (e.target.files && e.target.files[0]) {
+                              handleOpenNewBannerCrop(e.target.files[0]);
+                              e.target.value = '';
+                            }
+                          }}
+                        />
+                      </label>
+                    </div>
+
+                    {loadingHeaderBanners ? (
+                      <div className="py-12 text-center text-primary flex flex-col items-center justify-center gap-2">
+                        <span className="material-symbols-outlined animate-spin text-[32px]">progress_activity</span>
+                        <p className="text-xs text-on-surface-variant font-semibold">Cargando banners del header...</p>
+                      </div>
+                    ) : headerBannersList.length === 0 ? (
+                      <div className="p-8 rounded-xl border-2 border-dashed border-outline-variant/40 bg-surface-container-low text-center">
+                        <span className="material-symbols-outlined text-[40px] text-outline opacity-40 mb-1">gallery_thumbnail</span>
+                        <p className="text-on-surface text-sm font-bold">No hay banners personalizados en el header</p>
+                        <p className="text-outline text-xs mt-1">Se están mostrando los 3 banners por defecto. ¡Haz clic en "Subir Imagen para Header" para agregar el primero!</p>
+                      </div>
+                    ) : (
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                        {headerBannersList.map((banner, index) => (
+                          <div
+                            key={banner.id}
+                            className="bg-surface-container-low rounded-xl border border-outline-variant/30 overflow-hidden flex flex-col group hover:border-primary/50 transition-all shadow-sm"
+                          >
+                            {/* Preview Frame matching Header Banner Aspect Ratio */}
+                            <div className="relative w-full h-24 sm:h-28 bg-black/40 overflow-hidden border-b border-outline-variant/20">
+                              <img
+                                src={banner.image_url}
+                                alt={banner.title || `Banner ${index + 1}`}
+                                style={{
+                                  objectPosition: `${banner.position_x ?? 50}% ${banner.position_y ?? 50}%`
+                                }}
+                                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                              />
+                              <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-black/10 pointer-events-none" />
+                              <div className="absolute top-2 left-2 px-2 py-0.5 rounded-md bg-black/60 backdrop-blur-xs text-white text-[10px] font-bold">
+                                #{index + 1}
+                              </div>
+                              <div className="absolute bottom-2 right-2 px-2 py-0.5 rounded-md bg-primary/80 backdrop-blur-xs text-white text-[10px] font-bold">
+                                X: {banner.position_x ?? 50}% | Y: {banner.position_y ?? 50}%
+                              </div>
+                            </div>
+
+                            {/* Details & Actions */}
+                            <div className="p-3 flex flex-col justify-between flex-grow gap-3">
+                              <div>
+                                <h4 className="font-bold text-xs text-on-surface truncate">
+                                  {banner.title || 'Sin título especificado'}
+                                </h4>
+                                <p className="text-[11px] text-on-surface-variant truncate mt-0.5 flex items-center gap-1">
+                                  <span>Destino:</span>
+                                  <span className="text-primary font-semibold truncate">
+                                    {getBannerDestinationLabel(banner.link_url)}
+                                  </span>
+                                </p>
+                              </div>
+
+                              <div className="flex items-center gap-2 pt-2 border-t border-outline-variant/20">
+                                <button
+                                  type="button"
+                                  onClick={() => handleEditBannerCrop(banner)}
+                                  className="flex-1 py-1.5 px-2 rounded-lg bg-surface-container-high hover:bg-primary/10 text-primary border border-outline-variant/30 text-xs font-bold transition-all flex items-center justify-center gap-1"
+                                >
+                                  <span className="material-symbols-outlined text-[16px]">crop</span>
+                                  Ajustar Posición
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => setBannerToDelete(banner)}
+                                  className="p-1.5 rounded-lg text-error hover:bg-error/10 transition-colors"
+                                  title="Eliminar banner"
+                                >
+                                  <span className="material-symbols-outlined text-[18px]">delete</span>
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
 
                   {/* Header info */}
                   <div className="bg-surface-container-lowest border border-outline-variant/30 rounded-xl collector-card-shadow p-md md:p-lg">
@@ -2226,6 +2596,284 @@ export default function AdminPage({ products: initialProducts, onCreateProduct, 
                 className="flex-1 bg-error text-on-error font-semibold text-xs py-3 rounded-xl hover:bg-error/90 hover:scale-[1.01] transition-all"
               >
                 Eliminar para siempre
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal para eliminar Banner del Header */}
+      {bannerToDelete && (
+        <div
+          className="fixed inset-0 z-50 bg-black/70 backdrop-blur-xs flex items-center justify-center p-4 animate-fade-in"
+          onClick={() => setBannerToDelete(null)}
+        >
+          <div
+            className="bg-surface rounded-2xl max-w-md w-full overflow-hidden border border-outline-variant/30 shadow-2xl relative p-6 flex flex-col gap-4 text-center cursor-default"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="w-16 h-16 bg-error/10 text-error rounded-full flex items-center justify-center mx-auto mb-2">
+              <span className="material-symbols-outlined text-[36px]">delete_forever</span>
+            </div>
+
+            <h3 className="text-headline-md font-bold text-on-background">
+              ¿Eliminar Banner del Header?
+            </h3>
+
+            <p className="text-sm text-on-surface-variant leading-relaxed">
+              Estás a punto de eliminar este banner del header. Dejará de rotar en la barra superior.
+            </p>
+
+            <div className="flex gap-3 mt-4">
+              <button
+                type="button"
+                onClick={() => setBannerToDelete(null)}
+                className="flex-1 bg-surface-container-high text-on-surface font-semibold text-xs py-3 rounded-xl hover:bg-surface-container-highest transition-colors"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={handleDeleteBanner}
+                className="flex-1 bg-error text-on-error font-semibold text-xs py-3 rounded-xl hover:bg-error/90 hover:scale-[1.01] transition-all"
+              >
+                Eliminar Banner
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Interactivo de Posicionamiento / Enfoque del Header Banner */}
+      {cropModalOpen && (
+        <div
+          className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-3 sm:p-6 overflow-y-auto animate-fade-in select-none"
+          onClick={() => !isSavingBanner && setCropModalOpen(false)}
+        >
+          <div
+            className="bg-surface rounded-2xl max-w-2xl w-full border border-outline-variant/30 shadow-2xl overflow-hidden flex flex-col my-auto cursor-default"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Modal Header */}
+            <div className="p-4 sm:p-5 border-b border-outline-variant/20 flex items-center justify-between bg-surface-container-low">
+              <div className="flex items-center gap-2">
+                <span className="material-symbols-outlined text-primary text-[24px]">crop</span>
+                <div>
+                  <h3 className="font-bold text-base text-on-surface">
+                    Ajustar Posición del Banner para el Header
+                  </h3>
+                  <p className="text-xs text-on-surface-variant">
+                    Arrastra la imagen directamente o usa los controles para calibrar el encuadre exacto.
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                disabled={isSavingBanner}
+                onClick={() => setCropModalOpen(false)}
+                className="p-1.5 rounded-lg text-on-surface-variant hover:bg-surface-container-highest transition-colors"
+              >
+                <span className="material-symbols-outlined text-[20px]">close</span>
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="p-4 sm:p-6 space-y-6">
+
+              {/* Exact Header Aspect Ratio Showcase Box */}
+              <div className="flex flex-col items-center">
+                <div className="text-xs font-semibold text-on-surface-variant mb-2 flex items-center gap-1.5">
+                  <span className="material-symbols-outlined text-[16px] text-teal-accent">visibility</span>
+                  Vista Previa en Tiempo Real (mismo tamaño y estilo del Header)
+                </div>
+
+                {/* Box replica */}
+                <div
+                  onMouseDown={handleBannerDragStart}
+                  onMouseMove={handleBannerDragMove}
+                  onMouseUp={handleBannerDragEnd}
+                  onMouseLeave={handleBannerDragEnd}
+                  onTouchStart={handleBannerDragStart}
+                  onTouchMove={handleBannerDragMove}
+                  onTouchEnd={handleBannerDragEnd}
+                  className={`w-full max-w-[560px] h-24 sm:h-28 rounded-xl sm:rounded-2xl border-2 border-teal-accent/80 bg-black/40 overflow-hidden relative shadow-lg touch-none ${
+                    isDraggingBanner ? 'cursor-grabbing' : 'cursor-grab'
+                  }`}
+                  title="Arrastra con el mouse o dedo para reposicionar"
+                >
+                  <img
+                    src={cropModalData.previewUrl}
+                    alt="Preview"
+                    draggable={false}
+                    style={{
+                      objectPosition: `${cropModalData.position_x}% ${cropModalData.position_y}%`
+                    }}
+                    className="w-full h-full object-cover pointer-events-none transition-none"
+                  />
+
+                  {/* Top-bottom gradient matching header */}
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-black/10 pointer-events-none" />
+
+                  {/* Drag indicator overlay */}
+                  <div className="absolute top-2 left-2 px-2 py-1 rounded-md bg-black/70 backdrop-blur-xs text-white text-[10px] font-bold flex items-center gap-1 pointer-events-none">
+                    <span className="material-symbols-outlined text-[12px]">drag_pan</span>
+                    Arrastra para posicionar
+                  </div>
+
+                  {/* Coordinates pill */}
+                  <div className="absolute bottom-2 right-2 px-2 py-1 rounded-md bg-teal-accent text-slate-950 text-[10px] font-bold shadow pointer-events-none">
+                    X: {cropModalData.position_x}% | Y: {cropModalData.position_y}%
+                  </div>
+                </div>
+              </div>
+
+              {/* Quick Preset Alignments */}
+              <div className="space-y-2">
+                <label className="text-xs font-bold text-on-surface flex items-center gap-1">
+                  <span className="material-symbols-outlined text-[16px] text-primary">filter_center_focus</span>
+                  Alineaciones Rápidas:
+                </label>
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setCropModalData(prev => ({ ...prev, position_x: 50, position_y: 50 }))}
+                    className="px-3 py-1.5 rounded-lg border border-outline-variant/40 hover:bg-surface-container-high text-xs font-semibold text-on-surface transition-colors"
+                  >
+                    Centro (50%, 50%)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setCropModalData(prev => ({ ...prev, position_x: 50, position_y: 0 }))}
+                    className="px-3 py-1.5 rounded-lg border border-outline-variant/40 hover:bg-surface-container-high text-xs font-semibold text-on-surface transition-colors"
+                  >
+                    Arriba
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setCropModalData(prev => ({ ...prev, position_x: 50, position_y: 100 }))}
+                    className="px-3 py-1.5 rounded-lg border border-outline-variant/40 hover:bg-surface-container-high text-xs font-semibold text-on-surface transition-colors"
+                  >
+                    Abajo
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setCropModalData(prev => ({ ...prev, position_x: 0, position_y: 50 }))}
+                    className="px-3 py-1.5 rounded-lg border border-outline-variant/40 hover:bg-surface-container-high text-xs font-semibold text-on-surface transition-colors"
+                  >
+                    Izquierda
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setCropModalData(prev => ({ ...prev, position_x: 100, position_y: 50 }))}
+                    className="px-3 py-1.5 rounded-lg border border-outline-variant/40 hover:bg-surface-container-high text-xs font-semibold text-on-surface transition-colors"
+                  >
+                    Derecha
+                  </button>
+                </div>
+              </div>
+
+              {/* Fine-Tuning Sliders */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 bg-surface-container-low p-4 rounded-xl border border-outline-variant/20">
+                <div className="space-y-1.5">
+                  <div className="flex justify-between items-center text-xs">
+                    <span className="font-semibold text-on-surface">Eje Horizontal (X)</span>
+                    <span className="font-mono text-primary font-bold">{cropModalData.position_x}%</span>
+                  </div>
+                  <input
+                    type="range"
+                    min="0"
+                    max="100"
+                    value={cropModalData.position_x}
+                    onChange={(e) => setCropModalData(prev => ({ ...prev, position_x: parseInt(e.target.value, 10) }))}
+                    className="w-full accent-primary cursor-pointer"
+                  />
+                  <div className="flex justify-between text-[10px] text-on-surface-variant font-mono">
+                    <span>Izquierda (0%)</span>
+                    <span>Derecha (100%)</span>
+                  </div>
+                </div>
+
+                <div className="space-y-1.5">
+                  <div className="flex justify-between items-center text-xs">
+                    <span className="font-semibold text-on-surface">Eje Vertical (Y)</span>
+                    <span className="font-mono text-primary font-bold">{cropModalData.position_y}%</span>
+                  </div>
+                  <input
+                    type="range"
+                    min="0"
+                    max="100"
+                    value={cropModalData.position_y}
+                    onChange={(e) => setCropModalData(prev => ({ ...prev, position_y: parseInt(e.target.value, 10) }))}
+                    className="w-full accent-primary cursor-pointer"
+                  />
+                  <div className="flex justify-between text-[10px] text-on-surface-variant font-mono">
+                    <span>Arriba (0%)</span>
+                    <span>Abajo (100%)</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Title & Link Info */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-bold text-on-surface mb-1">
+                    Título / Descripción del Banner
+                  </label>
+                  <input
+                    type="text"
+                    value={cropModalData.title}
+                    onChange={(e) => setCropModalData(prev => ({ ...prev, title: e.target.value }))}
+                    placeholder="Ej. Promoción Yu-Gi-Oh!"
+                    className="w-full px-3 py-2 text-xs rounded-xl bg-surface-container-low border border-outline-variant/40 text-on-surface focus:outline-hidden focus:border-primary"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-on-surface mb-1">
+                    Enlace de Destino (Filtro de Productos)
+                  </label>
+                  <CustomDropdown
+                    value={normalizeBannerLinkUrl(cropModalData.link_url)}
+                    onChange={(val) => {
+                      const cleanVal = normalizeBannerLinkUrl(val);
+                      setCropModalData(prev => ({ ...prev, link_url: cleanVal }));
+                    }}
+                    options={headerBannerDestinationOptions}
+                    openDirection="up"
+                    placeholder="Selecciona el filtro o destino"
+                    align="full"
+                  />
+                </div>
+              </div>
+
+            </div>
+
+            {/* Modal Footer */}
+            <div className="p-4 sm:p-5 border-t border-outline-variant/20 bg-surface-container-low flex items-center justify-end gap-3">
+              <button
+                type="button"
+                disabled={isSavingBanner}
+                onClick={() => setCropModalOpen(false)}
+                className="px-4 py-2.5 rounded-xl border border-outline-variant/40 hover:bg-surface-container-high text-on-surface text-xs font-semibold transition-colors"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                disabled={isSavingBanner}
+                onClick={handleSaveBannerCrop}
+                className="px-5 py-2.5 rounded-xl bg-primary hover:bg-primary/90 text-on-primary text-xs font-bold transition-all shadow-md flex items-center gap-2"
+              >
+                {isSavingBanner ? (
+                  <>
+                    <span className="material-symbols-outlined text-[16px] animate-spin">progress_activity</span>
+                    Guardando en Supabase...
+                  </>
+                ) : (
+                  <>
+                    <span className="material-symbols-outlined text-[16px]">save</span>
+                    Guardar Banner y Posición
+                  </>
+                )}
               </button>
             </div>
           </div>
