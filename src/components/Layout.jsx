@@ -97,11 +97,11 @@ export default function Layout({ cartCount, currentUser, onLogout, onOpenCart })
             />
           </Link>
 
-          {/* Header Showcase Cuadro (Rotating Banner - Full Height, No Vertical Margins) */}
-          <div className="mx-2 sm:mx-6 flex-1 max-w-[220px] min-[400px]:max-w-[300px] sm:max-w-[460px] md:max-w-[620px] lg:max-w-[760px] self-stretch h-full flex justify-center">
+          {/* Header Showcase Cuadro (Rotating Banner - Full Height with Rounded Corners & Border) */}
+          <div className="mx-2 sm:mx-6 flex-1 max-w-[220px] min-[400px]:max-w-[300px] sm:max-w-[460px] md:max-w-[620px] lg:max-w-[760px] self-stretch h-full flex justify-center py-1 sm:py-1.5">
             <Link
               to={headerBanners[currentBannerIndex].link}
-              className="relative w-full h-full overflow-hidden border-x border-white/15 hover:border-teal-accent/70 shadow-inner transition-all duration-300 group block bg-black/40"
+              className="relative w-full h-full rounded-xl sm:rounded-2xl overflow-hidden border border-white/30 hover:border-teal-accent/80 shadow-md transition-all duration-300 group block bg-black/40"
               title={headerBanners[currentBannerIndex].alt}
             >
               {headerBanners.map((banner, index) => (
