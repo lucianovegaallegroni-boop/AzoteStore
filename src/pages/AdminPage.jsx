@@ -274,6 +274,8 @@ export default function AdminPage({ products: initialProducts, onCreateProduct, 
 
   // Orders pagination
   const [ordersCurrentPage, setOrdersCurrentPage] = useState(1);
+  const [isExportingOrders, setIsExportingOrders] = useState(false);
+  const [isExportingInventory, setIsExportingInventory] = useState(false);
   const ORDERS_PER_PAGE = 8;
 
   // Reset orders page if it exceeds total pages
@@ -1281,6 +1283,386 @@ export default function AdminPage({ products: initialProducts, onCreateProduct, 
     }
   };
 
+  const handleExportOrdersToExcel = async () => {
+    if (!orders || orders.length === 0) {
+      alert('No hay pedidos disponibles para exportar.');
+      return;
+    }
+
+    try {
+      setIsExportingOrders(true);
+      const ExcelJS = (await import('exceljs')).default;
+      const workbook = new ExcelJS.Workbook();
+      workbook.creator = 'Azote Store';
+      workbook.lastModifiedBy = 'Admin';
+      workbook.created = new Date();
+      workbook.modified = new Date();
+
+      // ==========================================
+      // Hoja 1: Resumen General de Pedidos
+      // ==========================================
+      const ordersSheet = workbook.addWorksheet('Resumen de Pedidos', {
+        views: [{ state: 'frozen', ySplit: 1 }]
+      });
+
+      // Helper to process base64 or remote URL image for ExcelJS
+      const getImageData = async (rawUrl) => {
+        if (!rawUrl || typeof rawUrl !== 'string') return null;
+        try {
+          if (rawUrl.startsWith('data:image/')) {
+            const parts = rawUrl.split(';base64,');
+            const mimeType = parts[0].replace('data:image/', '').toLowerCase();
+            const extension = mimeType.includes('png') ? 'png' : mimeType.includes('webp') ? 'webp' : 'jpeg';
+            return {
+              base64: parts[1],
+              extension
+            };
+          }
+          if (rawUrl.startsWith('http://') || rawUrl.startsWith('https://')) {
+            const resp = await fetch(rawUrl);
+            const blob = await resp.blob();
+            const buffer = await blob.arrayBuffer();
+            const mime = blob.type.toLowerCase();
+            const extension = mime.includes('png') ? 'png' : mime.includes('webp') ? 'webp' : 'jpeg';
+            return {
+              buffer,
+              extension
+            };
+          }
+        } catch (imgErr) {
+          console.warn('No se pudo procesar la imagen del comprobante:', imgErr);
+        }
+        return null;
+      };
+
+      ordersSheet.columns = [
+        { header: 'ID Pedido', key: 'id', width: 20 },
+        { header: 'Fecha', key: 'date', width: 22 },
+        { header: 'Cliente', key: 'clientName', width: 26 },
+        { header: 'Teléfono', key: 'clientPhone', width: 18 },
+        { header: 'Correo Electrónico', key: 'clientEmail', width: 28 },
+        { header: 'Punto de Retiro', key: 'pickupLocation', width: 32 },
+        { header: 'Total', key: 'total', width: 16 },
+        { header: 'Estado', key: 'status', width: 16 },
+        { header: 'Cant. Items', key: 'itemsCount', width: 14 },
+        { header: 'Resumen Productos', key: 'itemsSummary', width: 50 },
+        { header: 'Comprobante', key: 'paymentProof', width: 26 },
+        { header: 'Imagen Adjunta', key: 'imagePreview', width: 24 }
+      ];
+
+      // Estilo de encabezados
+      const headerFill = {
+        type: 'pattern',
+        pattern: 'solid',
+        fgColor: { argb: 'FF1E293B' } // Slate 800
+      };
+      const headerFont = {
+        name: 'Segoe UI',
+        size: 11,
+        bold: true,
+        color: { argb: 'FFFFFFFF' }
+      };
+
+      ordersSheet.getRow(1).eachCell(cell => {
+        cell.fill = headerFill;
+        cell.font = headerFont;
+        cell.alignment = { vertical: 'middle', horizontal: 'center' };
+      });
+      ordersSheet.getRow(1).height = 28;
+
+      for (let i = 0; i < orders.length; i++) {
+        const order = orders[i];
+        const rowIndex = i + 2; // Row 1 is header, 1-indexed
+        const totalItemsCount = (order.items || []).reduce((acc, item) => acc + (Number(item.quantity) || 0), 0);
+        const summaryText = (order.items || [])
+          .map(item => `${item.product?.name || 'Producto'}${item.color?.name ? ` (${item.color.name})` : ''} x${item.quantity}`)
+          .join(', ');
+
+        const hasProof = !!order.paymentProofPreview;
+
+        const row = ordersSheet.addRow({
+          id: order.id,
+          date: order.date,
+          clientName: order.clientName,
+          clientPhone: order.clientPhone || 'N/A',
+          clientEmail: order.clientEmail || 'N/A',
+          pickupLocation: order.pickupLocation,
+          total: Number(order.total) || 0,
+          status: order.status,
+          itemsCount: totalItemsCount,
+          itemsSummary: summaryText,
+          paymentProof: hasProof ? 'Comprobante Adjunto' : 'Sin comprobante',
+          imagePreview: hasProof ? '' : 'N/A'
+        });
+
+        row.alignment = { vertical: 'middle' };
+        row.getCell('total').numFmt = '"$"#,##0.00';
+        row.getCell('itemsCount').alignment = { vertical: 'middle', horizontal: 'center' };
+        row.getCell('id').alignment = { vertical: 'middle', horizontal: 'center' };
+        row.getCell('status').alignment = { vertical: 'middle', horizontal: 'center' };
+        row.getCell('paymentProof').alignment = { vertical: 'middle', horizontal: 'center' };
+        row.getCell('imagePreview').alignment = { vertical: 'middle', horizontal: 'center' };
+
+        if (hasProof) {
+          const imgData = await getImageData(order.paymentProofPreview);
+          if (imgData) {
+            row.height = 95; // Dar altura a la fila para que la imagen se vea con claridad
+            const imageId = workbook.addImage(imgData);
+            ordersSheet.addImage(imageId, {
+              tl: { col: 11.15, row: rowIndex - 1 + 0.08 },
+              br: { col: 11.9, row: rowIndex - 0.08 },
+              editAs: 'oneCell'
+            });
+          }
+        }
+      }
+
+      // ==========================================
+      // Hoja 2: Detalle Desglosado por Producto
+      // ==========================================
+      const itemsSheet = workbook.addWorksheet('Detalle de Productos', {
+        views: [{ state: 'frozen', ySplit: 1 }]
+      });
+
+      itemsSheet.columns = [
+        { header: 'ID Pedido', key: 'orderId', width: 20 },
+        { header: 'Fecha', key: 'date', width: 22 },
+        { header: 'Cliente', key: 'clientName', width: 24 },
+        { header: 'Teléfono', key: 'clientPhone', width: 18 },
+        { header: 'ID Producto', key: 'productId', width: 16 },
+        { header: 'Nombre del Producto', key: 'productName', width: 34 },
+        { header: 'Variante / Tipo', key: 'variantName', width: 22 },
+        { header: 'Cantidad', key: 'quantity', width: 14 },
+        { header: 'Precio Unitario', key: 'unitPrice', width: 16 },
+        { header: 'Subtotal Línea', key: 'subtotal', width: 16 },
+        { header: 'Punto de Retiro', key: 'pickupLocation', width: 30 },
+        { header: 'Estado Pedido', key: 'status', width: 16 }
+      ];
+
+      itemsSheet.getRow(1).eachCell(cell => {
+        cell.fill = headerFill;
+        cell.font = headerFont;
+        cell.alignment = { vertical: 'middle', horizontal: 'center' };
+      });
+      itemsSheet.getRow(1).height = 28;
+
+      orders.forEach(order => {
+        (order.items || []).forEach(item => {
+          const qty = Number(item.quantity) || 0;
+          const unitPrice = Number(item.product?.price) || 0;
+          const subtotal = qty * unitPrice;
+
+          const row = itemsSheet.addRow({
+            orderId: order.id,
+            date: order.date,
+            clientName: order.clientName,
+            clientPhone: order.clientPhone || 'N/A',
+            productId: item.product?.id || 'N/A',
+            productName: item.product?.name || 'Producto desconocido',
+            variantName: item.color?.name || 'Base / Único',
+            quantity: qty,
+            unitPrice: unitPrice,
+            subtotal: subtotal,
+            pickupLocation: order.pickupLocation,
+            status: order.status
+          });
+
+          row.alignment = { vertical: 'middle' };
+          row.getCell('orderId').alignment = { vertical: 'middle', horizontal: 'center' };
+          row.getCell('productId').alignment = { vertical: 'middle', horizontal: 'center' };
+          row.getCell('quantity').alignment = { vertical: 'middle', horizontal: 'center' };
+          row.getCell('status').alignment = { vertical: 'middle', horizontal: 'center' };
+          row.getCell('unitPrice').numFmt = '"$"#,##0.00';
+          row.getCell('subtotal').numFmt = '"$"#,##0.00';
+        });
+      });
+
+      // Generar buffer y descargar archivo
+      const buffer = await workbook.xlsx.writeBuffer();
+      const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+      const url = window.URL.createObjectURL(blob);
+      const anchor = document.createElement('a');
+      anchor.href = url;
+      const formattedDate = new Date().toISOString().slice(0, 10);
+      anchor.download = `pedidos_azote_store_${formattedDate}.xlsx`;
+      document.body.appendChild(anchor);
+      anchor.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(anchor);
+    } catch (err) {
+      console.error('Error exportando pedidos a Excel:', err);
+      alert('Hubo un error al generar el archivo Excel: ' + err.message);
+    } finally {
+      setIsExportingOrders(false);
+    }
+  };
+
+  const handleExportInventoryToExcel = async () => {
+    if (!dbProducts || dbProducts.length === 0) {
+      alert('No hay productos en el inventario para exportar.');
+      return;
+    }
+
+    try {
+      setIsExportingInventory(true);
+      const ExcelJS = (await import('exceljs')).default;
+      const workbook = new ExcelJS.Workbook();
+      workbook.creator = 'Azote Store';
+      workbook.lastModifiedBy = 'Admin';
+      workbook.created = new Date();
+      workbook.modified = new Date();
+
+      const headerFill = {
+        type: 'pattern',
+        pattern: 'solid',
+        fgColor: { argb: 'FF1E293B' } // Slate 800
+      };
+      const headerFont = {
+        name: 'Segoe UI',
+        size: 11,
+        bold: true,
+        color: { argb: 'FFFFFFFF' }
+      };
+
+      // ==========================================
+      // Hoja 1: Resumen General de Productos
+      // ==========================================
+      const productsSheet = workbook.addWorksheet('Inventario General', {
+        views: [{ state: 'frozen', ySplit: 1 }]
+      });
+
+      productsSheet.columns = [
+        { header: 'ID Producto', key: 'id', width: 18 },
+        { header: 'Nombre del Producto', key: 'name', width: 34 },
+        { header: 'Categoría', key: 'category', width: 20 },
+        { header: 'Precio Base', key: 'price', width: 16 },
+        { header: 'Stock Total', key: 'stock', width: 14 },
+        { header: 'Disponibilidad', key: 'status', width: 16 },
+        { header: 'Variantes / Tipos', key: 'typesCount', width: 18 },
+        { header: 'Destacado', key: 'featured', width: 14 },
+        { header: 'Carrusel Hero', key: 'division', width: 16 },
+        { header: 'Descripción', key: 'description', width: 45 }
+      ];
+
+      productsSheet.getRow(1).eachCell(cell => {
+        cell.fill = headerFill;
+        cell.font = headerFont;
+        cell.alignment = { vertical: 'middle', horizontal: 'center' };
+      });
+      productsSheet.getRow(1).height = 28;
+
+      const sortedProducts = [...dbProducts].sort((a, b) => a.name.localeCompare(b.name));
+
+      sortedProducts.forEach(p => {
+        const hasTypes = Boolean(p.colors && p.colors.length > 0);
+        const totalStock = hasTypes
+          ? p.colors.reduce((sum, c) => sum + (c.stock !== undefined ? (parseInt(c.stock, 10) || 0) : (c.inStock ? 20 : 0)), 0)
+          : (p.stock !== undefined ? (parseInt(p.stock, 10) || 0) : (p.specifications?.Stock ? parseInt(p.specifications.Stock, 10) || 0 : (p.inStock ? 20 : 0)));
+
+        const row = productsSheet.addRow({
+          id: p.id,
+          name: p.name,
+          category: p.category,
+          price: Number(p.price) || 0,
+          stock: totalStock,
+          status: totalStock > 0 ? 'En Stock' : 'Agotado',
+          typesCount: hasTypes ? `${p.colors.length} tipos` : '1 tipo (base)',
+          featured: p.featured ? 'Sí' : 'No',
+          division: p.division === 'hero' ? 'En Carrusel' : 'No',
+          description: p.description || ''
+        });
+
+        row.alignment = { vertical: 'middle' };
+        row.getCell('price').numFmt = '"$"#,##0.00';
+        row.getCell('id').alignment = { vertical: 'middle', horizontal: 'center' };
+        row.getCell('stock').alignment = { vertical: 'middle', horizontal: 'center' };
+        row.getCell('status').alignment = { vertical: 'middle', horizontal: 'center' };
+        row.getCell('typesCount').alignment = { vertical: 'middle', horizontal: 'center' };
+        row.getCell('featured').alignment = { vertical: 'middle', horizontal: 'center' };
+        row.getCell('division').alignment = { vertical: 'middle', horizontal: 'center' };
+      });
+
+      // ==========================================
+      // Hoja 2: Detalle Desglosado por Tipo / Variante
+      // ==========================================
+      const variantsSheet = workbook.addWorksheet('Desglose por Variante', {
+        views: [{ state: 'frozen', ySplit: 1 }]
+      });
+
+      variantsSheet.columns = [
+        { header: 'ID Producto', key: 'productId', width: 18 },
+        { header: 'Producto', key: 'productName', width: 34 },
+        { header: 'Categoría', key: 'category', width: 20 },
+        { header: 'ID Tipo / Variante', key: 'variantId', width: 20 },
+        { header: 'Nombre Variante / Tipo', key: 'variantName', width: 26 },
+        { header: 'Stock Variante', key: 'stock', width: 16 },
+        { header: 'Precio Variante', key: 'price', width: 16 },
+        { header: 'Disponibilidad', key: 'status', width: 16 }
+      ];
+
+      variantsSheet.getRow(1).eachCell(cell => {
+        cell.fill = headerFill;
+        cell.font = headerFont;
+        cell.alignment = { vertical: 'middle', horizontal: 'center' };
+      });
+      variantsSheet.getRow(1).height = 28;
+
+      sortedProducts.forEach(p => {
+        const hasTypes = Boolean(p.colors && p.colors.length > 0);
+        const typesList = hasTypes
+          ? p.colors
+          : [{
+              id: p.id,
+              name: p.name,
+              stock: p.stock !== undefined ? p.stock : (p.specifications?.Stock ? parseInt(p.specifications.Stock, 10) || 0 : (p.inStock ? 20 : 0)),
+              price: p.price !== undefined ? parseFloat(p.price) : 0,
+              inStock: p.inStock
+            }];
+
+        typesList.forEach(t => {
+          const varStock = t.stock !== undefined ? (parseInt(t.stock, 10) || 0) : (t.inStock ? 20 : 0);
+          const varPrice = t.price !== undefined ? parseFloat(t.price) : parseFloat(p.price);
+
+          const row = variantsSheet.addRow({
+            productId: p.id,
+            productName: p.name,
+            category: p.category,
+            variantId: t.id,
+            variantName: hasTypes ? t.name : 'Base / Único',
+            stock: varStock,
+            price: varPrice,
+            status: varStock > 0 ? 'En Stock' : 'Agotado'
+          });
+
+          row.alignment = { vertical: 'middle' };
+          row.getCell('price').numFmt = '"$"#,##0.00';
+          row.getCell('productId').alignment = { vertical: 'middle', horizontal: 'center' };
+          row.getCell('variantId').alignment = { vertical: 'middle', horizontal: 'center' };
+          row.getCell('stock').alignment = { vertical: 'middle', horizontal: 'center' };
+          row.getCell('status').alignment = { vertical: 'middle', horizontal: 'center' };
+        });
+      });
+
+      // Generar buffer y descargar archivo
+      const buffer = await workbook.xlsx.writeBuffer();
+      const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+      const url = window.URL.createObjectURL(blob);
+      const anchor = document.createElement('a');
+      anchor.href = url;
+      const formattedDate = new Date().toISOString().slice(0, 10);
+      anchor.download = `inventario_azote_store_${formattedDate}.xlsx`;
+      document.body.appendChild(anchor);
+      anchor.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(anchor);
+    } catch (err) {
+      console.error('Error exportando inventario a Excel:', err);
+      alert('Hubo un error al generar el archivo Excel de inventario: ' + err.message);
+    } finally {
+      setIsExportingInventory(false);
+    }
+  };
+
   return (
     <div className="w-full max-w-[1440px] mx-auto px-4 sm:px-6 lg:px-8 pt-4 pb-4 md:pt-6 md:pb-6">
 
@@ -2210,11 +2592,33 @@ export default function AdminPage({ products: initialProducts, onCreateProduct, 
                   <div className="bg-surface-container-lowest border border-outline-variant/30 rounded-xl collector-card-shadow overflow-hidden">
                     {/* Card header with inline filters */}
                     <div className="p-md border-b border-outline-variant/40 bg-surface-container-low/50 flex flex-col gap-3">
-                      <div className="flex justify-between items-center">
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                         <div>
                           <h2 className="font-headline-md text-headline-md text-on-surface">Reabastecer Catálogo</h2>
                           <p className="text-xs text-on-surface-variant mt-0.5">Incrementa el stock de tus coleccionables y variantes.</p>
                         </div>
+                        <button
+                          type="button"
+                          onClick={handleExportInventoryToExcel}
+                          disabled={isExportingInventory || dbProducts.length === 0}
+                          className="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs sm:text-sm font-bold hover:scale-105 active:scale-95 transition-all shadow-md flex items-center justify-center gap-2 disabled:opacity-50 disabled:hover:scale-100 disabled:cursor-not-allowed cursor-pointer shrink-0 self-start sm:self-auto"
+                          title="Exportar todo el inventario de productos y variantes a Excel (.xlsx)"
+                        >
+                          {isExportingInventory ? (
+                            <>
+                              <svg className="animate-spin h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                              </svg>
+                              <span>Generando Excel...</span>
+                            </>
+                          ) : (
+                            <>
+                              <span className="material-symbols-outlined text-[18px]">table_view</span>
+                              <span>Exportar Inventario</span>
+                            </>
+                          )}
+                        </button>
                       </div>
                       {/* Inline filters */}
                       <div className="flex flex-wrap gap-3 items-end">
@@ -2536,6 +2940,42 @@ export default function AdminPage({ products: initialProducts, onCreateProduct, 
 
                 return (
                   <div className="space-y-md animate-fade-in">
+                    {/* Header bar with Export Button */}
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-surface-container-lowest border border-outline-variant/30 rounded-xl p-4 sm:p-5 collector-card-shadow">
+                      <div>
+                        <h2 className="font-headline-md text-base sm:text-lg font-bold text-on-surface flex items-center gap-2">
+                          <span className="material-symbols-outlined text-primary text-[22px]">receipt_long</span>
+                          Registro de Pedidos
+                        </h2>
+                        <p className="text-on-surface-variant text-xs mt-0.5">
+                          {orders.length === 1 ? '1 pedido registrado' : `${orders.length} pedidos registrados en total`}
+                        </p>
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={handleExportOrdersToExcel}
+                        disabled={isExportingOrders || orders.length === 0}
+                        className="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs sm:text-sm font-bold hover:scale-105 active:scale-95 transition-all shadow-md flex items-center justify-center gap-2 disabled:opacity-50 disabled:hover:scale-100 disabled:cursor-not-allowed cursor-pointer shrink-0"
+                        title="Exportar todos los pedidos a un archivo Excel (.xlsx)"
+                      >
+                        {isExportingOrders ? (
+                          <>
+                            <svg className="animate-spin h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                            </svg>
+                            <span>Generando Excel...</span>
+                          </>
+                        ) : (
+                          <>
+                            <span className="material-symbols-outlined text-[18px]">table_view</span>
+                            <span>Exportar a Excel</span>
+                          </>
+                        )}
+                      </button>
+                    </div>
+
                     {orders.length === 0 ? (
                       <div className="bg-surface-container-lowest border border-outline-variant/30 rounded-xl p-12 text-center flex flex-col items-center justify-center gap-4 collector-card-shadow">
                         <span className="material-symbols-outlined text-[4rem] text-outline/35">receipt_long</span>
