@@ -550,36 +550,20 @@ export default function Layout({ cartCount, currentUser, onLogout, onOpenCart })
       </main>
 
       {/* Footer */}
-      <footer className="bg-inverse-surface dark:bg-surface-container-lowest border-t border-outline/30 mt-auto">
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 px-margin-mobile md:px-margin-desktop py-6 sm:py-8 w-full max-w-[1440px] mx-auto">
-
-          <div className="md:col-span-1 flex flex-col gap-2">
-            <Link to="/" className="flex items-center">
-              <img src={logo} alt="Azote Store" className="h-10 sm:h-12 w-auto rounded-lg object-contain border border-outline-variant/10 shadow-sm" />
+      <footer className="bg-inverse-surface dark:bg-surface-container-lowest border-t border-outline/20 mt-auto py-4">
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-3 px-margin-mobile md:px-margin-desktop w-full max-w-[1440px] mx-auto text-xs text-surface-variant/80">
+          <div className="flex items-center gap-2.5">
+            <Link to="/" className="flex items-center hover:opacity-80 transition-opacity">
+              <img src={logo} alt="Azote Store" className="h-7 w-auto rounded object-contain border border-outline-variant/10 shadow-xs" />
             </Link>
-            <p className="text-xs text-surface-variant/80 max-w-xs mt-1">
-              Elevando la experiencia del coleccionista. Artículos premium, seleccionados por expertos.
-            </p>
+            <span>© {new Date().getFullYear()} Azote Store. Todos los derechos reservados.</span>
           </div>
 
-          <div className="flex flex-col gap-1.5">
-            <h3 className="text-xs font-bold text-primary-fixed uppercase tracking-wider mb-1">Navegación</h3>
-            <Link to="/catalog" className="text-surface-variant hover:text-white transition-colors hover:underline decoration-secondary decoration-2 text-xs sm:text-sm w-fit">
-              Catálogo Completo
+          <div className="flex items-center gap-4">
+            <Link to="/catalog" className="text-surface-variant/90 hover:text-white dark:hover:text-primary transition-colors font-medium">
+              Catálogo
             </Link>
           </div>
-
-          <div className="md:col-span-4 mt-6 pt-4 border-t border-outline/20 flex flex-col md:flex-row justify-between items-center gap-3">
-            <p className="text-xs text-surface-variant/80">
-              © 2026 Azote Store Enthusiast Collective. Todos los derechos reservados.
-            </p>
-            <div className="flex gap-4">
-              <a href="#" className="text-surface-variant hover:text-primary-fixed transition-colors">
-                <span className="material-symbols-outlined text-[18px]">share</span>
-              </a>
-            </div>
-          </div>
-
         </div>
       </footer>
 

@@ -251,6 +251,7 @@ export default function AdminPage({ products: initialProducts, onCreateProduct, 
   const [syncingProductId, setSyncingProductId] = useState(null);
   const [syncProgress, setSyncProgress] = useState(null);
   const [syncResultModal, setSyncResultModal] = useState(null);
+  const [selectedPriceKey, setSelectedPriceKey] = useState(null);
 
   // Autocomplete states for card name
   const [cardSuggestions, setCardSuggestions] = useState([]);
@@ -308,6 +309,7 @@ export default function AdminPage({ products: initialProducts, onCreateProduct, 
 
     setIsFetchingTcgPrice(true);
     setTcgPriceStatus(null);
+    setSelectedPriceKey(null);
     setShowSuggestions(false);
 
     try {
@@ -332,6 +334,27 @@ export default function AdminPage({ products: initialProducts, onCreateProduct, 
         if (result.imageUrl && !imageFile) {
           setImagePreview(result.imageUrl);
         }
+
+        const pricesWithKeys = (result.allPrices || []).map((item, index) => ({
+          ...item,
+          key: `${item.setName || ''}_${item.code || ''}_${item.rarity || ''}_${item.variant || ''}_${item.price}_${index}`
+        }));
+
+        let defaultSelectedKey = null;
+        if (pricesWithKeys.length > 0) {
+          let match = pricesWithKeys.find(it => it.setName === result.matchedSet && (!result.rarity || it.rarity === result.rarity));
+          if (!match && result.matchedSet) {
+            match = pricesWithKeys.find(it => it.setName === result.matchedSet);
+          }
+          if (!match) {
+            match = pricesWithKeys[0];
+          }
+          if (match) {
+            defaultSelectedKey = match.key;
+          }
+        }
+        setSelectedPriceKey(defaultSelectedKey);
+
         setTcgPriceStatus({
           type: 'success',
           message: result.isExactSetMatch
@@ -339,7 +362,7 @@ export default function AdminPage({ products: initialProducts, onCreateProduct, 
             : `Precio sugerido: $${result.price.toFixed(2)} USD (${result.cardName}${result.matchedSet ? ` • ${result.matchedSet}` : ''})`,
           isExactSetMatch: result.isExactSetMatch,
           matchedSet: result.matchedSet,
-          allPrices: result.allPrices || [],
+          allPrices: pricesWithKeys,
           cardName: result.cardName,
           imageUrl: result.imageUrl
         });
@@ -1480,6 +1503,8 @@ export default function AdminPage({ products: initialProducts, onCreateProduct, 
     setSetNameVal(prodSet);
     const prodRarity = product.rarity || product.specifications?.Rareza || '';
     setRarity(prodRarity);
+    setSelectedPriceKey(null);
+    setTcgPriceStatus(null);
     setCustomSetInput('');
     setIsAddingNewSet(false);
     setIsEditingSet(false);
@@ -1574,6 +1599,7 @@ export default function AdminPage({ products: initialProducts, onCreateProduct, 
     setSamePrice(true);
     setVariants([{ id: 1, title: '', stock: '', price: '', image: '', imagePreview: '' }]);
     setTcgPriceStatus(null);
+    setSelectedPriceKey(null);
     setBtnText('Publicar Producto');
     setError('');
   };
@@ -1888,6 +1914,8 @@ export default function AdminPage({ products: initialProducts, onCreateProduct, 
             setHasVariants(false);
             setSamePrice(true);
             setVariants([{ id: 1, title: '', stock: '', price: '', image: '', imagePreview: '' }]);
+            setSelectedPriceKey(null);
+            setTcgPriceStatus(null);
           }, 2000);
         }
 
@@ -3001,7 +3029,10 @@ export default function AdminPage({ products: initialProducts, onCreateProduct, 
                             step="any"
                             min="0"
                             value={price}
-                            onChange={(e) => setPrice(e.target.value)}
+                            onChange={(e) => {
+                              setPrice(e.target.value);
+                              setSelectedPriceKey(null);
+                            }}
                             disabled={isSubmitting || isPublished}
                             placeholder="0.00"
                             className="w-full bg-surface-container-low border border-outline-variant/30 rounded-lg p-4 pl-8 text-body-md transition-all outline-none"
@@ -3088,12 +3119,17 @@ export default function AdminPage({ products: initialProducts, onCreateProduct, 
                                       </div>
                                     ) : (
                                       filteredPrices.map((item, idx) => {
-                                        const isCurrentPrice = parseFloat(price) === item.price;
+                                        const itemKey = item.key || `${item.setName || ''}_${item.code || ''}_${item.rarity || ''}_${item.variant || ''}_${item.price}_${idx}`;
+                                        const isSelected = selectedPriceKey 
+                                          ? selectedPriceKey === itemKey 
+                                          : (parseFloat(price) === item.price && item.setName === setNameVal && (!rarity || item.rarity === rarity));
+
                                         return (
                                           <button
-                                            key={idx}
+                                            key={itemKey}
                                             type="button"
                                             onClick={() => {
+                                              setSelectedPriceKey(itemKey);
                                               if (item.price > 0) {
                                                 setPrice(item.price.toFixed(2));
                                               }
@@ -3108,23 +3144,30 @@ export default function AdminPage({ products: initialProducts, onCreateProduct, 
                                               }
                                             }}
                                             className={`flex items-center justify-between p-2 rounded-md transition-all text-left border cursor-pointer ${
-                                              isCurrentPrice || item.isMatch
-                                                ? 'bg-primary/10 border-primary text-primary font-bold shadow-xs'
+                                              isSelected
+                                                ? 'bg-primary/15 border-primary text-primary font-bold shadow-xs ring-1 ring-primary/40'
                                                 : 'bg-surface-container hover:bg-surface-container-high border-outline-variant/30 text-on-surface'
                                             }`}
                                           >
-                                            <div className="flex flex-col min-w-0 pr-2">
-                                              <div className="flex items-center gap-1.5 flex-wrap">
-                                                <span className="truncate font-semibold">{item.setName}</span>
-                                                {item.isMatch && (
-                                                  <span className="bg-emerald-500/20 text-emerald-600 dark:text-emerald-300 text-[9px] px-1.5 py-0.5 rounded-full font-bold">
-                                                    Tu Set
-                                                  </span>
-                                                )}
+                                            <div className="flex items-center gap-2 min-w-0 pr-2">
+                                              {isSelected && (
+                                                <span className="material-symbols-outlined text-primary text-[18px] shrink-0">
+                                                  check_circle
+                                                </span>
+                                              )}
+                                              <div className="flex flex-col min-w-0">
+                                                <div className="flex items-center gap-1.5 flex-wrap">
+                                                  <span className="truncate font-semibold">{item.setName}</span>
+                                                  {item.isMatch && (
+                                                    <span className="bg-emerald-500/20 text-emerald-600 dark:text-emerald-300 text-[9px] px-1.5 py-0.5 rounded-full font-bold">
+                                                      Tu Set
+                                                    </span>
+                                                  )}
+                                                </div>
+                                                <span className="text-[10px] opacity-75">
+                                                  {[item.code, item.rarity, (item.variant && item.variant !== item.rarity && !item.variant.includes(item.rarity) ? item.variant : null)].filter(Boolean).join(' • ')}
+                                                </span>
                                               </div>
-                                              <span className="text-[10px] opacity-75">
-                                                {[item.code, item.rarity, (item.variant && item.variant !== item.rarity && !item.variant.includes(item.rarity) ? item.variant : null)].filter(Boolean).join(' • ')}
-                                              </span>
                                             </div>
                                             <div className="shrink-0 text-right ml-2">
                                               {item.price > 0 ? (
