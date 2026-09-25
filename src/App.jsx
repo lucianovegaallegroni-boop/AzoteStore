@@ -89,7 +89,7 @@ export default function App() {
         const { supabase } = await import('./supabaseClient');
         const { data: dbProducts, error } = await supabase
           .from('products')
-          .select('id, name, price, description, image, category, stock, featured, division, product_variants(id, product_id, title, price, stock, image)');
+          .select('id, name, price, description, image, category, stock, featured, division, tcg, set_name, product_variants(id, product_id, title, price, stock, image)');
 
         if (error) throw error;
 
@@ -97,12 +97,14 @@ export default function App() {
           const formatted = dbProducts.map(p => ({
             id: p.id,
             name: p.name,
-            subtitle: `${p.category} Collectible Item`,
+            subtitle: p.tcg ? `${p.tcg} • ${p.set_name || p.category}` : `${p.category} Coleccionable`,
             price: parseFloat(p.price),
             originalPrice: null,
             image: p.image,
             category: p.category,
-            categorySlug: p.category.toLowerCase().replace(/\s+/g, '-'),
+            categorySlug: p.category ? p.category.toLowerCase().replace(/\s+/g, '-') : '',
+            tcg: p.tcg,
+            setName: p.set_name,
             stock: p.stock,
             inStock: (p.product_variants && p.product_variants.length > 0)
               ? p.product_variants.some(v => (v.stock || 0) > 0)

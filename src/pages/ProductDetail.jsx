@@ -16,7 +16,7 @@ export default function ProductDetail({ products, onAddToCart }) {
         const { supabase } = await import('../supabaseClient');
         const { data: p, error } = await supabase
           .from('products')
-          .select('id, name, price, description, image, category, stock, featured, division, product_variants(id, product_id, title, price, stock, image)')
+          .select('id, name, price, description, image, category, stock, featured, division, tcg, set_name, product_variants(id, product_id, title, price, stock, image)')
           .eq('id', id)
           .single();
 
@@ -30,20 +30,24 @@ export default function ProductDetail({ products, onAddToCart }) {
           const formatted = {
             id: p.id,
             name: p.name,
-            subtitle: `${p.category} Collectible Item`,
+            subtitle: p.tcg ? `${p.tcg} • ${p.set_name || p.category}` : `${p.category} Coleccionable`,
             price: parseFloat(p.price),
             originalPrice: null,
             image: p.image,
             category: p.category,
-            categorySlug: p.category.toLowerCase().replace(/\s+/g, '-'),
+            categorySlug: p.category ? p.category.toLowerCase().replace(/\s+/g, '-') : '',
+            tcg: p.tcg,
+            setName: p.set_name,
             stock: p.stock,
             inStock: hasStock,
             // grade: 'Premium Grade',
             description: p.description,
             specifications: {
               Stock: String(p.stock),
-              Category: p.category,
-              Status: hasStock ? 'Disponible' : 'Agotado'
+              Categoría: p.category,
+              ...(p.tcg ? { 'Juego (TCG)': p.tcg } : {}),
+              ...(p.set_name ? { 'Set / Expansión': p.set_name } : {}),
+              Estado: hasStock ? 'Disponible' : 'Agotado'
             },
             colors: hasVariants && inStockVariants.length > 0 ? inStockVariants.map(v => ({
               id: v.id,

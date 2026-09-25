@@ -77,6 +77,25 @@ export default function CustomDropdown({
     };
   }, [isOpen]);
 
+  // When dropdown is open, elevate parent stacking context so it floats above all other inputs/buttons
+  useEffect(() => {
+    if (isOpen && dropdownRef.current) {
+      const parent = dropdownRef.current.closest('.space-y-base, [class*="space-y"], .grid > div, form > div, tr, td');
+      if (parent) {
+        const prevZIndex = parent.style.zIndex;
+        const prevPosition = parent.style.position;
+        parent.style.zIndex = '100';
+        if (!parent.style.position || parent.style.position === 'static') {
+          parent.style.position = 'relative';
+        }
+        return () => {
+          parent.style.zIndex = prevZIndex;
+          parent.style.position = prevPosition;
+        };
+      }
+    }
+  }, [isOpen]);
+
   const handleSelect = (val) => {
     if (onChange) {
       onChange({ target: { value: val }, value: val, toString: () => val });
@@ -98,7 +117,7 @@ export default function CustomDropdown({
 
   return (
     <div
-      className={`relative inline-block w-full ${isTransparent ? 'w-auto' : ''} ${
+      className={`relative inline-block w-full ${isOpen ? 'z-[100]' : 'z-10'} ${isTransparent ? 'w-auto' : ''} ${
         disabled ? 'opacity-50 pointer-events-none' : ''
       }`}
       ref={dropdownRef}
@@ -122,7 +141,7 @@ export default function CustomDropdown({
         <div
           className={`absolute ${menuPositionClass} ${
             shouldOpenUp ? 'bottom-full mb-2' : 'top-full mt-2'
-          } bg-surface dark:bg-inverse-surface border border-outline-variant/40 rounded-xl shadow-xl z-50 py-2 max-h-60 overflow-y-auto card-shadow animate-fade-in ${
+          } bg-surface dark:bg-inverse-surface border border-outline-variant/40 rounded-xl shadow-2xl z-[110] py-2 max-h-60 overflow-y-auto card-shadow animate-fade-in ${
             align === 'full' ? 'w-full' : 'min-w-[160px]'
           } ${menuClassName}`}
         >

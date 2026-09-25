@@ -1,20 +1,121 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import CustomDropdown from '../components/CustomDropdown';
+import { fetchCardPriceFromTcgPlayer } from '../services/tcgPlayerService';
 
 const categoryOptions = [
-  { value: "Yu-Gi-Oh", label: "Yu-Gi-Oh" },
-  { value: "Pokemon", label: "Pokemon" },
-  { value: "Magic", label: "Magic" },
-  { value: "Sleeves", label: "Sleeves" }
+  { value: "Sleeve", label: "Sleeve" },
+  { value: "TCG", label: "TCG" },
+  { value: "Producto Sellado", label: "Producto Sellado" }
 ];
+
+const defaultTcgOptions = [
+  { value: "Yu-Gi-Oh!", label: "Yu-Gi-Oh!" },
+  { value: "Pokémon", label: "Pokémon" },
+  { value: "Magic: The Gathering", label: "Magic: The Gathering" },
+  { value: "One Piece", label: "One Piece" },
+  { value: "Dragon Ball Super", label: "Dragon Ball Super" },
+  { value: "Lorcana", label: "Disney Lorcana" },
+  { value: "Digimon", label: "Digimon Card Game" },
+  { value: "Star Wars: Unlimited", label: "Star Wars: Unlimited" },
+  { value: "Otro TCG", label: "Otro TCG" }
+];
+
+const defaultTcgSetsMap = {
+  "Yu-Gi-Oh!": [
+    { value: "Rarity Collection", label: "25th Anniversary Rarity Collection" },
+    { value: "Legacy of Destruction", label: "Legacy of Destruction (LEDE)" },
+    { value: "Phantom Nightmare", label: "Phantom Nightmare (PHNI)" },
+    { value: "Age of Overlord", label: "Age of Overlord (AGOV)" },
+    { value: "Duelist Nexus", label: "Duelist Nexus (DUNE)" },
+    { value: "Cyberstorm Access", label: "Cyberstorm Access (CYAC)" },
+    { value: "Battles of Legend", label: "Battles of Legend" },
+    { value: "Tin of the Pharaoh's Gods", label: "Mega-Tins / Promo Sets" },
+    { value: "Retro Pack / Clásico", label: "Retro Packs / Vintage" },
+    { value: "Otro Set", label: "Otro Set / Expansión" }
+  ],
+  "Pokémon": [
+    { value: "Prismatic Evolutions", label: "Scarlet & Violet: Prismatic Evolutions" },
+    { value: "Surging Sparks", label: "Scarlet & Violet: Surging Sparks" },
+    { value: "Stellar Crown", label: "Scarlet & Violet: Stellar Crown" },
+    { value: "Shrouded Fable", label: "Scarlet & Violet: Shrouded Fable" },
+    { value: "Twilight Masquerade", label: "Scarlet & Violet: Twilight Masquerade" },
+    { value: "Temporal Forces", label: "Scarlet & Violet: Temporal Forces" },
+    { value: "Paldean Fates", label: "Scarlet & Violet: Paldean Fates" },
+    { value: "151", label: "Scarlet & Violet: 151" },
+    { value: "Crown Zenith", label: "Sword & Shield: Crown Zenith" },
+    { value: "Vintage / Clásico", label: "Vintage / Sets Clásicos" },
+    { value: "Otro Set", label: "Otro Set / Expansión" }
+  ],
+  "Magic: The Gathering": [
+    { value: "Aetherdrift", label: "Aetherdrift" },
+    { value: "Foundations", label: "Foundations" },
+    { value: "Duskmourn: House of Horror", label: "Duskmourn: House of Horror" },
+    { value: "Bloomburrow", label: "Bloomburrow" },
+    { value: "Modern Horizons 3", label: "Modern Horizons 3" },
+    { value: "Outlaws of Thunder Junction", label: "Outlaws of Thunder Junction" },
+    { value: "Murders at Karlov Manor", label: "Murders at Karlov Manor" },
+    { value: "The Lost Caverns of Ixalan", label: "The Lost Caverns of Ixalan" },
+    { value: "Commander Masters", label: "Commander Masters" },
+    { value: "Universes Beyond", label: "Universes Beyond" },
+    { value: "Otro Set", label: "Otro Set / Expansión" }
+  ],
+  "One Piece": [
+    { value: "OP-01 Romance Dawn", label: "OP-01 Romance Dawn" },
+    { value: "OP-02 Paramount War", label: "OP-02 Paramount War" },
+    { value: "OP-03 Pillars of Strength", label: "OP-03 Pillars of Strength" },
+    { value: "OP-04 Kingdoms of Intrigue", label: "OP-04 Kingdoms of Intrigue" },
+    { value: "OP-05 Awakening of the New Era", label: "OP-05 Awakening of the New Era" },
+    { value: "OP-06 Wings of the Captain", label: "OP-06 Wings of the Captain" },
+    { value: "OP-07 500 Years in the Future", label: "OP-07 500 Years in the Future" },
+    { value: "OP-08 Two Legends", label: "OP-08 Two Legends" },
+    { value: "OP-09 The Four Emperors", label: "OP-09 The Four Emperors" },
+    { value: "EB-01 Memorial Collection", label: "EB-01 Memorial Collection" },
+    { value: "Otro Set", label: "Otro Set / Expansión" }
+  ],
+  "Lorcana": [
+    { value: "The First Chapter", label: "The First Chapter" },
+    { value: "Rise of the Floodborn", label: "Rise of the Floodborn" },
+    { value: "Into the Inklands", label: "Into the Inklands" },
+    { value: "Ursula's Return", label: "Ursula's Return" },
+    { value: "Shimmering Skies", label: "Shimmering Skies" },
+    { value: "Azurite Sea", label: "Azurite Sea" },
+    { value: "Otro Set", label: "Otro Set / Expansión" }
+  ],
+  "Dragon Ball Super": [
+    { value: "Fusion World FB01", label: "Fusion World: Awakened Pulse (FB01)" },
+    { value: "Fusion World FB02", label: "Fusion World: Blazing Aura (FB02)" },
+    { value: "Fusion World FB03", label: "Fusion World: Raging Roar (FB03)" },
+    { value: "Fusion World FB04", label: "Fusion World: Ultra Limit (FB04)" },
+    { value: "Masters Series", label: "DBS Masters Series" },
+    { value: "Otro Set", label: "Otro Set / Expansión" }
+  ],
+  "Digimon": [
+    { value: "BT-16 Beginning Observer", label: "BT-16 Beginning Observer" },
+    { value: "BT-17 Secret Crisis", label: "BT-17 Secret Crisis" },
+    { value: "BT-18 Element Successor", label: "BT-18 Element Successor" },
+    { value: "EX-07 Digimon Liberator", label: "EX-07 Digimon Liberator" },
+    { value: "Otro Set", label: "Otro Set / Expansión" }
+  ],
+  "Star Wars: Unlimited": [
+    { value: "Spark of Rebellion", label: "Spark of Rebellion (SOR)" },
+    { value: "Shadows of the Galaxy", label: "Shadows of the Galaxy (SHD)" },
+    { value: "Twilight of the Republic", label: "Twilight of the Republic (TWI)" },
+    { value: "Otro Set", label: "Otro Set / Expansión" }
+  ],
+  "Otro TCG": [
+    { value: "General", label: "General / Base Set" },
+    { value: "Promocional", label: "Promocional" },
+    { value: "Edición Especial", label: "Edición Especial" },
+    { value: "Otro Set", label: "Otro Set" }
+  ]
+};
 
 const restockCategoryOptions = [
   { value: "", label: "Todas las Categorías" },
-  { value: "yu-gi-oh", label: "Yu-Gi-Oh" },
-  { value: "pokemon", label: "Pokemon" },
-  { value: "magic", label: "Magic" },
-  { value: "sleeves", label: "Sleeves" }
+  { value: "sleeve", label: "Sleeve" },
+  { value: "tcg", label: "TCG" },
+  { value: "producto-sellado", label: "Producto Sellado" }
 ];
 
 const orderStatusOptions = [
@@ -36,7 +137,7 @@ export default function AdminPage({ products: initialProducts, onCreateProduct, 
         // Fetch products and their variants
         const { data: prods, error: pErr } = await supabase
           .from('products')
-          .select('id, name, price, description, image, category, stock, featured, division, product_variants(id, product_id, title, price, stock, image)');
+          .select('id, name, price, description, image, category, stock, featured, division, tcg, set_name, product_variants(id, product_id, title, price, stock, image)');
 
         if (pErr) throw pErr;
 
@@ -50,12 +151,16 @@ export default function AdminPage({ products: initialProducts, onCreateProduct, 
             image: p.image,
             category: p.category,
             categorySlug: p.category.toLowerCase().replace(/\s+/g, '-'),
+            tcg: p.tcg || null,
+            setName: p.set_name || null,
             inStock: p.stock > 0,
             featured: !!p.featured,
             division: p.division,
             specifications: {
               Stock: String(p.stock),
               Category: p.category,
+              ...(p.tcg ? { TCG: p.tcg } : {}),
+              ...(p.set_name ? { Set: p.set_name } : {}),
               Status: p.stock > 0 ? 'Disponible' : 'Agotado'
             },
             colors: p.product_variants && p.product_variants.length > 0 ? p.product_variants.map(v => ({
@@ -127,7 +232,524 @@ export default function AdminPage({ products: initialProducts, onCreateProduct, 
   const triggerReload = () => setReloadTrigger(prev => prev + 1);
 
   const [name, setName] = useState('');
-  const [category, setCategory] = useState('Yu-Gi-Oh');
+  const [category, setCategory] = useState('Sleeve');
+  const [tcg, setTcg] = useState('Yu-Gi-Oh!');
+  const [setNameVal, setSetNameVal] = useState('');
+  const [customSetInput, setCustomSetInput] = useState('');
+
+  // TCGPlayer price lookup states
+  const [isFetchingTcgPrice, setIsFetchingTcgPrice] = useState(false);
+  const [tcgPriceStatus, setTcgPriceStatus] = useState(null);
+
+  const handleFetchTcgPlayerPrice = async () => {
+    if (!name || !name.trim()) {
+      setTcgPriceStatus({
+        type: 'error',
+        message: 'Escribe el nombre de la carta para consultar su precio en TCGPlayer.'
+      });
+      return;
+    }
+
+    setIsFetchingTcgPrice(true);
+    setTcgPriceStatus(null);
+
+    try {
+      const result = await fetchCardPriceFromTcgPlayer({
+        cardName: name,
+        tcg,
+        setName: setNameVal
+      });
+
+      if (result.price > 0) {
+        setPrice(result.price.toFixed(2));
+        setTcgPriceStatus({
+          type: 'success',
+          message: result.isExactSetMatch
+            ? `Precio exacto para el set "${result.matchedSet}": $${result.price.toFixed(2)} USD`
+            : `Precio sugerido: $${result.price.toFixed(2)} USD (${result.cardName}${result.matchedSet ? ` • ${result.matchedSet}` : ''})`,
+          isExactSetMatch: result.isExactSetMatch,
+          matchedSet: result.matchedSet,
+          allPrices: result.allPrices || [],
+          cardName: result.cardName
+        });
+      } else {
+        setTcgPriceStatus({
+          type: 'error',
+          message: 'No se encontró un precio de mercado válido para esta carta.'
+        });
+      }
+    } catch (err) {
+      setTcgPriceStatus({
+        type: 'error',
+        message: err.message || 'Error consultando precio en TCGPlayer.'
+      });
+    } finally {
+      setIsFetchingTcgPrice(false);
+    }
+  };
+
+  // Dynamic TCGs states
+  const [dbTcgs, setDbTcgs] = useState([]);
+  const [isAddingNewTcg, setIsAddingNewTcg] = useState(false);
+  const [newTcgNameInput, setNewTcgNameInput] = useState('');
+  const [isEditingTcg, setIsEditingTcg] = useState(false);
+  const [editingTcgNameInput, setEditingTcgNameInput] = useState('');
+  const [isSavingTcg, setIsSavingTcg] = useState(false);
+  const [isManageTcgsModalOpen, setIsManageTcgsModalOpen] = useState(false);
+  const [modalEditingTcgId, setModalEditingTcgId] = useState(null);
+  const [modalEditingTcgName, setModalEditingTcgName] = useState('');
+  const [modalNewTcgName, setModalNewTcgName] = useState('');
+
+  // Dynamic TCG Sets states
+  const [dbTcgSets, setDbTcgSets] = useState([]);
+  const [isAddingNewSet, setIsAddingNewSet] = useState(false);
+  const [newSetNameInput, setNewSetNameInput] = useState('');
+  const [isEditingSet, setIsEditingSet] = useState(false);
+  const [editingSetNameInput, setEditingSetNameInput] = useState('');
+  const [isSavingSet, setIsSavingSet] = useState(false);
+  const [isManageSetsModalOpen, setIsManageSetsModalOpen] = useState(false);
+  const [modalEditingSetId, setModalEditingSetId] = useState(null);
+  const [modalEditingSetName, setModalEditingSetName] = useState('');
+  const [modalNewSetName, setModalNewSetName] = useState('');
+
+  // Fetch TCGs from Supabase
+  const loadTcgs = async () => {
+    try {
+      const { supabase } = await import('../supabaseClient');
+      const { data, error } = await supabase
+        .from('tcg_games')
+        .select('id, name')
+        .order('name', { ascending: true });
+
+      if (!error && data && data.length > 0) {
+        setDbTcgs(data);
+      }
+    } catch (err) {
+      console.warn('Error cargando tcg_games:', err);
+    }
+  };
+
+  // Fetch TCG sets from Supabase
+  const loadTcgSets = async () => {
+    try {
+      const { supabase } = await import('../supabaseClient');
+      const { data, error } = await supabase
+        .from('tcg_sets')
+        .select('id, tcg, name')
+        .order('name', { ascending: true });
+
+      if (!error && data) {
+        setDbTcgSets(data);
+      }
+    } catch (err) {
+      console.warn('Error cargando tcg_sets:', err);
+    }
+  };
+
+  useEffect(() => {
+    loadTcgs();
+    loadTcgSets();
+  }, [reloadTrigger]);
+
+  const currentTcgsList = React.useMemo(() => {
+    if (dbTcgs.length > 0) return dbTcgs;
+    return defaultTcgOptions.map((item, idx) => ({
+      id: `default-tcg-${idx}`,
+      name: item.value
+    }));
+  }, [dbTcgs]);
+
+  const dynamicTcgOptions = React.useMemo(() => {
+    const opts = [];
+    if (tcg && !currentTcgsList.some(item => item.name === tcg)) {
+      opts.push({ value: tcg, label: tcg });
+    }
+    currentTcgsList.forEach(item => {
+      if (!opts.some(o => o.value === item.name)) {
+        opts.push({ value: item.name, label: item.name });
+      }
+    });
+    return opts;
+  }, [currentTcgsList, tcg]);
+
+  const currentSetsForTcg = React.useMemo(() => {
+    const fromDb = dbTcgSets.filter(s => s.tcg === tcg);
+    if (fromDb.length > 0) return fromDb;
+    const defaults = defaultTcgSetsMap[tcg] || [];
+    return defaults.map((item, idx) => ({
+      id: `default-${idx}`,
+      tcg,
+      name: typeof item === 'string' ? item : (item.label || item.value)
+    }));
+  }, [dbTcgSets, tcg]);
+
+  const setDropdownOptions = React.useMemo(() => {
+    const opts = [];
+    if (setNameVal && !currentSetsForTcg.some(s => s.name === setNameVal)) {
+      opts.push({ value: setNameVal, label: setNameVal });
+    }
+    currentSetsForTcg.forEach(s => {
+      if (!opts.some(o => o.value === s.name)) {
+        opts.push({ value: s.name, label: s.name });
+      }
+    });
+    return opts;
+  }, [currentSetsForTcg, setNameVal]);
+
+  const handleSaveNewTcg = async (customName = null) => {
+    const targetName = (customName || newTcgNameInput).trim();
+    if (!targetName) return;
+
+    setIsSavingTcg(true);
+    try {
+      const { supabase } = await import('../supabaseClient');
+      const { data, error } = await supabase
+        .from('tcg_games')
+        .insert({ name: targetName })
+        .select()
+        .single();
+
+      if (error) {
+        console.warn('Insert error into tcg_games:', error);
+      }
+
+      if (data) {
+        setDbTcgs(prev => [...prev.filter(item => item.id !== data.id), data]);
+      } else {
+        setDbTcgs(prev => [...prev, { id: `local-tcg-${Date.now()}`, name: targetName }]);
+      }
+
+      setTcg(targetName);
+      setSetNameVal('');
+      setNewTcgNameInput('');
+      setIsAddingNewTcg(false);
+    } catch (err) {
+      console.error('Error guardando nuevo TCG:', err);
+      setDbTcgs(prev => [...prev, { id: `local-tcg-${Date.now()}`, name: targetName }]);
+      setTcg(targetName);
+      setSetNameVal('');
+      setNewTcgNameInput('');
+      setIsAddingNewTcg(false);
+    } finally {
+      setIsSavingTcg(false);
+    }
+  };
+
+  const handleSaveEditCurrentTcg = async () => {
+    const oldName = tcg;
+    const newName = editingTcgNameInput.trim();
+    if (!newName || newName === oldName) {
+      setIsEditingTcg(false);
+      return;
+    }
+
+    setIsSavingTcg(true);
+    try {
+      const { supabase } = await import('../supabaseClient');
+      const matched = dbTcgs.find(t => t.name === oldName);
+
+      if (matched && !String(matched.id).startsWith('default-') && !String(matched.id).startsWith('local-')) {
+        await supabase
+          .from('tcg_games')
+          .update({ name: newName })
+          .eq('id', matched.id);
+      } else {
+        await supabase
+          .from('tcg_games')
+          .insert({ name: newName });
+      }
+
+      // Update sets table where tcg = oldName
+      await supabase
+        .from('tcg_sets')
+        .update({ tcg: newName })
+        .eq('tcg', oldName);
+
+      // Update products table where tcg = oldName
+      await supabase
+        .from('products')
+        .update({ tcg: newName })
+        .eq('tcg', oldName);
+
+      // Update local state
+      setDbTcgs(prev => prev.map(t => t.name === oldName ? { ...t, name: newName } : t));
+      setDbTcgSets(prev => prev.map(s => s.tcg === oldName ? { ...s, tcg: newName } : s));
+      setDbProducts(prev => prev.map(p => {
+        if (p.tcg === oldName || p.specifications?.TCG === oldName) {
+          return {
+            ...p,
+            tcg: newName,
+            specifications: { ...p.specifications, TCG: newName }
+          };
+        }
+        return p;
+      }));
+
+      setTcg(newName);
+      setIsEditingTcg(false);
+      setEditingTcgNameInput('');
+    } catch (err) {
+      console.error('Error editando TCG:', err);
+      alert('Error al actualizar el nombre del TCG: ' + err.message);
+    } finally {
+      setIsSavingTcg(false);
+    }
+  };
+
+  const handleSaveEditTcgFromModal = async (id, oldName, newName) => {
+    const trimmed = (newName || '').trim();
+    if (!trimmed || trimmed === oldName) {
+      setModalEditingTcgId(null);
+      setModalEditingTcgName('');
+      return;
+    }
+
+    try {
+      const { supabase } = await import('../supabaseClient');
+      if (id && !String(id).startsWith('default-') && !String(id).startsWith('local-')) {
+        await supabase
+          .from('tcg_games')
+          .update({ name: trimmed })
+          .eq('id', id);
+      } else {
+        await supabase
+          .from('tcg_games')
+          .insert({ name: trimmed });
+      }
+
+      // Update sets & products
+      await supabase
+        .from('tcg_sets')
+        .update({ tcg: trimmed })
+        .eq('tcg', oldName);
+
+      await supabase
+        .from('products')
+        .update({ tcg: trimmed })
+        .eq('tcg', oldName);
+
+      setDbTcgs(prev => prev.map(t => (t.id === id || t.name === oldName) ? { ...t, name: trimmed } : t));
+      setDbTcgSets(prev => prev.map(s => s.tcg === oldName ? { ...s, tcg: trimmed } : s));
+      setDbProducts(prev => prev.map(p => {
+        if (p.tcg === oldName || p.specifications?.TCG === oldName) {
+          return {
+            ...p,
+            tcg: trimmed,
+            specifications: { ...p.specifications, TCG: trimmed }
+          };
+        }
+        return p;
+      }));
+
+      if (tcg === oldName) {
+        setTcg(trimmed);
+      }
+
+      setModalEditingTcgId(null);
+      setModalEditingTcgName('');
+    } catch (err) {
+      console.error('Error al editar TCG desde modal:', err);
+      alert('Error al actualizar el TCG: ' + err.message);
+    }
+  };
+
+  const handleDeleteTcg = async (id, tcgName) => {
+    if (!confirm(`¿Estás seguro de eliminar el TCG "${tcgName}"? Se desvinculará de la lista activa.`)) return;
+
+    try {
+      const { supabase } = await import('../supabaseClient');
+      if (id && !String(id).startsWith('default-') && !String(id).startsWith('local-')) {
+        await supabase
+          .from('tcg_games')
+          .delete()
+          .eq('id', id);
+      }
+
+      const remaining = dbTcgs.filter(t => t.id !== id && t.name !== tcgName);
+      setDbTcgs(remaining);
+
+      if (tcg === tcgName) {
+        setTcg(remaining.length > 0 ? remaining[0].name : '');
+        setSetNameVal('');
+      }
+    } catch (err) {
+      console.error('Error al eliminar TCG:', err);
+      alert('Error al eliminar el TCG: ' + err.message);
+    }
+  };
+
+  const handleSaveNewSet = async (customName = null) => {
+    const targetName = (customName || newSetNameInput).trim();
+    if (!targetName) return;
+
+    setIsSavingSet(true);
+    try {
+      const { supabase } = await import('../supabaseClient');
+      const { data, error } = await supabase
+        .from('tcg_sets')
+        .insert({ tcg, name: targetName })
+        .select()
+        .single();
+
+      if (error) {
+        console.warn('Insert error or table not ready, continuing:', error);
+      }
+
+      if (data) {
+        setDbTcgSets(prev => [...prev.filter(s => s.id !== data.id), data]);
+      } else {
+        setDbTcgSets(prev => [...prev, { id: `local-${Date.now()}`, tcg, name: targetName }]);
+      }
+
+      setSetNameVal(targetName);
+      setNewSetNameInput('');
+      setIsAddingNewSet(false);
+    } catch (err) {
+      console.error('Error guardando nuevo set:', err);
+      setDbTcgSets(prev => [...prev, { id: `local-${Date.now()}`, tcg, name: targetName }]);
+      setSetNameVal(targetName);
+      setNewSetNameInput('');
+      setIsAddingNewSet(false);
+    } finally {
+      setIsSavingSet(false);
+    }
+  };
+
+  const handleSaveEditCurrentSet = async () => {
+    const oldName = setNameVal;
+    const newName = editingSetNameInput.trim();
+    if (!newName || newName === oldName) {
+      setIsEditingSet(false);
+      return;
+    }
+
+    setIsSavingSet(true);
+    try {
+      const { supabase } = await import('../supabaseClient');
+      const matchedSet = dbTcgSets.find(s => s.tcg === tcg && s.name === oldName);
+
+      if (matchedSet && !String(matchedSet.id).startsWith('default-') && !String(matchedSet.id).startsWith('local-')) {
+        await supabase
+          .from('tcg_sets')
+          .update({ name: newName })
+          .eq('id', matchedSet.id);
+      } else {
+        await supabase
+          .from('tcg_sets')
+          .insert({ tcg, name: newName });
+      }
+
+      // Update products referencing this old set name
+      await supabase
+        .from('products')
+        .update({ set_name: newName })
+        .eq('tcg', tcg)
+        .eq('set_name', oldName);
+
+      // Update local sets
+      setDbTcgSets(prev => prev.map(s => {
+        if (s.tcg === tcg && s.name === oldName) {
+          return { ...s, name: newName };
+        }
+        return s;
+      }));
+
+      // Update local dbProducts
+      setDbProducts(prev => prev.map(p => {
+        if (p.tcg === tcg && (p.setName === oldName || p.specifications?.Set === oldName)) {
+          return {
+            ...p,
+            setName: newName,
+            specifications: {
+              ...p.specifications,
+              Set: newName
+            }
+          };
+        }
+        return p;
+      }));
+
+      setSetNameVal(newName);
+      setIsEditingSet(false);
+      setEditingSetNameInput('');
+    } catch (err) {
+      console.error('Error editando set:', err);
+      alert('Error al actualizar el nombre del set: ' + err.message);
+    } finally {
+      setIsSavingSet(false);
+    }
+  };
+
+  const handleSaveEditSetFromModal = async (setId, oldName, newName) => {
+    const trimmed = (newName || '').trim();
+    if (!trimmed || trimmed === oldName) {
+      setModalEditingSetId(null);
+      setModalEditingSetName('');
+      return;
+    }
+
+    try {
+      const { supabase } = await import('../supabaseClient');
+      if (setId && !String(setId).startsWith('default-') && !String(setId).startsWith('local-')) {
+        await supabase
+          .from('tcg_sets')
+          .update({ name: trimmed })
+          .eq('id', setId);
+      } else {
+        await supabase
+          .from('tcg_sets')
+          .insert({ tcg, name: trimmed });
+      }
+
+      // Update products referencing this old set name
+      await supabase
+        .from('products')
+        .update({ set_name: trimmed })
+        .eq('tcg', tcg)
+        .eq('set_name', oldName);
+
+      setDbTcgSets(prev => prev.map(s => {
+        if (s.id === setId || (s.tcg === tcg && s.name === oldName)) {
+          return { ...s, name: trimmed };
+        }
+        return s;
+      }));
+
+      if (setNameVal === oldName) {
+        setSetNameVal(trimmed);
+      }
+
+      setModalEditingSetId(null);
+      setModalEditingSetName('');
+    } catch (err) {
+      console.error('Error al editar set desde modal:', err);
+      alert('Error al actualizar el set: ' + err.message);
+    }
+  };
+
+  const handleDeleteSet = async (setId, sName) => {
+    if (!confirm(`¿Estás seguro de eliminar el set "${sName}" de ${tcg}?`)) return;
+
+    try {
+      const { supabase } = await import('../supabaseClient');
+      if (setId && !String(setId).startsWith('default-') && !String(setId).startsWith('local-')) {
+        await supabase
+          .from('tcg_sets')
+          .delete()
+          .eq('id', setId);
+      }
+
+      setDbTcgSets(prev => prev.filter(s => s.id !== setId && !(s.tcg === tcg && s.name === sName)));
+
+      if (setNameVal === sName) {
+        setSetNameVal('');
+      }
+    } catch (err) {
+      console.error('Error al eliminar set:', err);
+      alert('Error al eliminar el set: ' + err.message);
+    }
+  };
+
   const [price, setPrice] = useState('');
   const [stock, setStock] = useState('');
   const [description, setDescription] = useState('');
@@ -660,7 +1282,16 @@ export default function AdminPage({ products: initialProducts, onCreateProduct, 
   const handleEditClick = (product) => {
     setEditingProduct(product);
     setName(product.name);
-    setCategory(product.category);
+    setCategory(product.category || 'Sleeve');
+    const prodTcg = product.tcg || (product.specifications?.TCG || 'Yu-Gi-Oh!');
+    setTcg(prodTcg);
+    const prodSet = product.setName || product.set_name || product.specifications?.Set || '';
+    setSetNameVal(prodSet);
+    setCustomSetInput('');
+    setIsAddingNewSet(false);
+    setIsEditingSet(false);
+    setNewSetNameInput('');
+    setEditingSetNameInput('');
 
     // Check if product has variants
     if (product.colors && product.colors.length > 0) {
@@ -726,7 +1357,18 @@ export default function AdminPage({ products: initialProducts, onCreateProduct, 
   const handleCancelEdit = () => {
     setEditingProduct(null);
     setName('');
-    setCategory('Yu-Gi-Oh');
+    setCategory('Sleeve');
+    setTcg('Yu-Gi-Oh!');
+    setIsAddingNewTcg(false);
+    setIsEditingTcg(false);
+    setNewTcgNameInput('');
+    setEditingTcgNameInput('');
+    setSetNameVal('');
+    setCustomSetInput('');
+    setIsAddingNewSet(false);
+    setIsEditingSet(false);
+    setNewSetNameInput('');
+    setEditingSetNameInput('');
     setPrice('');
     setStock('');
     setDescription('');
@@ -735,6 +1377,7 @@ export default function AdminPage({ products: initialProducts, onCreateProduct, 
     setHasVariants(false);
     setSamePrice(true);
     setVariants([{ id: 1, title: '', stock: '', price: '', image: '', imagePreview: '' }]);
+    setTcgPriceStatus(null);
     setBtnText('Publicar Producto');
     setError('');
   };
@@ -815,10 +1458,38 @@ export default function AdminPage({ products: initialProducts, onCreateProduct, 
           }
         }
 
+        // Determine resolved set_name & tcg for TCG, Carta, and Producto Sellado
+        const isCardOrSealed = ['TCG', 'Carta', 'Producto Sellado'].includes(category);
+        const resolvedSetName = isCardOrSealed
+          ? (setNameVal === 'Otro Set' ? customSetInput.trim() : (setNameVal || null))
+          : null;
+        const resolvedTcg = isCardOrSealed ? tcg : null;
+
+        // Auto-save new set to tcg_sets if not already recorded
+        if (resolvedTcg && resolvedSetName) {
+          const alreadyExists = dbTcgSets.some(s => s.tcg === resolvedTcg && s.name.toLowerCase() === resolvedSetName.toLowerCase());
+          if (!alreadyExists) {
+            try {
+              const { data: newSetRow } = await supabase
+                .from('tcg_sets')
+                .insert({ tcg: resolvedTcg, name: resolvedSetName })
+                .select()
+                .single();
+              if (newSetRow) {
+                setDbTcgSets(prev => [...prev, newSetRow]);
+              }
+            } catch (ignoreErr) {
+              console.warn('Could not auto-insert set into tcg_sets:', ignoreErr);
+            }
+          }
+        }
+
         // 1. Prepare base product data
         const baseProduct = {
           name,
           category,
+          tcg: resolvedTcg,
+          set_name: resolvedSetName,
           price: hasVariants && samePrice ? parseFloat(price) : (!hasVariants ? parseFloat(price) : parseFloat(variants[0].price || 0)),
           stock: hasVariants ? Number(variants.reduce((sum, v) => sum + (parseFloat(v.stock) || 0), 0).toFixed(2)) : parseFloat(stock || 0),
           description,
@@ -939,7 +1610,18 @@ export default function AdminPage({ products: initialProducts, onCreateProduct, 
             setIsPublished(false);
             setBtnText('Publicar Producto');
             setName('');
-            setCategory('Yu-Gi-Oh');
+            setCategory('Sleeve');
+            setTcg('Yu-Gi-Oh!');
+            setIsAddingNewTcg(false);
+            setIsEditingTcg(false);
+            setNewTcgNameInput('');
+            setEditingTcgNameInput('');
+            setSetNameVal('');
+            setIsAddingNewSet(false);
+            setIsEditingSet(false);
+            setNewSetNameInput('');
+            setEditingSetNameInput('');
+            setCustomSetInput('');
             setPrice('');
             setStock('');
             setDescription('');
@@ -1857,11 +2539,17 @@ export default function AdminPage({ products: initialProducts, onCreateProduct, 
                         />
                       </div>
 
-                      <div className="space-y-base">
+                      <div className="space-y-base relative z-30 focus-within:z-50">
                         <label className="block font-label-md text-on-surface-variant ml-1">Categoría</label>
                         <CustomDropdown
                           value={category}
-                          onChange={(e) => setCategory(e.target.value)}
+                          onChange={(e) => {
+                            const newCat = typeof e === 'string' ? e : (e?.target?.value || e?.value || String(e));
+                            setCategory(newCat);
+                            if (['TCG', 'Carta', 'Producto Sellado'].includes(newCat) && !tcg) {
+                              setTcg('Yu-Gi-Oh!');
+                            }
+                          }}
                           options={categoryOptions}
                           disabled={isSubmitting || isPublished}
                           className="w-full bg-surface-container-low border border-outline-variant/30 rounded-lg p-4 text-body-md transition-all outline-none"
@@ -1869,8 +2557,100 @@ export default function AdminPage({ products: initialProducts, onCreateProduct, 
                         />
                       </div>
 
+                      {/* Dropdowns condicionales si la categoría es TCG, Carta o Producto Sellado */}
+                      {['TCG', 'Carta', 'Producto Sellado'].includes(category) && (
+                        <>
+                          <div className="space-y-base animate-fade-in relative z-25 focus-within:z-50">
+                            <div className="flex items-center justify-between ml-1">
+                              <label className="font-label-md text-primary flex items-center gap-1 font-bold">
+                                <span className="material-symbols-outlined text-[18px]">style</span>
+                                TCG (Juego de Cartas)
+                              </label>
+                              <button
+                                type="button"
+                                onClick={() => setIsManageTcgsModalOpen(true)}
+                                className="text-xs font-semibold text-on-surface-variant hover:text-on-surface flex items-center gap-1 hover:bg-surface-container-high px-2 py-1 rounded-full transition-all cursor-pointer"
+                                title="Ver, editar y eliminar TCGs"
+                              >
+                                <span className="material-symbols-outlined text-[15px]">tune</span>
+                                Administrar
+                              </button>
+                            </div>
+
+                            <CustomDropdown
+                              value={tcg}
+                              onChange={(e) => {
+                                const selectedTcg = typeof e === 'string' ? e : (e?.target?.value || e?.value || String(e));
+                                setTcg(selectedTcg);
+                                setSetNameVal('');
+                              }}
+                              options={dynamicTcgOptions}
+                              disabled={isSubmitting || isPublished}
+                              placeholder="Selecciona el TCG"
+                              className="w-full bg-surface-container-low border border-primary/40 focus:border-primary rounded-lg p-4 text-body-md transition-all outline-none shadow-xs"
+                              align="full"
+                            />
+                          </div>
+
+                          <div className="space-y-base animate-fade-in relative z-20 focus-within:z-50">
+                            <div className="flex items-center justify-between ml-1">
+                              <label className="font-label-md text-primary flex items-center gap-1 font-bold">
+                                <span className="material-symbols-outlined text-[18px]">category</span>
+                                Set / Expansión
+                              </label>
+                              <button
+                                type="button"
+                                onClick={() => setIsManageSetsModalOpen(true)}
+                                className="text-xs font-semibold text-on-surface-variant hover:text-on-surface flex items-center gap-1 hover:bg-surface-container-high px-2 py-1 rounded-full transition-all cursor-pointer"
+                                title="Ver y editar todos los sets de este TCG"
+                              >
+                                <span className="material-symbols-outlined text-[15px]">tune</span>
+                                Administrar
+                              </button>
+                            </div>
+
+                            {/* Dropdown de Sets */}
+                            <CustomDropdown
+                              value={setNameVal}
+                              onChange={(e) => {
+                                const selectedSet = typeof e === 'string' ? e : (e?.target?.value || e?.value || String(e));
+                                setSetNameVal(selectedSet);
+                              }}
+                              options={setDropdownOptions}
+                              disabled={isSubmitting || isPublished}
+                              placeholder="Selecciona el Set / Expansión"
+                              className="w-full bg-surface-container-low border border-primary/40 focus:border-primary rounded-lg p-4 text-body-md transition-all outline-none shadow-xs"
+                              align="full"
+                            />
+                          </div>
+                        </>
+                      )}
+
                       <div className="space-y-base">
-                        <label className="block font-label-md text-on-surface-variant ml-1">Precio (USD)</label>
+                        <div className="flex items-center justify-between ml-1">
+                          <label className="block font-label-md text-on-surface-variant font-semibold">Precio (USD)</label>
+                          {['TCG', 'Carta', 'Producto Sellado'].includes(category) && (
+                            <button
+                              type="button"
+                              onClick={handleFetchTcgPlayerPrice}
+                              disabled={isFetchingTcgPrice || isSubmitting || isPublished}
+                              className="text-xs font-bold text-primary hover:text-primary-container flex items-center gap-1.5 px-2.5 py-1 rounded-lg hover:bg-primary/10 transition-all cursor-pointer border border-primary/30"
+                              title="Consultar precio de mercado en TCGPlayer según nombre y TCG"
+                            >
+                              {isFetchingTcgPrice ? (
+                                <>
+                                  <span className="material-symbols-outlined text-[14px] animate-spin">progress_activity</span>
+                                  Consultando TCGPlayer...
+                                </>
+                              ) : (
+                                <>
+                                  <span className="material-symbols-outlined text-[15px]">trending_up</span>
+                                  Copiar precio de TCGPlayer
+                                </>
+                              )}
+                            </button>
+                          )}
+                        </div>
                         <div className="relative">
                           <span className="absolute left-4 top-1/2 -translate-y-1/2 font-bold text-on-surface-variant">$</span>
                           <input
@@ -1884,6 +2664,78 @@ export default function AdminPage({ products: initialProducts, onCreateProduct, 
                             className="w-full bg-surface-container-low border border-outline-variant/30 rounded-lg p-4 pl-8 text-body-md transition-all outline-none"
                           />
                         </div>
+
+                        {/* Feedback de consulta TCGPlayer */}
+                        {tcgPriceStatus && (
+                          <div className={`text-xs p-3 rounded-lg flex flex-col gap-2 animate-fade-in ${
+                            tcgPriceStatus.type === 'success' 
+                              ? 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30' 
+                              : 'bg-error-container text-on-error-container'
+                          }`}>
+                            <div className="flex items-start gap-2">
+                              <span className="material-symbols-outlined text-[18px] shrink-0 mt-0.5">
+                                {tcgPriceStatus.type === 'success' ? 'check_circle' : 'info'}
+                              </span>
+                              <div className="flex-1">
+                                <div className="font-semibold text-body-sm">{tcgPriceStatus.message}</div>
+                                {tcgPriceStatus.isExactSetMatch && (
+                                  <div className="mt-0.5 text-[11px] text-emerald-600 dark:text-emerald-400 font-medium">
+                                    ✓ Coincidencia exacta con el set seleccionado ({tcgPriceStatus.matchedSet}).
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+
+                            {/* Lista completa de ediciones / precios encontrados */}
+                            {tcgPriceStatus.allPrices && tcgPriceStatus.allPrices.length > 0 && (
+                              <div className="mt-1 pt-2 border-t border-emerald-500/20 text-[11px]">
+                                <div className="flex items-center justify-between mb-1.5 font-semibold text-on-surface">
+                                  <span>Todos los precios y ediciones encontrados ({tcgPriceStatus.allPrices.length}):</span>
+                                  <span className="text-[10px] text-on-surface-variant font-normal">Haz clic para seleccionar</span>
+                                </div>
+                                <div className="flex flex-col gap-1 max-h-48 overflow-y-auto pr-1">
+                                  {tcgPriceStatus.allPrices.map((item, idx) => {
+                                    const isCurrentPrice = parseFloat(price) === item.price;
+                                    return (
+                                      <button
+                                        key={idx}
+                                        type="button"
+                                        onClick={() => {
+                                          setPrice(item.price.toFixed(2));
+                                          if (item.setName && item.setName !== 'Precio Promedio / Mercado') {
+                                            setSetNameVal(item.setName);
+                                          }
+                                        }}
+                                        className={`flex items-center justify-between p-2 rounded-md transition-all text-left border cursor-pointer ${
+                                          isCurrentPrice || item.isMatch
+                                            ? 'bg-primary/10 border-primary text-primary font-bold shadow-xs'
+                                            : 'bg-surface-container hover:bg-surface-container-high border-outline-variant/30 text-on-surface'
+                                        }`}
+                                      >
+                                        <div className="flex flex-col min-w-0 pr-2">
+                                          <div className="flex items-center gap-1.5 flex-wrap">
+                                            <span className="truncate font-semibold">{item.setName}</span>
+                                            {item.isMatch && (
+                                              <span className="bg-emerald-500/20 text-emerald-600 dark:text-emerald-300 text-[9px] px-1.5 py-0.5 rounded-full font-bold">
+                                                Tu Set
+                                              </span>
+                                            )}
+                                          </div>
+                                          <span className="text-[10px] opacity-75">
+                                            {[item.code, item.rarity, item.variant].filter(Boolean).join(' • ')}
+                                          </span>
+                                        </div>
+                                        <span className="shrink-0 font-extrabold text-sm ml-2">
+                                          ${item.price.toFixed(2)} USD
+                                        </span>
+                                      </button>
+                                    );
+                                  })}
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        )}
                       </div>
 
                       <div className="space-y-base">
@@ -2446,7 +3298,7 @@ export default function AdminPage({ products: initialProducts, onCreateProduct, 
                           />
                         </div>
                         {/* Category Selector */}
-                        <div className="w-full sm:w-48 shrink-0">
+                        <div className="w-full sm:w-48 shrink-0 relative z-20 focus-within:z-50">
                           <CustomDropdown
                             value={featuredCategory}
                             onChange={(val) => setFeaturedCategory(typeof val === 'string' ? val : (val?.target?.value || ''))}
@@ -2656,7 +3508,7 @@ export default function AdminPage({ products: initialProducts, onCreateProduct, 
                             />
                           </div>
                         </div>
-                        <div className="flex-1 min-w-[150px]">
+                        <div className="flex-1 min-w-[150px] relative z-20 focus-within:z-50">
                           <CustomDropdown
                             value={restockCategory}
                             onChange={(e) => setRestockCategory(e.target.value)}
@@ -3508,6 +4360,392 @@ export default function AdminPage({ products: initialProducts, onCreateProduct, 
                 )}
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal para Administrar y Editar Sets del TCG */}
+      {isManageSetsModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-fade-in">
+          <div className="w-full max-w-lg bg-surface dark:bg-inverse-surface border border-outline-variant/30 rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[85vh]">
+            
+            {/* Header */}
+            <div className="p-4 sm:p-5 border-b border-outline-variant/20 flex items-center justify-between">
+              <div>
+                <h3 className="font-bold text-base sm:text-lg text-on-surface flex items-center gap-2">
+                  <span className="material-symbols-outlined text-primary text-[22px]">tune</span>
+                  Administrar Sets de {tcg}
+                </h3>
+                <p className="text-xs text-on-surface-variant mt-0.5">
+                  Agrega nuevos sets o edita el nombre de sets ya registrados.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setIsManageSetsModalOpen(false);
+                  setModalEditingSetId(null);
+                  setModalEditingSetName('');
+                }}
+                className="p-1.5 rounded-full hover:bg-surface-container-high text-on-surface-variant transition-colors"
+              >
+                <span className="material-symbols-outlined text-[20px]">close</span>
+              </button>
+            </div>
+
+            {/* Quick Add Bar */}
+            <div className="p-4 bg-surface-container-low border-b border-outline-variant/20">
+              <label className="block text-xs font-bold text-primary mb-1.5 flex items-center gap-1">
+                <span className="material-symbols-outlined text-[16px]">add_circle</span>
+                Agregar Nuevo Set a {tcg}
+              </label>
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={modalNewSetName}
+                  onChange={(e) => setModalNewSetName(e.target.value)}
+                  placeholder="Nombre de la nueva expansión o set..."
+                  className="flex-1 px-3 py-2 text-xs rounded-xl bg-surface border border-outline-variant/40 text-on-surface focus:outline-hidden focus:border-primary font-medium"
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      if (modalNewSetName.trim()) {
+                        handleSaveNewSet(modalNewSetName);
+                        setModalNewSetName('');
+                      }
+                    }
+                  }}
+                />
+                <button
+                  type="button"
+                  disabled={!modalNewSetName.trim() || isSavingSet}
+                  onClick={() => {
+                    if (modalNewSetName.trim()) {
+                      handleSaveNewSet(modalNewSetName);
+                      setModalNewSetName('');
+                    }
+                  }}
+                  className="px-4 py-2 bg-primary text-on-primary rounded-xl text-xs font-bold hover:bg-primary/90 disabled:opacity-50 transition-all flex items-center gap-1 shrink-0 cursor-pointer shadow-xs"
+                >
+                  <span className="material-symbols-outlined text-[16px]">add</span>
+                  Agregar
+                </button>
+              </div>
+            </div>
+
+            {/* Sets List */}
+            <div className="p-4 sm:p-5 overflow-y-auto flex-1 space-y-2">
+              <div className="text-[11px] font-bold text-outline uppercase tracking-wider mb-1 flex items-center justify-between">
+                <span>Sets Registrados ({currentSetsForTcg.length})</span>
+                <span className="text-[10px] text-outline font-normal">Haz clic en el lápiz para editar el nombre</span>
+              </div>
+
+              {currentSetsForTcg.length === 0 ? (
+                <div className="py-8 text-center text-outline text-xs">
+                  No hay sets registrados aún para este juego.
+                </div>
+              ) : (
+                currentSetsForTcg.map((s) => {
+                  const isEditingThis = modalEditingSetId === s.id;
+                  const isSelectedInForm = setNameVal === s.name;
+
+                  return (
+                    <div
+                      key={s.id || s.name}
+                      className={`p-2.5 rounded-xl border transition-all flex items-center justify-between gap-2 ${
+                        isSelectedInForm
+                          ? 'border-primary/50 bg-primary/5'
+                          : 'border-outline-variant/30 hover:border-outline-variant/60 bg-surface-container-low/40'
+                      }`}
+                    >
+                      {isEditingThis ? (
+                        <div className="flex-1 flex items-center gap-2">
+                          <input
+                            type="text"
+                            value={modalEditingSetName}
+                            onChange={(e) => setModalEditingSetName(e.target.value)}
+                            className="flex-1 px-3 py-1.5 text-xs rounded-lg bg-surface border border-secondary text-on-surface focus:outline-hidden font-semibold"
+                            autoFocus
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') {
+                                e.preventDefault();
+                                handleSaveEditSetFromModal(s.id, s.name, modalEditingSetName);
+                              }
+                            }}
+                          />
+                          <button
+                            type="button"
+                            onClick={() => handleSaveEditSetFromModal(s.id, s.name, modalEditingSetName)}
+                            className="px-2.5 py-1.5 bg-secondary text-on-secondary rounded-lg text-xs font-bold hover:bg-secondary/90 transition-all flex items-center gap-1 cursor-pointer shrink-0"
+                            title="Guardar nombre editado"
+                          >
+                            <span className="material-symbols-outlined text-[15px]">check</span>
+                            Guardar
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setModalEditingSetId(null);
+                              setModalEditingSetName('');
+                            }}
+                            className="px-2 py-1.5 border border-outline-variant/40 text-outline hover:text-on-surface rounded-lg text-xs transition-all cursor-pointer shrink-0"
+                          >
+                            Cancelar
+                          </button>
+                        </div>
+                      ) : (
+                        <>
+                          <div className="flex items-center gap-2 min-w-0 flex-1">
+                            <span className="material-symbols-outlined text-[18px] text-primary shrink-0">
+                              style
+                            </span>
+                            <span className="text-xs font-semibold text-on-surface truncate">
+                              {s.name}
+                            </span>
+                            {isSelectedInForm && (
+                              <span className="text-[10px] bg-primary/10 text-primary px-2 py-0.5 rounded-full font-bold shrink-0">
+                                Activo en formulario
+                              </span>
+                            )}
+                          </div>
+
+                          <div className="flex items-center gap-1 shrink-0">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setModalEditingSetId(s.id);
+                                setModalEditingSetName(s.name);
+                              }}
+                              className="p-1.5 rounded-lg hover:bg-surface-container-high text-secondary hover:text-secondary-fixed-dim transition-colors cursor-pointer"
+                              title="Editar nombre de este set"
+                            >
+                              <span className="material-symbols-outlined text-[16px]">edit</span>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteSet(s.id, s.name)}
+                              className="p-1.5 rounded-lg hover:bg-error/10 text-outline hover:text-error transition-colors cursor-pointer"
+                              title="Eliminar set"
+                            >
+                              <span className="material-symbols-outlined text-[16px]">delete</span>
+                            </button>
+                          </div>
+                        </>
+                      )}
+                    </div>
+                  );
+                })
+              )}
+            </div>
+
+            {/* Footer */}
+            <div className="p-4 border-t border-outline-variant/20 bg-surface-container-low flex items-center justify-end">
+              <button
+                type="button"
+                onClick={() => {
+                  setIsManageSetsModalOpen(false);
+                  setModalEditingSetId(null);
+                  setModalEditingSetName('');
+                }}
+                className="px-5 py-2.5 rounded-xl bg-primary text-on-primary text-xs font-bold hover:bg-primary/90 transition-all cursor-pointer shadow-xs"
+              >
+                Listo
+              </button>
+            </div>
+
+          </div>
+        </div>
+      )}
+
+      {/* Modal para Administrar, Editar y Eliminar TCGs */}
+      {isManageTcgsModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-fade-in">
+          <div className="w-full max-w-lg bg-surface dark:bg-inverse-surface border border-outline-variant/30 rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[85vh]">
+            
+            {/* Header */}
+            <div className="p-4 sm:p-5 border-b border-outline-variant/20 flex items-center justify-between">
+              <div>
+                <h3 className="font-bold text-base sm:text-lg text-on-surface flex items-center gap-2">
+                  <span className="material-symbols-outlined text-primary text-[22px]">style</span>
+                  Administrar Juegos de Cartas (TCGs)
+                </h3>
+                <p className="text-xs text-on-surface-variant mt-0.5">
+                  Agrega nuevos juegos, edita sus nombres o elimínalos de la lista.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setIsManageTcgsModalOpen(false);
+                  setModalEditingTcgId(null);
+                  setModalEditingTcgName('');
+                }}
+                className="p-1.5 rounded-full hover:bg-surface-container-high text-on-surface-variant transition-colors"
+              >
+                <span className="material-symbols-outlined text-[20px]">close</span>
+              </button>
+            </div>
+
+            {/* Quick Add Bar */}
+            <div className="p-4 bg-surface-container-low border-b border-outline-variant/20">
+              <label className="block text-xs font-bold text-primary mb-1.5 flex items-center gap-1">
+                <span className="material-symbols-outlined text-[16px]">add_circle</span>
+                Agregar Nuevo TCG
+              </label>
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={modalNewTcgName}
+                  onChange={(e) => setModalNewTcgName(e.target.value)}
+                  placeholder="Ej. Battle Spirits, Gundam Card Game..."
+                  className="flex-1 px-3 py-2 text-xs rounded-xl bg-surface border border-outline-variant/40 text-on-surface focus:outline-hidden focus:border-primary font-medium"
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      if (modalNewTcgName.trim()) {
+                        handleSaveNewTcg(modalNewTcgName);
+                        setModalNewTcgName('');
+                      }
+                    }
+                  }}
+                />
+                <button
+                  type="button"
+                  disabled={!modalNewTcgName.trim() || isSavingTcg}
+                  onClick={() => {
+                    if (modalNewTcgName.trim()) {
+                      handleSaveNewTcg(modalNewTcgName);
+                      setModalNewTcgName('');
+                    }
+                  }}
+                  className="px-4 py-2 bg-primary text-on-primary rounded-xl text-xs font-bold hover:bg-primary/90 disabled:opacity-50 transition-all flex items-center gap-1 shrink-0 cursor-pointer shadow-xs"
+                >
+                  <span className="material-symbols-outlined text-[16px]">add</span>
+                  Agregar
+                </button>
+              </div>
+            </div>
+
+            {/* TCGs List */}
+            <div className="p-4 sm:p-5 overflow-y-auto flex-1 space-y-2">
+              <div className="text-[11px] font-bold text-outline uppercase tracking-wider mb-1 flex items-center justify-between">
+                <span>TCGs Registrados ({currentTcgsList.length})</span>
+                <span className="text-[10px] text-outline font-normal">Haz clic en el lápiz para editar</span>
+              </div>
+
+              {currentTcgsList.length === 0 ? (
+                <div className="py-8 text-center text-outline text-xs">
+                  No hay juegos de cartas registrados aún.
+                </div>
+              ) : (
+                currentTcgsList.map((t) => {
+                  const isEditingThis = modalEditingTcgId === t.id;
+                  const isSelectedInForm = tcg === t.name;
+
+                  return (
+                    <div
+                      key={t.id || t.name}
+                      className={`p-2.5 rounded-xl border transition-all flex items-center justify-between gap-2 ${
+                        isSelectedInForm
+                          ? 'border-primary/50 bg-primary/5'
+                          : 'border-outline-variant/30 hover:border-outline-variant/60 bg-surface-container-low/40'
+                      }`}
+                    >
+                      {isEditingThis ? (
+                        <div className="flex-1 flex items-center gap-2">
+                          <input
+                            type="text"
+                            value={modalEditingTcgName}
+                            onChange={(e) => setModalEditingTcgName(e.target.value)}
+                            className="flex-1 px-3 py-1.5 text-xs rounded-lg bg-surface border border-secondary text-on-surface focus:outline-hidden font-semibold"
+                            autoFocus
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') {
+                                e.preventDefault();
+                                handleSaveEditTcgFromModal(t.id, t.name, modalEditingTcgName);
+                              }
+                            }}
+                          />
+                          <button
+                            type="button"
+                            onClick={() => handleSaveEditTcgFromModal(t.id, t.name, modalEditingTcgName)}
+                            className="px-2.5 py-1.5 bg-secondary text-on-secondary rounded-lg text-xs font-bold hover:bg-secondary/90 transition-all flex items-center gap-1 cursor-pointer shrink-0"
+                            title="Guardar nombre editado"
+                          >
+                            <span className="material-symbols-outlined text-[15px]">check</span>
+                            Guardar
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setModalEditingTcgId(null);
+                              setModalEditingTcgName('');
+                            }}
+                            className="px-2 py-1.5 border border-outline-variant/40 text-outline hover:text-on-surface rounded-lg text-xs transition-all cursor-pointer shrink-0"
+                          >
+                            Cancelar
+                          </button>
+                        </div>
+                      ) : (
+                        <>
+                          <div className="flex items-center gap-2 min-w-0 flex-1">
+                            <span className="material-symbols-outlined text-[18px] text-primary shrink-0">
+                              style
+                            </span>
+                            <span className="text-xs font-semibold text-on-surface truncate">
+                              {t.name}
+                            </span>
+                            {isSelectedInForm && (
+                              <span className="text-[10px] bg-primary/10 text-primary px-2 py-0.5 rounded-full font-bold shrink-0">
+                                Activo en formulario
+                              </span>
+                            )}
+                          </div>
+
+                          <div className="flex items-center gap-1 shrink-0">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setModalEditingTcgId(t.id);
+                                setModalEditingTcgName(t.name);
+                              }}
+                              className="p-1.5 rounded-lg hover:bg-surface-container-high text-secondary hover:text-secondary-fixed-dim transition-colors cursor-pointer"
+                              title="Editar nombre de este TCG"
+                            >
+                              <span className="material-symbols-outlined text-[16px]">edit</span>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteTcg(t.id, t.name)}
+                              className="p-1.5 rounded-lg hover:bg-error/10 text-outline hover:text-error transition-colors cursor-pointer"
+                              title="Eliminar TCG"
+                            >
+                              <span className="material-symbols-outlined text-[16px]">delete</span>
+                            </button>
+                          </div>
+                        </>
+                      )}
+                    </div>
+                  );
+                })
+              )}
+            </div>
+
+            {/* Footer */}
+            <div className="p-4 border-t border-outline-variant/20 bg-surface-container-low flex items-center justify-end">
+              <button
+                type="button"
+                onClick={() => {
+                  setIsManageTcgsModalOpen(false);
+                  setModalEditingTcgId(null);
+                  setModalEditingTcgName('');
+                }}
+                className="px-5 py-2.5 rounded-xl bg-primary text-on-primary text-xs font-bold hover:bg-primary/90 transition-all cursor-pointer shadow-xs"
+              >
+                Listo
+              </button>
+            </div>
+
           </div>
         </div>
       )}

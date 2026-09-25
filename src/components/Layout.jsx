@@ -32,15 +32,70 @@ const defaultHeaderBanners = [
   }
 ];
 
+const defaultTcgGames = [
+  { name: 'Yu-Gi-Oh!', slug: 'yu-gi-oh' },
+  { name: 'Pokémon', slug: 'pokemon' },
+  { name: 'Magic: The Gathering', slug: 'magic' }
+];
+
+const getTcgLogo = (name) => {
+  const n = (name || '').toLowerCase();
+  if (n.includes('yu-gi-oh') || n.includes('yugioh')) {
+    return 'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQb_QJG__8waCiF9-EHaLoNyDavicTlcHbAk8fhh5-i6w&s';
+  }
+  if (n.includes('pok') || n.includes('pokemon')) {
+    return 'https://upload.wikimedia.org/wikipedia/commons/9/98/International_Pok%C3%A9mon_logo.svg';
+  }
+  if (n.includes('magic')) {
+    return 'https://1000logos.net/wp-content/uploads/2022/10/Magic-The-Gathering-logo.png';
+  }
+  if (n.includes('one piece')) {
+    return 'https://upload.wikimedia.org/wikipedia/commons/thumb/2/2c/One_Piece_Logo.svg/1200px-One_Piece_Logo.svg.png';
+  }
+  return null;
+};
+
+const getTcgSlug = (name) => {
+  const n = (name || '').toLowerCase();
+  if (n.includes('yu-gi-oh') || n.includes('yugioh')) return 'yu-gi-oh';
+  if (n.includes('pok')) return 'pokemon';
+  if (n.includes('magic')) return 'magic';
+  return name.toLowerCase().replace(/\s+/g, '-').replace(/[^\w-]/g, '');
+};
+
 export default function Layout({ cartCount, currentUser, onLogout, onOpenCart }) {
   const [searchQuery, setSearchQuery] = useState('');
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const [tcgOpen, setTcgOpen] = useState(false);
+  const [tcgGames, setTcgGames] = useState([]);
   const [banners, setBanners] = useState(defaultHeaderBanners);
   const [currentBannerIndex, setCurrentBannerIndex] = useState(0);
   const navigate = useNavigate();
   const userMenuRef = useRef(null);
+
+  // Fetch TCG games for navigation
+  useEffect(() => {
+    let isMounted = true;
+    const loadTcgGames = async () => {
+      try {
+        const { supabase } = await import('../supabaseClient');
+        const { data, error } = await supabase
+          .from('tcg_games')
+          .select('id, name')
+          .order('name', { ascending: true });
+        if (!error && data && data.length > 0 && isMounted) {
+          setTcgGames(data);
+        }
+      } catch (e) {
+        console.warn('Error cargando tcg_games:', e);
+      }
+    };
+    loadTcgGames();
+    return () => { isMounted = false; };
+  }, []);
+
+  const displayedTcgGames = tcgGames.length > 0 ? tcgGames : defaultTcgGames;
 
   // Fetch banners from Supabase
   useEffect(() => {
@@ -206,36 +261,36 @@ export default function Layout({ cartCount, currentUser, onLogout, onOpenCart })
             <div className="hidden">
               {/* TCG Dropdown */}
               <div className="relative group py-2">
-                <button className="text-on-surface-variant dark:text-outline-variant font-body-md text-body-md hover:text-primary dark:hover:text-primary-fixed flex items-center gap-1 transition-all cursor-pointer">
+                <Link
+                  to="/catalog?category=tcg"
+                  className="text-on-surface-variant dark:text-outline-variant font-body-md text-body-md hover:text-primary dark:hover:text-primary-fixed flex items-center gap-1 transition-all cursor-pointer"
+                >
                   TCG
                   <span className="material-symbols-outlined text-[16px] group-hover:rotate-180 transition-transform duration-200">
                     expand_more
                   </span>
-                </button>
+                </Link>
 
                 {/* Dropdown Menu */}
-                <div className="absolute top-full left-0 mt-1 bg-surface dark:bg-inverse-surface border border-outline-variant/30 rounded-xl shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50 py-2 w-44 flex flex-col gap-1 card-shadow">
-                  <Link
-                    to="/catalog?category=yu-gi-oh"
-                    className="px-4 py-2 text-xs font-semibold text-on-surface hover:bg-surface-container-low hover:text-primary transition-colors flex items-center gap-2.5"
-                  >
-                    <img src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQb_QJG__8waCiF9-EHaLoNyDavicTlcHbAk8fhh5-i6w&s" alt="Yu-Gi-Oh" className="w-[27px] h-[27px] object-contain shrink-0" />
-                    Yu-Gi-Oh
-                  </Link>
-                  <Link
-                    to="/catalog?category=pokemon"
-                    className="px-4 py-2 text-xs font-semibold text-on-surface hover:bg-surface-container-low hover:text-primary transition-colors flex items-center gap-2.5"
-                  >
-                    <img src="https://upload.wikimedia.org/wikipedia/commons/9/98/International_Pok%C3%A9mon_logo.svg" alt="Pokemon" className="w-[27px] h-[27px] object-contain shrink-0" />
-                    Pokemon
-                  </Link>
-                  <Link
-                    to="/catalog?category=magic"
-                    className="px-4 py-2 text-xs font-semibold text-on-surface hover:bg-surface-container-low hover:text-primary transition-colors flex items-center gap-2.5"
-                  >
-                    <img src="https://1000logos.net/wp-content/uploads/2022/10/Magic-The-Gathering-logo.png" alt="Magic" className="w-[27px] h-[27px] object-contain shrink-0" />
-                    Magic
-                  </Link>
+                <div className="absolute top-full left-0 mt-1 bg-surface dark:bg-inverse-surface border border-outline-variant/30 rounded-xl shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50 py-2 w-52 flex flex-col gap-1 card-shadow max-h-80 overflow-y-auto scrollbar-thin">
+                  {displayedTcgGames.map((game) => {
+                    const logoUrl = getTcgLogo(game.name);
+                    const slug = getTcgSlug(game.name);
+                    return (
+                      <Link
+                        key={game.id || game.name}
+                        to={`/catalog?category=${slug}`}
+                        className="px-4 py-2 text-xs font-semibold text-on-surface hover:bg-surface-container-low hover:text-primary transition-colors flex items-center gap-2.5"
+                      >
+                        {logoUrl ? (
+                          <img src={logoUrl} alt={game.name} className="w-[24px] h-[24px] object-contain shrink-0" />
+                        ) : (
+                          <span className="material-symbols-outlined text-[16px] text-outline">style</span>
+                        )}
+                        {game.name}
+                      </Link>
+                    );
+                  })}
                 </div>
               </div>
 
@@ -383,54 +438,61 @@ export default function Layout({ cartCount, currentUser, onLogout, onOpenCart })
               {/* TCG Accordion */}
               <div>
                 <button
+                  type="button"
                   onClick={() => setTcgOpen(!tcgOpen)}
-                  className="w-full py-2.5 px-3 rounded-lg text-on-surface font-body-md hover:bg-surface-container-low transition-colors flex items-center gap-3 font-semibold"
+                  className="w-full py-2.5 px-3 rounded-lg text-on-surface font-body-md hover:bg-surface-container-low transition-colors flex items-center justify-between font-semibold cursor-pointer"
                 >
-                  <span className="material-symbols-outlined text-outline">playing_cards</span>
-                  TCG
-                  <span className={`material-symbols-outlined text-[18px] text-outline ml-auto transition-transform duration-200 ${tcgOpen ? 'rotate-180' : ''}`}>
+                  <div className="flex items-center gap-3">
+                    <span className="material-symbols-outlined text-outline">playing_cards</span>
+                    <span>TCG</span>
+                  </div>
+                  <span className={`material-symbols-outlined text-[18px] text-outline transition-transform duration-200 ${tcgOpen ? 'rotate-180' : ''}`}>
                     expand_more
                   </span>
                 </button>
 
                 {/* Sub-items */}
-                <div className={`overflow-hidden transition-all duration-200 ${tcgOpen ? 'max-h-48 opacity-100' : 'max-h-0 opacity-0'}`}>
-                  <div className="flex flex-col gap-1 pl-4 mt-1 border-l-2 border-outline-variant/30 ml-5">
-                    <Link
-                      to="/catalog?category=yu-gi-oh"
-                      onClick={() => { setMobileMenuOpen(false); setTcgOpen(false); }}
-                      className="py-2 px-3 rounded-lg text-on-surface-variant font-semibold text-sm hover:bg-surface-container-low hover:text-primary transition-colors flex items-center gap-2.5"
-                    >
-                      <img src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQb_QJG__8waCiF9-EHaLoNyDavicTlcHbAk8fhh5-i6w&s" alt="Yu-Gi-Oh" className="w-[27px] h-[27px] object-contain shrink-0" />
-                      Yu-Gi-Oh
-                    </Link>
-                    <Link
-                      to="/catalog?category=pokemon"
-                      onClick={() => { setMobileMenuOpen(false); setTcgOpen(false); }}
-                      className="py-2 px-3 rounded-lg text-on-surface-variant font-semibold text-sm hover:bg-surface-container-low hover:text-primary transition-colors flex items-center gap-2.5"
-                    >
-                      <img src="https://upload.wikimedia.org/wikipedia/commons/9/98/International_Pok%C3%A9mon_logo.svg" alt="Pokemon" className="w-[27px] h-[27px] object-contain shrink-0" />
-                      Pokemon
-                    </Link>
-                    <Link
-                      to="/catalog?category=magic"
-                      onClick={() => { setMobileMenuOpen(false); setTcgOpen(false); }}
-                      className="py-2 px-3 rounded-lg text-on-surface-variant font-semibold text-sm hover:bg-surface-container-low hover:text-primary transition-colors flex items-center gap-2.5"
-                    >
-                      <img src="https://1000logos.net/wp-content/uploads/2022/10/Magic-The-Gathering-logo.png" alt="Magic" className="w-[27px] h-[27px] object-contain shrink-0" />
-                      Magic
-                    </Link>
+                <div className={`overflow-hidden transition-all duration-200 ${tcgOpen ? 'max-h-[380px] opacity-100' : 'max-h-0 opacity-0'}`}>
+                  <div className="flex flex-col gap-1 pl-4 pb-2 border-l-2 border-outline-variant/30 ml-5 mt-1 overflow-y-auto max-h-[360px] scrollbar-thin">
+                    {displayedTcgGames.map((game) => {
+                      const logoUrl = getTcgLogo(game.name);
+                      const slug = getTcgSlug(game.name);
+                      return (
+                        <Link
+                          key={game.id || game.name}
+                          to={`/catalog?category=${slug}`}
+                          onClick={() => { setMobileMenuOpen(false); setTcgOpen(false); }}
+                          className="py-2 px-3 rounded-lg text-on-surface-variant font-semibold text-sm hover:bg-surface-container-low hover:text-primary transition-colors flex items-center gap-2.5"
+                        >
+                          {logoUrl ? (
+                            <img src={logoUrl} alt={game.name} className="w-[27px] h-[27px] object-contain shrink-0" />
+                          ) : (
+                            <span className="material-symbols-outlined text-[18px] text-outline">style</span>
+                          )}
+                          {game.name}
+                        </Link>
+                      );
+                    })}
                   </div>
                 </div>
               </div>
 
               <Link
-                to="/catalog?category=sleeves"
+                to="/catalog?category=sleeve"
                 onClick={() => setMobileMenuOpen(false)}
                 className="py-2.5 px-3 rounded-lg text-on-surface font-body-md hover:bg-surface-container-low transition-colors flex items-center gap-3 font-semibold"
               >
                 <span className="material-symbols-outlined text-outline">layers</span>
                 Sleeves
+              </Link>
+
+              <Link
+                to="/catalog?category=producto-sellado"
+                onClick={() => setMobileMenuOpen(false)}
+                className="py-2.5 px-3 rounded-lg text-on-surface font-body-md hover:bg-surface-container-low transition-colors flex items-center gap-3 font-semibold"
+              >
+                <span className="material-symbols-outlined text-outline">inventory_2</span>
+                Producto Sellado
               </Link>
 
 
