@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import CustomDropdown from '../components/CustomDropdown';
-import { fetchCardPriceFromTcgPlayer } from '../services/tcgPlayerService';
+import { fetchCardPriceFromTcgPlayer, searchCardSuggestions } from '../services/tcgPlayerService';
 
 const categoryOptions = [
   { value: "Sleeve", label: "Sleeve" },
@@ -137,7 +137,7 @@ export default function AdminPage({ products: initialProducts, onCreateProduct, 
         // Fetch products and their variants
         const { data: prods, error: pErr } = await supabase
           .from('products')
-          .select('id, name, price, description, image, category, stock, featured, division, tcg, set_name, product_variants(id, product_id, title, price, stock, image)');
+          .select('id, name, price, description, image, category, stock, featured, division, tcg, set_name, rarity, auto_sync_price, last_price_sync, product_variants(id, product_id, title, price, stock, image)');
 
         if (pErr) throw pErr;
 
@@ -153,6 +153,9 @@ export default function AdminPage({ products: initialProducts, onCreateProduct, 
             categorySlug: p.category.toLowerCase().replace(/\s+/g, '-'),
             tcg: p.tcg || null,
             setName: p.set_name || null,
+            rarity: p.rarity || null,
+            auto_sync_price: p.auto_sync_price !== false,
+            last_price_sync: p.last_price_sync || null,
             inStock: p.stock > 0,
             featured: !!p.featured,
             division: p.division,
@@ -161,6 +164,7 @@ export default function AdminPage({ products: initialProducts, onCreateProduct, 
               Category: p.category,
               ...(p.tcg ? { TCG: p.tcg } : {}),
               ...(p.set_name ? { Set: p.set_name } : {}),
+              ...(p.rarity ? { Rareza: p.rarity } : {}),
               Status: p.stock > 0 ? 'Disponible' : 'Agotado'
             },
             colors: p.product_variants && p.product_variants.length > 0 ? p.product_variants.map(v => ({
@@ -235,14 +239,66 @@ export default function AdminPage({ products: initialProducts, onCreateProduct, 
   const [category, setCategory] = useState('Sleeve');
   const [tcg, setTcg] = useState('Yu-Gi-Oh!');
   const [setNameVal, setSetNameVal] = useState('');
+  const [rarity, setRarity] = useState('');
   const [customSetInput, setCustomSetInput] = useState('');
 
   // TCGPlayer price lookup states
   const [isFetchingTcgPrice, setIsFetchingTcgPrice] = useState(false);
   const [tcgPriceStatus, setTcgPriceStatus] = useState(null);
+  const [priceSearchFilter, setPriceSearchFilter] = useState('');
+  const [autoSyncPrice, setAutoSyncPrice] = useState(true);
+  const [isSyncingAllPrices, setIsSyncingAllPrices] = useState(false);
+  const [syncingProductId, setSyncingProductId] = useState(null);
+  const [syncProgress, setSyncProgress] = useState(null);
+  const [syncResultModal, setSyncResultModal] = useState(null);
 
-  const handleFetchTcgPlayerPrice = async () => {
-    if (!name || !name.trim()) {
+  // Autocomplete states for card name
+  const [cardSuggestions, setCardSuggestions] = useState([]);
+  const [isLoadingSuggestions, setIsLoadingSuggestions] = useState(false);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const suggestionsBoxRef = React.useRef(null);
+
+  // Debounced search for card name suggestions
+  useEffect(() => {
+    if (!['TCG', 'Carta', 'Producto Sellado'].includes(category)) {
+      setCardSuggestions([]);
+      return;
+    }
+
+    if (!name || name.trim().length < 2) {
+      setCardSuggestions([]);
+      return;
+    }
+
+    const timer = setTimeout(async () => {
+      setIsLoadingSuggestions(true);
+      try {
+        const results = await searchCardSuggestions({ query: name, tcg });
+        setCardSuggestions(results);
+      } catch (err) {
+        console.warn('Error fetching card suggestions:', err);
+      } finally {
+        setIsLoadingSuggestions(false);
+      }
+    }, 300);
+
+    return () => clearTimeout(timer);
+  }, [name, tcg, category]);
+
+  // Click outside to close suggestions
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (suggestionsBoxRef.current && !suggestionsBoxRef.current.contains(e.target)) {
+        setShowSuggestions(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  const handleFetchTcgPlayerPrice = async (targetCardName = null) => {
+    const queryCardName = (targetCardName || name || '').trim();
+    if (!queryCardName) {
       setTcgPriceStatus({
         type: 'error',
         message: 'Escribe el nombre de la carta para consultar su precio en TCGPlayer.'
@@ -252,16 +308,30 @@ export default function AdminPage({ products: initialProducts, onCreateProduct, 
 
     setIsFetchingTcgPrice(true);
     setTcgPriceStatus(null);
+    setShowSuggestions(false);
 
     try {
+      setPriceSearchFilter('');
       const result = await fetchCardPriceFromTcgPlayer({
-        cardName: name,
+        cardName: queryCardName,
         tcg,
-        setName: setNameVal
+        setName: setNameVal,
+        rarity: rarity
       });
 
-      if (result.price > 0) {
-        setPrice(result.price.toFixed(2));
+      if (result.price > 0 || (result.allPrices && result.allPrices.length > 0)) {
+        if (result.price > 0) {
+          setPrice(result.price.toFixed(2));
+        }
+        if (result.matchedSet && result.matchedSet !== 'Precio General' && result.matchedSet !== 'Precio Promedio / Mercado') {
+          setSetNameVal(result.matchedSet);
+        }
+        if (result.rarity) {
+          setRarity(result.rarity);
+        }
+        if (result.imageUrl && !imageFile) {
+          setImagePreview(result.imageUrl);
+        }
         setTcgPriceStatus({
           type: 'success',
           message: result.isExactSetMatch
@@ -270,7 +340,8 @@ export default function AdminPage({ products: initialProducts, onCreateProduct, 
           isExactSetMatch: result.isExactSetMatch,
           matchedSet: result.matchedSet,
           allPrices: result.allPrices || [],
-          cardName: result.cardName
+          cardName: result.cardName,
+          imageUrl: result.imageUrl
         });
       } else {
         setTcgPriceStatus({
@@ -286,6 +357,16 @@ export default function AdminPage({ products: initialProducts, onCreateProduct, 
     } finally {
       setIsFetchingTcgPrice(false);
     }
+  };
+
+  const handleSelectSuggestion = (suggestion) => {
+    setName(suggestion.name);
+    setShowSuggestions(false);
+    if (suggestion.image && !imageFile) {
+      setImagePreview(suggestion.image);
+    }
+    // Consultar precio y detalles automáticamente para la carta seleccionada
+    handleFetchTcgPlayerPrice(suggestion.name);
   };
 
   // Dynamic TCGs states
@@ -383,18 +464,94 @@ export default function AdminPage({ products: initialProducts, onCreateProduct, 
     }));
   }, [dbTcgSets, tcg]);
 
+  // Sets disponibles: extraídos de los resultados del API de TCGPlayer si se ha consultado, sino del TCG seleccionado
   const setDropdownOptions = React.useMemo(() => {
     const opts = [];
-    if (setNameVal && !currentSetsForTcg.some(s => s.name === setNameVal)) {
-      opts.push({ value: setNameVal, label: setNameVal });
+    const seen = new Set();
+
+    // 1. Si la API trajo ediciones/precios, los sets provienen directamente de la API
+    if (tcgPriceStatus?.allPrices && tcgPriceStatus.allPrices.length > 0) {
+      tcgPriceStatus.allPrices.forEach(item => {
+        if (item.setName && item.setName !== 'Precio Promedio / Mercado' && !seen.has(item.setName)) {
+          seen.add(item.setName);
+          opts.push({
+            value: item.setName,
+            label: item.code ? `${item.setName} (${item.code})` : item.setName
+          });
+        }
+      });
     }
-    currentSetsForTcg.forEach(s => {
-      if (!opts.some(o => o.value === s.name)) {
-        opts.push({ value: s.name, label: s.name });
-      }
-    });
+
+    // 2. Si no hay resultados de la API aún, usar los sets registrados para el TCG
+    if (opts.length === 0) {
+      currentSetsForTcg.forEach(s => {
+        if (!seen.has(s.name)) {
+          seen.add(s.name);
+          opts.push({ value: s.name, label: s.name });
+        }
+      });
+    }
+
+    // 3. Asegurar que el set actualmente seleccionado esté en las opciones
+    if (setNameVal && !seen.has(setNameVal)) {
+      opts.unshift({ value: setNameVal, label: setNameVal });
+    }
+
     return opts;
-  }, [currentSetsForTcg, setNameVal]);
+  }, [tcgPriceStatus, currentSetsForTcg, setNameVal]);
+
+  // Rarezas disponibles: extraídas de los resultados del API de TCGPlayer si se ha consultado
+  const rarityDropdownOptions = React.useMemo(() => {
+    const opts = [];
+    const seen = new Set();
+
+    if (tcgPriceStatus?.allPrices && tcgPriceStatus.allPrices.length > 0) {
+      tcgPriceStatus.allPrices.forEach(item => {
+        const r = item.rarity?.trim();
+        if (r && r !== 'Promedio' && !/^\d+$/.test(r) && !seen.has(r.toLowerCase())) {
+          seen.add(r.toLowerCase());
+          opts.push({ value: r, label: r });
+        }
+      });
+    }
+
+    // Si aún no se ha consultado la API o no arrojó rarezas, proveer rarezas comunes
+    if (opts.length === 0) {
+      const defaultRarities = [
+        'Common',
+        'Rare',
+        'Super Rare',
+        'Ultra Rare',
+        'Secret Rare',
+        'Prismatic Secret Rare',
+        'Quarter Century Secret Rare',
+        'Starlight Rare',
+        'Collector\'s Rare',
+        'Ghost Rare',
+        'Ultimate Rare',
+        'Holofoil',
+        'Reverse Holo',
+        'Illustration Rare',
+        'Special Illustration Rare',
+        'Hyper Rare',
+        'Mythic',
+        'Uncommon'
+      ];
+      defaultRarities.forEach(r => {
+        if (!seen.has(r.toLowerCase())) {
+          seen.add(r.toLowerCase());
+          opts.push({ value: r, label: r });
+        }
+      });
+    }
+
+    // Asegurar que la rareza seleccionada esté en las opciones
+    if (rarity && !seen.has(rarity.toLowerCase())) {
+      opts.unshift({ value: rarity, label: rarity });
+    }
+
+    return opts;
+  }, [tcgPriceStatus, rarity]);
 
   const handleSaveNewTcg = async (customName = null) => {
     const targetName = (customName || newTcgNameInput).trim();
@@ -992,8 +1149,42 @@ export default function AdminPage({ products: initialProducts, onCreateProduct, 
     }
   };
 
-  // Upload a file or base64 data URI to Supabase Storage and return the public URL
+  // Upload a file, base64 data URI, or remote image URL to Supabase Storage and return the public URL
   const uploadImageToStorage = async (supabase, fileOrDataUri, folder, filename) => {
+    if (!fileOrDataUri) return '';
+
+    // If it's an external HTTP/HTTPS URL, try to download and store in Supabase Storage
+    if (typeof fileOrDataUri === 'string' && (fileOrDataUri.startsWith('http://') || fileOrDataUri.startsWith('https://'))) {
+      if (fileOrDataUri.includes('supabase.co')) {
+        return fileOrDataUri;
+      }
+      try {
+        const res = await fetch(fileOrDataUri);
+        if (!res.ok) return fileOrDataUri;
+        const blob = await res.blob();
+        const detectedExt = (blob.type && blob.type.split('/')[1]) || 'png';
+        const cleanExt = detectedExt.replace(/[^a-z0-9]/gi, '') || 'png';
+        const remotePath = `${folder}/${filename}-${Date.now()}.${cleanExt}`;
+        const { data, error } = await supabase.storage
+          .from('product-images')
+          .upload(remotePath, blob, { contentType: blob.type || 'image/jpeg', upsert: true });
+
+        if (error) {
+          console.warn('Error subiendo imagen remota a Supabase Storage, usando URL original:', error);
+          return fileOrDataUri;
+        }
+
+        const { data: urlData } = supabase.storage
+          .from('product-images')
+          .getPublicUrl(data.path);
+
+        return urlData?.publicUrl || fileOrDataUri;
+      } catch (fetchErr) {
+        console.warn('No se pudo descargar imagen remota para Supabase Storage, usando URL original:', fetchErr);
+        return fileOrDataUri;
+      }
+    }
+
     const ext = fileOrDataUri instanceof File
       ? fileOrDataUri.name.split('.').pop() || 'png'
       : ((fileOrDataUri.match(/^data:image\/(\w+);/) || [])[1] || 'png');
@@ -1287,6 +1478,8 @@ export default function AdminPage({ products: initialProducts, onCreateProduct, 
     setTcg(prodTcg);
     const prodSet = product.setName || product.set_name || product.specifications?.Set || '';
     setSetNameVal(prodSet);
+    const prodRarity = product.rarity || product.specifications?.Rareza || '';
+    setRarity(prodRarity);
     setCustomSetInput('');
     setIsAddingNewSet(false);
     setIsEditingSet(false);
@@ -1323,6 +1516,7 @@ export default function AdminPage({ products: initialProducts, onCreateProduct, 
     }
 
     setDescription(product.description || '');
+    setAutoSyncPrice(product.auto_sync_price !== false);
     setImageFile(null);
     setBtnText('Guardar Cambios');
     setActiveTab('inventory');
@@ -1364,6 +1558,7 @@ export default function AdminPage({ products: initialProducts, onCreateProduct, 
     setNewTcgNameInput('');
     setEditingTcgNameInput('');
     setSetNameVal('');
+    setRarity('');
     setCustomSetInput('');
     setIsAddingNewSet(false);
     setIsEditingSet(false);
@@ -1372,6 +1567,7 @@ export default function AdminPage({ products: initialProducts, onCreateProduct, 
     setPrice('');
     setStock('');
     setDescription('');
+    setAutoSyncPrice(true);
     setImageFile(null);
     setImagePreview('');
     setHasVariants(false);
@@ -1380,6 +1576,63 @@ export default function AdminPage({ products: initialProducts, onCreateProduct, 
     setTcgPriceStatus(null);
     setBtnText('Publicar Producto');
     setError('');
+  };
+
+  const handleSyncSingleProductPrice = async (prod) => {
+    setSyncingProductId(prod.id);
+    try {
+      const { supabase } = await import('../supabaseClient');
+      const { syncSingleProductPrice } = await import('../services/tcgSyncService');
+      const res = await syncSingleProductPrice(supabase, prod);
+      if (res.success) {
+        setDbProducts(prev => prev.map(p => p.id === prod.id ? { ...p, price: res.newPrice, last_price_sync: res.lastSync } : p));
+        if (res.priceChanged) {
+          alert(`Precio de "${prod.name}" actualizado con TCGPlayer:\n$${res.oldPrice.toFixed(2)} -> $${res.newPrice.toFixed(2)} USD`);
+        } else {
+          alert(`El precio de "${prod.name}" ya está al día ($${res.newPrice.toFixed(2)} USD).`);
+        }
+      } else {
+        alert(`No se pudo sincronizar el precio de "${prod.name}":\n${res.error}`);
+      }
+    } catch (err) {
+      alert('Error al sincronizar precio: ' + err.message);
+    } finally {
+      setSyncingProductId(null);
+    }
+  };
+
+  const handleSyncAllTcgPrices = async () => {
+    setIsSyncingAllPrices(true);
+    setSyncProgress({ current: 0, total: 0, productName: 'Iniciando...' });
+    try {
+      const { supabase } = await import('../supabaseClient');
+      const { syncAllTcgProducts } = await import('../services/tcgSyncService');
+      const summary = await syncAllTcgProducts(supabase, dbProducts, (prog) => {
+        setSyncProgress(prog);
+      });
+
+      if (summary.updatedProducts && summary.updatedProducts.length > 0) {
+        const updatedMap = new Map(summary.updatedProducts.map(u => [u.productId, u.newPrice]));
+        setDbProducts(prev => prev.map(p => {
+          if (updatedMap.has(p.id)) {
+            const newP = updatedMap.get(p.id);
+            return {
+              ...p,
+              price: newP,
+              last_price_sync: new Date().toISOString()
+            };
+          }
+          return p;
+        }));
+      }
+
+      setSyncResultModal(summary);
+    } catch (err) {
+      alert('Error durante la sincronización de precios: ' + err.message);
+    } finally {
+      setIsSyncingAllPrices(false);
+      setSyncProgress(null);
+    }
   };
 
   const handleSubmit = (e) => {
@@ -1426,12 +1679,12 @@ export default function AdminPage({ products: initialProducts, onCreateProduct, 
       try {
         const { supabase } = await import('../supabaseClient');
 
-        // Upload main product image to Storage if it's a new file
+        // Upload main product image to Storage if it's a new file or external URL
         let mainImageUrl = imagePreview || (hasVariants ? variants[0].imagePreview : '');
         if (imageFile) {
           const safeName = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').slice(0, 40);
           mainImageUrl = await uploadImageToStorage(supabase, imageFile, 'products', `main-${safeName}`);
-        } else if (mainImageUrl && mainImageUrl.startsWith('data:')) {
+        } else if (mainImageUrl && (mainImageUrl.startsWith('data:') || (mainImageUrl.startsWith('http') && !mainImageUrl.includes('supabase.co')))) {
           const safeName = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').slice(0, 40);
           mainImageUrl = await uploadImageToStorage(supabase, mainImageUrl, 'products', `main-${safeName}`);
         }
@@ -1444,7 +1697,7 @@ export default function AdminPage({ products: initialProducts, onCreateProduct, 
             if (v.imageFile) {
               const safeTitle = v.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').slice(0, 30);
               varImageUrl = await uploadImageToStorage(supabase, v.imageFile, 'variants', `variant-${safeTitle}`);
-            } else if (varImageUrl && varImageUrl.startsWith('data:')) {
+            } else if (varImageUrl && (varImageUrl.startsWith('data:') || (varImageUrl.startsWith('http') && !varImageUrl.includes('supabase.co')))) {
               const safeTitle = v.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').slice(0, 30);
               varImageUrl = await uploadImageToStorage(supabase, varImageUrl, 'variants', `variant-${safeTitle}`);
             } else if (varImageUrl && varImageUrl.startsWith('blob:')) {
@@ -1464,6 +1717,7 @@ export default function AdminPage({ products: initialProducts, onCreateProduct, 
           ? (setNameVal === 'Otro Set' ? customSetInput.trim() : (setNameVal || null))
           : null;
         const resolvedTcg = isCardOrSealed ? tcg : null;
+        const resolvedRarity = isCardOrSealed ? (rarity ? rarity.trim() : null) : null;
 
         // Auto-save new set to tcg_sets if not already recorded
         if (resolvedTcg && resolvedSetName) {
@@ -1490,6 +1744,9 @@ export default function AdminPage({ products: initialProducts, onCreateProduct, 
           category,
           tcg: resolvedTcg,
           set_name: resolvedSetName,
+          rarity: resolvedRarity,
+          auto_sync_price: isCardOrSealed ? autoSyncPrice : false,
+          last_price_sync: new Date().toISOString(),
           price: hasVariants && samePrice ? parseFloat(price) : (!hasVariants ? parseFloat(price) : parseFloat(variants[0].price || 0)),
           stock: hasVariants ? Number(variants.reduce((sum, v) => sum + (parseFloat(v.stock) || 0), 0).toFixed(2)) : parseFloat(stock || 0),
           description,
@@ -1617,6 +1874,7 @@ export default function AdminPage({ products: initialProducts, onCreateProduct, 
             setNewTcgNameInput('');
             setEditingTcgNameInput('');
             setSetNameVal('');
+            setRarity('');
             setIsAddingNewSet(false);
             setIsEditingSet(false);
             setNewSetNameInput('');
@@ -2527,16 +2785,95 @@ export default function AdminPage({ products: initialProducts, onCreateProduct, 
 
                     {/* Form */}
                     <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-gutter" id="inventory-form">
-                      <div className="space-y-base">
-                        <label className="block font-label-md text-on-surface-variant ml-1">Nombre del Producto</label>
-                        <input
-                          type="text"
-                          value={name}
-                          onChange={(e) => setName(e.target.value)}
-                          disabled={isSubmitting || isPublished}
-                          placeholder="Ej. Mago Oscuro - Edición Especial"
-                          className="w-full bg-surface-container-low border border-outline-variant/30 rounded-lg p-4 text-body-md transition-all outline-none"
-                        />
+                      <div className="space-y-base relative z-35" ref={suggestionsBoxRef}>
+                        <div className="flex items-center justify-between ml-1">
+                          <label className="block font-label-md text-on-surface-variant font-semibold">Nombre del Producto</label>
+                          {['TCG', 'Carta', 'Producto Sellado'].includes(category) && (
+                            <button
+                              type="button"
+                              onClick={() => handleFetchTcgPlayerPrice()}
+                              disabled={isFetchingTcgPrice || isSubmitting || isPublished}
+                              className="text-xs font-bold text-primary hover:text-primary-container flex items-center gap-1.5 px-2.5 py-1 rounded-lg hover:bg-primary/10 transition-all cursor-pointer border border-primary/30"
+                              title="Buscar en TCGPlayer para traer precios, sets y rarezas oficiales"
+                            >
+                              {isFetchingTcgPrice ? (
+                                <>
+                                  <span className="material-symbols-outlined text-[14px] animate-spin">progress_activity</span>
+                                  Consultando TCGPlayer...
+                                </>
+                              ) : (
+                                <>
+                                  <span className="material-symbols-outlined text-[15px]">trending_up</span>
+                                  Copiar precio de TCGPlayer
+                                </>
+                              )}
+                            </button>
+                          )}
+                        </div>
+                        <div className="relative">
+                          <input
+                            type="text"
+                            value={name}
+                            onChange={(e) => {
+                              setName(e.target.value);
+                              setShowSuggestions(true);
+                            }}
+                            onFocus={() => {
+                              if (cardSuggestions.length > 0) setShowSuggestions(true);
+                            }}
+                            disabled={isSubmitting || isPublished}
+                            placeholder="Ej. Dark Magician (o Mago Oscuro)"
+                            className="w-full bg-surface-container-low border border-outline-variant/30 rounded-lg p-4 text-body-md transition-all outline-none"
+                            autoComplete="off"
+                          />
+                          {isLoadingSuggestions && (
+                            <span className="absolute right-3.5 top-1/2 -translate-y-1/2 material-symbols-outlined text-primary text-[18px] animate-spin pointer-events-none">
+                              progress_activity
+                            </span>
+                          )}
+                        </div>
+
+                        {/* Menú flotante de autocompletado según el TCG */}
+                        {showSuggestions && cardSuggestions.length > 0 && (
+                          <div className="absolute left-0 right-0 top-full mt-1.5 bg-surface-container border border-primary/30 rounded-xl shadow-xl z-50 max-h-72 overflow-y-auto animate-fade-in divide-y divide-outline-variant/20">
+                            <div className="px-3 py-1.5 bg-surface-container-high/60 text-[10px] uppercase font-bold tracking-wider text-on-surface-variant flex items-center justify-between">
+                              <span>Sugerencias oficiales ({tcg})</span>
+                              <span className="text-[9px] font-normal lowercase opacity-75">Clic para autocompletar</span>
+                            </div>
+                            {cardSuggestions.map((sug, idx) => (
+                              <button
+                                key={idx}
+                                type="button"
+                                onClick={() => handleSelectSuggestion(sug)}
+                                className="w-full flex items-center gap-3 px-3 py-2.5 text-left hover:bg-primary/10 transition-colors cursor-pointer group"
+                              >
+                                {sug.image ? (
+                                  <img
+                                    src={sug.image}
+                                    alt={sug.name}
+                                    className="w-8 h-11 object-contain rounded shrink-0 bg-surface-container-lowest border border-outline-variant/30 group-hover:scale-105 transition-transform"
+                                    loading="lazy"
+                                  />
+                                ) : (
+                                  <div className="w-8 h-11 rounded shrink-0 bg-surface-container-high flex items-center justify-center border border-outline-variant/30">
+                                    <span className="material-symbols-outlined text-[16px] text-on-surface-variant">style</span>
+                                  </div>
+                                )}
+                                <div className="flex-1 min-w-0">
+                                  <span className="block text-body-sm font-semibold text-on-surface group-hover:text-primary truncate transition-colors">
+                                    {sug.name}
+                                  </span>
+                                  <span className="block text-[11px] text-on-surface-variant truncate">
+                                    {sug.sub}
+                                  </span>
+                                </div>
+                                <span className="material-symbols-outlined text-[18px] text-on-surface-variant group-hover:text-primary shrink-0 opacity-0 group-hover:opacity-100 transition-all">
+                                  arrow_forward
+                                </span>
+                              </button>
+                            ))}
+                          </div>
+                        )}
                       </div>
 
                       <div className="space-y-base relative z-30 focus-within:z-50">
@@ -2596,7 +2933,7 @@ export default function AdminPage({ products: initialProducts, onCreateProduct, 
                             <div className="flex items-center justify-between ml-1">
                               <label className="font-label-md text-primary flex items-center gap-1 font-bold">
                                 <span className="material-symbols-outlined text-[18px]">category</span>
-                                Set / Expansión
+                                Set / Expansión (de la API)
                               </label>
                               <button
                                 type="button"
@@ -2609,7 +2946,7 @@ export default function AdminPage({ products: initialProducts, onCreateProduct, 
                               </button>
                             </div>
 
-                            {/* Dropdown de Sets */}
+                            {/* Dropdown de Sets según la API */}
                             <CustomDropdown
                               value={setNameVal}
                               onChange={(e) => {
@@ -2618,7 +2955,34 @@ export default function AdminPage({ products: initialProducts, onCreateProduct, 
                               }}
                               options={setDropdownOptions}
                               disabled={isSubmitting || isPublished}
-                              placeholder="Selecciona el Set / Expansión"
+                              placeholder={tcgPriceStatus?.allPrices?.length > 0 ? "Selecciona el Set traído por la API" : "Selecciona el Set / Expansión"}
+                              className="w-full bg-surface-container-low border border-primary/40 focus:border-primary rounded-lg p-4 text-body-md transition-all outline-none shadow-xs"
+                              align="full"
+                            />
+                          </div>
+
+                          {/* Dropdown de Rareza según la API */}
+                          <div className="space-y-base animate-fade-in relative z-15 focus-within:z-50">
+                            <div className="flex items-center justify-between ml-1">
+                              <label className="font-label-md text-primary flex items-center gap-1 font-bold">
+                                <span className="material-symbols-outlined text-[18px]">workspace_premium</span>
+                                Rareza de la Carta (de la API)
+                              </label>
+                              {tcgPriceStatus?.allPrices?.length > 0 && (
+                                <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-semibold bg-emerald-500/10 px-2 py-0.5 rounded-full">
+                                  Oficial TCGPlayer
+                                </span>
+                              )}
+                            </div>
+                            <CustomDropdown
+                              value={rarity}
+                              onChange={(e) => {
+                                const selectedRarity = typeof e === 'string' ? e : (e?.target?.value || e?.value || String(e));
+                                setRarity(selectedRarity);
+                              }}
+                              options={rarityDropdownOptions}
+                              disabled={isSubmitting || isPublished}
+                              placeholder={tcgPriceStatus?.allPrices?.length > 0 ? "Selecciona la Rareza traída por la API" : "Selecciona la Rareza"}
                               className="w-full bg-surface-container-low border border-primary/40 focus:border-primary rounded-lg p-4 text-body-md transition-all outline-none shadow-xs"
                               align="full"
                             />
@@ -2629,27 +2993,6 @@ export default function AdminPage({ products: initialProducts, onCreateProduct, 
                       <div className="space-y-base">
                         <div className="flex items-center justify-between ml-1">
                           <label className="block font-label-md text-on-surface-variant font-semibold">Precio (USD)</label>
-                          {['TCG', 'Carta', 'Producto Sellado'].includes(category) && (
-                            <button
-                              type="button"
-                              onClick={handleFetchTcgPlayerPrice}
-                              disabled={isFetchingTcgPrice || isSubmitting || isPublished}
-                              className="text-xs font-bold text-primary hover:text-primary-container flex items-center gap-1.5 px-2.5 py-1 rounded-lg hover:bg-primary/10 transition-all cursor-pointer border border-primary/30"
-                              title="Consultar precio de mercado en TCGPlayer según nombre y TCG"
-                            >
-                              {isFetchingTcgPrice ? (
-                                <>
-                                  <span className="material-symbols-outlined text-[14px] animate-spin">progress_activity</span>
-                                  Consultando TCGPlayer...
-                                </>
-                              ) : (
-                                <>
-                                  <span className="material-symbols-outlined text-[15px]">trending_up</span>
-                                  Copiar precio de TCGPlayer
-                                </>
-                              )}
-                            </button>
-                          )}
                         </div>
                         <div className="relative">
                           <span className="absolute left-4 top-1/2 -translate-y-1/2 font-bold text-on-surface-variant">$</span>
@@ -2683,57 +3026,162 @@ export default function AdminPage({ products: initialProducts, onCreateProduct, 
                                     ✓ Coincidencia exacta con el set seleccionado ({tcgPriceStatus.matchedSet}).
                                   </div>
                                 )}
+                                {tcgPriceStatus.imageUrl && (
+                                  <div className="mt-0.5 text-[11px] text-emerald-600 dark:text-emerald-400 font-medium flex items-center gap-1">
+                                    <span className="material-symbols-outlined text-[14px]">image</span>
+                                    Imagen oficial cargada en la vista previa del producto.
+                                  </div>
+                                )}
                               </div>
                             </div>
 
                             {/* Lista completa de ediciones / precios encontrados */}
-                            {tcgPriceStatus.allPrices && tcgPriceStatus.allPrices.length > 0 && (
-                              <div className="mt-1 pt-2 border-t border-emerald-500/20 text-[11px]">
-                                <div className="flex items-center justify-between mb-1.5 font-semibold text-on-surface">
-                                  <span>Todos los precios y ediciones encontrados ({tcgPriceStatus.allPrices.length}):</span>
-                                  <span className="text-[10px] text-on-surface-variant font-normal">Haz clic para seleccionar</span>
-                                </div>
-                                <div className="flex flex-col gap-1 max-h-48 overflow-y-auto pr-1">
-                                  {tcgPriceStatus.allPrices.map((item, idx) => {
-                                    const isCurrentPrice = parseFloat(price) === item.price;
-                                    return (
-                                      <button
-                                        key={idx}
-                                        type="button"
-                                        onClick={() => {
-                                          setPrice(item.price.toFixed(2));
-                                          if (item.setName && item.setName !== 'Precio Promedio / Mercado') {
-                                            setSetNameVal(item.setName);
-                                          }
-                                        }}
-                                        className={`flex items-center justify-between p-2 rounded-md transition-all text-left border cursor-pointer ${
-                                          isCurrentPrice || item.isMatch
-                                            ? 'bg-primary/10 border-primary text-primary font-bold shadow-xs'
-                                            : 'bg-surface-container hover:bg-surface-container-high border-outline-variant/30 text-on-surface'
-                                        }`}
-                                      >
-                                        <div className="flex flex-col min-w-0 pr-2">
-                                          <div className="flex items-center gap-1.5 flex-wrap">
-                                            <span className="truncate font-semibold">{item.setName}</span>
-                                            {item.isMatch && (
-                                              <span className="bg-emerald-500/20 text-emerald-600 dark:text-emerald-300 text-[9px] px-1.5 py-0.5 rounded-full font-bold">
-                                                Tu Set
+                            {tcgPriceStatus.allPrices && tcgPriceStatus.allPrices.length > 0 && (() => {
+                              const filteredPrices = tcgPriceStatus.allPrices.filter(item => {
+                                if (!priceSearchFilter.trim()) return true;
+                                const q = priceSearchFilter.toLowerCase().trim();
+                                return (
+                                  (item.setName && item.setName.toLowerCase().includes(q)) ||
+                                  (item.rarity && item.rarity.toLowerCase().includes(q)) ||
+                                  (item.code && item.code.toLowerCase().includes(q)) ||
+                                  (item.variant && item.variant.toLowerCase().includes(q))
+                                );
+                              });
+
+                              return (
+                                <div className="mt-1 pt-2 border-t border-emerald-500/20 text-[11px]">
+                                  <div className="flex items-center justify-between mb-1.5 font-semibold text-on-surface">
+                                    <span>
+                                      Todas las ediciones y rarezas encontradas ({filteredPrices.length}{priceSearchFilter ? ` de ${tcgPriceStatus.allPrices.length}` : ''}):
+                                    </span>
+                                    <span className="text-[10px] text-on-surface-variant font-normal">Haz clic para seleccionar</span>
+                                  </div>
+
+                                  {tcgPriceStatus.allPrices.length > 6 && (
+                                    <div className="relative mb-2">
+                                      <span className="material-symbols-outlined absolute left-2.5 top-1/2 -translate-y-1/2 text-[15px] text-on-surface-variant/60 pointer-events-none">
+                                        search
+                                      </span>
+                                      <input
+                                        type="text"
+                                        value={priceSearchFilter}
+                                        onChange={(e) => setPriceSearchFilter(e.target.value)}
+                                        placeholder="Filtrar por set, rareza o código (ej. Secret, Quarter, Tin)..."
+                                        className="w-full bg-surface-container border border-outline-variant/30 rounded-lg pl-8 pr-7 py-1 text-[11px] text-on-surface placeholder:text-on-surface-variant/60 outline-none focus:border-primary transition-colors"
+                                      />
+                                      {priceSearchFilter && (
+                                        <button
+                                          type="button"
+                                          onClick={() => setPriceSearchFilter('')}
+                                          className="absolute right-2 top-1/2 -translate-y-1/2 text-on-surface-variant hover:text-on-surface text-[12px] font-bold p-0.5"
+                                        >
+                                          ✕
+                                        </button>
+                                      )}
+                                    </div>
+                                  )}
+
+                                  <div className="flex flex-col gap-1 max-h-64 overflow-y-auto pr-1">
+                                    {filteredPrices.length === 0 ? (
+                                      <div className="text-center py-4 text-on-surface-variant italic">
+                                        No hay ediciones que coincidan con "{priceSearchFilter}".
+                                      </div>
+                                    ) : (
+                                      filteredPrices.map((item, idx) => {
+                                        const isCurrentPrice = parseFloat(price) === item.price;
+                                        return (
+                                          <button
+                                            key={idx}
+                                            type="button"
+                                            onClick={() => {
+                                              if (item.price > 0) {
+                                                setPrice(item.price.toFixed(2));
+                                              }
+                                              if (item.setName && item.setName !== 'Precio Promedio / Mercado') {
+                                                setSetNameVal(item.setName);
+                                              }
+                                              if (item.rarity && item.rarity !== 'Promedio') {
+                                                setRarity(item.rarity);
+                                              }
+                                              if (item.imageUrl && !imageFile) {
+                                                setImagePreview(item.imageUrl);
+                                              }
+                                            }}
+                                            className={`flex items-center justify-between p-2 rounded-md transition-all text-left border cursor-pointer ${
+                                              isCurrentPrice || item.isMatch
+                                                ? 'bg-primary/10 border-primary text-primary font-bold shadow-xs'
+                                                : 'bg-surface-container hover:bg-surface-container-high border-outline-variant/30 text-on-surface'
+                                            }`}
+                                          >
+                                            <div className="flex flex-col min-w-0 pr-2">
+                                              <div className="flex items-center gap-1.5 flex-wrap">
+                                                <span className="truncate font-semibold">{item.setName}</span>
+                                                {item.isMatch && (
+                                                  <span className="bg-emerald-500/20 text-emerald-600 dark:text-emerald-300 text-[9px] px-1.5 py-0.5 rounded-full font-bold">
+                                                    Tu Set
+                                                  </span>
+                                                )}
+                                              </div>
+                                              <span className="text-[10px] opacity-75">
+                                                {[item.code, item.rarity, (item.variant && item.variant !== item.rarity && !item.variant.includes(item.rarity) ? item.variant : null)].filter(Boolean).join(' • ')}
                                               </span>
-                                            )}
-                                          </div>
-                                          <span className="text-[10px] opacity-75">
-                                            {[item.code, item.rarity, item.variant].filter(Boolean).join(' • ')}
-                                          </span>
-                                        </div>
-                                        <span className="shrink-0 font-extrabold text-sm ml-2">
-                                          ${item.price.toFixed(2)} USD
-                                        </span>
-                                      </button>
-                                    );
-                                  })}
+                                            </div>
+                                            <div className="shrink-0 text-right ml-2">
+                                              {item.price > 0 ? (
+                                                <>
+                                                  <span className="font-extrabold text-sm block">
+                                                    ${item.price.toFixed(2)} USD
+                                                  </span>
+                                                  {item.isEstimate && (
+                                                    <span className="text-[9px] font-normal text-on-surface-variant block">
+                                                      Ref. Mercado
+                                                    </span>
+                                                  )}
+                                                </>
+                                              ) : (
+                                                <span className="text-[10px] font-medium text-on-surface-variant block bg-surface-container-high px-1.5 py-0.5 rounded">
+                                                  Sin precio
+                                                </span>
+                                              )}
+                                            </div>
+                                          </button>
+                                        );
+                                      })
+                                    )}
+                                  </div>
+                                </div>
+                              );
+                            })()}
+                          </div>
+                        )}
+
+                        {/* Dynamic price sync toggle for TCG products */}
+                        {['TCG', 'Carta', 'Producto Sellado'].includes(category) && (
+                          <div className="flex items-center justify-between p-3 rounded-xl bg-surface-container border border-outline-variant/30 hover:border-primary/40 transition-colors">
+                            <div className="flex items-center gap-2.5">
+                              <span className="material-symbols-outlined text-primary text-[20px]">
+                                sync
+                              </span>
+                              <div>
+                                <div className="text-xs font-bold text-on-surface flex items-center gap-1.5">
+                                  <span>Actualización Dinámica de Precio</span>
+                                  <span className="bg-primary/10 text-primary text-[9px] px-1.5 py-0.5 rounded-full font-bold">TCGPlayer</span>
+                                </div>
+                                <div className="text-[11px] text-on-surface-variant leading-tight">
+                                  Actualizar automáticamente el precio de mercado periódicamente
                                 </div>
                               </div>
-                            )}
+                            </div>
+                            <label className="relative inline-flex items-center cursor-pointer ml-3 shrink-0">
+                              <input
+                                type="checkbox"
+                                checked={autoSyncPrice}
+                                onChange={(e) => setAutoSyncPrice(e.target.checked)}
+                                className="sr-only peer"
+                                disabled={isSubmitting || isPublished}
+                              />
+                              <div className="w-10 h-5 bg-surface-container-highest peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-primary cursor-pointer"></div>
+                            </label>
                           </div>
                         )}
                       </div>
@@ -3315,6 +3763,20 @@ export default function AdminPage({ products: initialProducts, onCreateProduct, 
                             Limpiar
                           </button>
                         )}
+
+                        {/* Sync all TCG Prices Button */}
+                        <button
+                          type="button"
+                          onClick={handleSyncAllTcgPrices}
+                          disabled={isSyncingAllPrices}
+                          title="Sincronizar precios de todas las cartas TCG con TCGPlayer"
+                          className="py-2 px-3 rounded-lg bg-primary/10 hover:bg-primary/20 text-primary border border-primary/30 text-xs font-bold transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-1.5 shrink-0 shadow-xs cursor-pointer"
+                        >
+                          <span className={`material-symbols-outlined text-[16px] ${isSyncingAllPrices ? 'animate-spin' : ''}`}>
+                            sync
+                          </span>
+                          <span>{isSyncingAllPrices ? 'Sincronizando...' : 'Sincronizar Precios TCG'}</span>
+                        </button>
                       </div>
                     </div>
 
@@ -3369,7 +3831,24 @@ export default function AdminPage({ products: initialProducts, onCreateProduct, 
                                       </div>
                                     </td>
                                     <td className="px-md py-4 text-on-surface-variant text-xs font-semibold">{p.category}</td>
-                                    <td className="px-md py-4 text-center text-xs font-bold text-on-surface-variant">${p.price.toFixed(2)}</td>
+                                    <td className="px-md py-4 text-center">
+                                      <div className="flex flex-col items-center justify-center">
+                                        <span className="text-xs font-bold text-on-surface">
+                                          ${Number(p.price || 0).toFixed(2)}
+                                        </span>
+                                        {p.auto_sync_price && (
+                                          <span className="inline-flex items-center gap-0.5 text-[9px] text-primary font-semibold mt-0.5" title="Sincronización periódica activa con TCGPlayer">
+                                            <span className="material-symbols-outlined text-[11px]">sync</span>
+                                            Dinámico
+                                          </span>
+                                        )}
+                                        {p.last_price_sync && (
+                                          <span className="text-[9px] text-on-surface-variant/75" title={`Última sincronización: ${new Date(p.last_price_sync).toLocaleString()}`}>
+                                            {new Date(p.last_price_sync).toLocaleDateString([], { month: 'short', day: 'numeric' })}
+                                          </span>
+                                        )}
+                                      </div>
+                                    </td>
 
                                     {/* Hero Carousel Toggle */}
                                     <td className="px-md py-4 text-center">
@@ -3437,17 +3916,32 @@ export default function AdminPage({ products: initialProducts, onCreateProduct, 
                                       </div>
                                     </td>
 
-                                    {/* Edit Action Button */}
+                                    {/* Action Buttons */}
                                     <td className="px-md py-4 text-center">
-                                      <button
-                                        type="button"
-                                        onClick={() => handleEditClick(p)}
-                                        className="px-3 py-1.5 bg-secondary text-on-secondary hover:bg-secondary/90 rounded-md font-bold text-[10px] transition-all flex items-center justify-center gap-0.5 mx-auto"
-                                        title="Editar Producto"
-                                      >
-                                        <span className="material-symbols-outlined text-[14px]">edit</span>
-                                        Editar
-                                      </button>
+                                      <div className="flex items-center justify-center gap-1.5">
+                                        {['TCG', 'Carta', 'Producto Sellado'].includes(p.category) && (
+                                          <button
+                                            type="button"
+                                            onClick={() => handleSyncSingleProductPrice(p)}
+                                            disabled={syncingProductId === p.id || isSyncingAllPrices}
+                                            className="p-1.5 bg-primary/10 hover:bg-primary/20 text-primary border border-primary/20 rounded-md font-bold transition-all disabled:opacity-50 cursor-pointer"
+                                            title="Actualizar precio desde TCGPlayer ahora"
+                                          >
+                                            <span className={`material-symbols-outlined text-[14px] ${syncingProductId === p.id ? 'animate-spin' : ''}`}>
+                                              sync
+                                            </span>
+                                          </button>
+                                        )}
+                                        <button
+                                          type="button"
+                                          onClick={() => handleEditClick(p)}
+                                          className="px-3 py-1.5 bg-secondary text-on-secondary hover:bg-secondary/90 rounded-md font-bold text-[10px] transition-all flex items-center justify-center gap-0.5"
+                                          title="Editar Producto"
+                                        >
+                                          <span className="material-symbols-outlined text-[14px]">edit</span>
+                                          Editar
+                                        </button>
+                                      </div>
                                     </td>
                                   </tr>
                                 );
@@ -4746,6 +5240,113 @@ export default function AdminPage({ products: initialProducts, onCreateProduct, 
               </button>
             </div>
 
+          </div>
+        </div>
+      )}
+
+      {/* Syncing in Progress Floating Notification */}
+      {isSyncingAllPrices && syncProgress && (
+        <div className="fixed bottom-6 right-6 z-50 animate-fade-in pointer-events-auto">
+          <div className="bg-surface-container-high border border-primary/40 text-on-surface p-4 rounded-2xl shadow-2xl flex items-center gap-3.5 max-w-sm backdrop-blur-md">
+            <span className="material-symbols-outlined text-primary text-[26px] animate-spin shrink-0">
+              sync
+            </span>
+            <div className="min-w-0 flex-1">
+              <div className="text-xs font-bold text-on-surface flex items-center justify-between">
+                <span>Sincronizando Precios TCG</span>
+                <span className="text-[11px] font-semibold text-primary">{syncProgress.current}/{syncProgress.total}</span>
+              </div>
+              <div className="text-[11px] text-on-surface-variant truncate mt-0.5">
+                {syncProgress.productName}
+              </div>
+              <div className="w-full bg-surface-container-highest rounded-full h-1.5 mt-2.5 overflow-hidden">
+                <div
+                  className="bg-primary h-full transition-all duration-300"
+                  style={{ width: `${syncProgress.total > 0 ? (syncProgress.current / syncProgress.total) * 100 : 0}%` }}
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Sync Result Summary Modal */}
+      {syncResultModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-scrim/60 backdrop-blur-xs animate-fade-in">
+          <div className="bg-surface-container-lowest border border-outline-variant/30 rounded-2xl w-full max-w-md shadow-2xl overflow-hidden animate-scale-in">
+            {/* Header */}
+            <div className="p-5 border-b border-outline-variant/20 flex items-center justify-between bg-surface-container-low/50">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-xl bg-primary/10 text-primary flex items-center justify-center">
+                  <span className="material-symbols-outlined text-[20px]">sync</span>
+                </div>
+                <div>
+                  <h3 className="font-bold text-sm text-on-surface">Sincronización de Precios TCG</h3>
+                  <p className="text-[11px] text-on-surface-variant">Resultado de actualización con TCGPlayer</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setSyncResultModal(null)}
+                className="p-1 rounded-lg text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high transition-colors cursor-pointer"
+              >
+                <span className="material-symbols-outlined text-[20px]">close</span>
+              </button>
+            </div>
+
+            {/* Body Stats */}
+            <div className="p-5 space-y-4 max-h-[60vh] overflow-y-auto">
+              <div className="grid grid-cols-3 gap-2">
+                <div className="bg-surface-container-low p-3 rounded-xl border border-outline-variant/20 text-center">
+                  <span className="text-[10px] text-on-surface-variant block uppercase font-bold tracking-wider">Actualizados</span>
+                  <span className="text-xl font-extrabold text-emerald-600 dark:text-emerald-400">{syncResultModal.updated}</span>
+                </div>
+                <div className="bg-surface-container-low p-3 rounded-xl border border-outline-variant/20 text-center">
+                  <span className="text-[10px] text-on-surface-variant block uppercase font-bold tracking-wider">Sin cambios</span>
+                  <span className="text-xl font-extrabold text-on-surface">{syncResultModal.unchanged}</span>
+                </div>
+                <div className="bg-surface-container-low p-3 rounded-xl border border-outline-variant/20 text-center">
+                  <span className="text-[10px] text-on-surface-variant block uppercase font-bold tracking-wider">Omitidos</span>
+                  <span className="text-xl font-extrabold text-error">{syncResultModal.failed}</span>
+                </div>
+              </div>
+
+              {/* Updated list details */}
+              {syncResultModal.updatedProducts && syncResultModal.updatedProducts.length > 0 && (
+                <div>
+                  <h4 className="text-xs font-bold text-on-surface mb-2">Cartas con nuevo precio:</h4>
+                  <div className="space-y-1.5 max-h-48 overflow-y-auto pr-1">
+                    {syncResultModal.updatedProducts.map((u, i) => (
+                      <div key={i} className="flex items-center justify-between p-2 rounded-lg bg-surface-container-low border border-outline-variant/20 text-xs">
+                        <span className="font-medium text-on-surface truncate pr-2">{u.productName}</span>
+                        <div className="shrink-0 flex items-center gap-1 font-bold">
+                          <span className="text-on-surface-variant/70 line-through">${u.oldPrice.toFixed(2)}</span>
+                          <span className="text-on-surface-variant">→</span>
+                          <span className="text-emerald-600 dark:text-emerald-400">${u.newPrice.toFixed(2)} USD</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {syncResultModal.eligible === 0 && (
+                <div className="p-4 text-center text-xs text-on-surface-variant italic">
+                  No hay productos con actualización dinámica activa o de categoría TCG.
+                </div>
+              )}
+            </div>
+
+            {/* Footer */}
+            <div className="p-4 border-t border-outline-variant/20 bg-surface-container-low flex justify-end">
+              <button
+                type="button"
+                onClick={() => setSyncResultModal(null)}
+                className="px-5 py-2.5 rounded-xl bg-primary text-on-primary text-xs font-bold hover:bg-primary/90 transition-all cursor-pointer shadow-xs"
+              >
+                Cerrar
+              </button>
+            </div>
           </div>
         </div>
       )}

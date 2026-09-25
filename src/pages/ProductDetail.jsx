@@ -16,7 +16,7 @@ export default function ProductDetail({ products, onAddToCart }) {
         const { supabase } = await import('../supabaseClient');
         const { data: p, error } = await supabase
           .from('products')
-          .select('id, name, price, description, image, category, stock, featured, division, tcg, set_name, product_variants(id, product_id, title, price, stock, image)')
+          .select('id, name, price, description, image, category, stock, featured, division, tcg, set_name, rarity, auto_sync_price, last_price_sync, product_variants(id, product_id, title, price, stock, image)')
           .eq('id', id)
           .single();
 
@@ -38,6 +38,9 @@ export default function ProductDetail({ products, onAddToCart }) {
             categorySlug: p.category ? p.category.toLowerCase().replace(/\s+/g, '-') : '',
             tcg: p.tcg,
             setName: p.set_name,
+            rarity: p.rarity,
+            autoSyncPrice: p.auto_sync_price !== false,
+            lastPriceSync: p.last_price_sync || null,
             stock: p.stock,
             inStock: hasStock,
             // grade: 'Premium Grade',
@@ -47,6 +50,7 @@ export default function ProductDetail({ products, onAddToCart }) {
               Categoría: p.category,
               ...(p.tcg ? { 'Juego (TCG)': p.tcg } : {}),
               ...(p.set_name ? { 'Set / Expansión': p.set_name } : {}),
+              ...(p.rarity ? { 'Rareza': p.rarity } : {}),
               Estado: hasStock ? 'Disponible' : 'Agotado'
             },
             colors: hasVariants && inStockVariants.length > 0 ? inStockVariants.map(v => ({
@@ -62,6 +66,21 @@ export default function ProductDetail({ products, onAddToCart }) {
           setDbProduct(formatted);
           if (formatted.colors && formatted.colors.length > 0) {
             setSelectedColor(formatted.colors[0]);
+          }
+
+          // Sincronización dinámica en segundo plano si la carta tiene auto_sync_price y pasaron más de 12 horas
+          if (p.tcg && p.auto_sync_price !== false) {
+            const lastSyncTime = p.last_price_sync ? new Date(p.last_price_sync).getTime() : 0;
+            const twelveHours = 12 * 60 * 60 * 1000;
+            if (Date.now() - lastSyncTime > twelveHours) {
+              import('../services/tcgSyncService').then(({ syncSingleProductPrice }) => {
+                syncSingleProductPrice(supabase, p).then(res => {
+                  if (res && res.success && res.priceChanged) {
+                    setDbProduct(prev => prev ? { ...prev, price: res.newPrice } : prev);
+                  }
+                }).catch(() => {});
+              });
+            }
           }
         }
       } catch (err) {
@@ -412,6 +431,12 @@ export default function ProductDetail({ products, onAddToCart }) {
             {product.grade && (
               <span className="bg-secondary-container/20 text-secondary-container px-3 py-1 rounded-full font-label-sm text-label-sm uppercase tracking-wider">
                 {product.grade}
+              </span>
+            )}
+            {product.rarity && (
+              <span className="bg-amber-500/15 text-amber-700 dark:text-amber-300 border border-amber-500/30 px-3 py-1 rounded-full font-label-sm text-label-sm uppercase tracking-wider flex items-center gap-1 font-bold">
+                <span className="material-symbols-outlined text-[15px]">workspace_premium</span>
+                {product.rarity}
               </span>
             )}
           </div>

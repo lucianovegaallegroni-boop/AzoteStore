@@ -89,7 +89,7 @@ export default function App() {
         const { supabase } = await import('./supabaseClient');
         const { data: dbProducts, error } = await supabase
           .from('products')
-          .select('id, name, price, description, image, category, stock, featured, division, tcg, set_name, product_variants(id, product_id, title, price, stock, image)');
+          .select('id, name, price, description, image, category, stock, featured, division, tcg, set_name, rarity, product_variants(id, product_id, title, price, stock, image)');
 
         if (error) throw error;
 
@@ -97,7 +97,9 @@ export default function App() {
           const formatted = dbProducts.map(p => ({
             id: p.id,
             name: p.name,
-            subtitle: p.tcg ? `${p.tcg} • ${p.set_name || p.category}` : `${p.category} Coleccionable`,
+            subtitle: p.rarity
+              ? `${p.tcg ? `${p.tcg} • ` : ''}${p.rarity}`
+              : (p.tcg ? `${p.tcg} • ${p.set_name || p.category}` : `${p.category} Coleccionable`),
             price: parseFloat(p.price),
             originalPrice: null,
             image: p.image,
@@ -105,6 +107,7 @@ export default function App() {
             categorySlug: p.category ? p.category.toLowerCase().replace(/\s+/g, '-') : '',
             tcg: p.tcg,
             setName: p.set_name,
+            rarity: p.rarity,
             stock: p.stock,
             inStock: (p.product_variants && p.product_variants.length > 0)
               ? p.product_variants.some(v => (v.stock || 0) > 0)
@@ -112,6 +115,14 @@ export default function App() {
             featured: p.featured,
             division: p.division,
             description: p.description,
+            specifications: {
+              Stock: String(p.stock),
+              Category: p.category,
+              ...(p.tcg ? { TCG: p.tcg } : {}),
+              ...(p.set_name ? { Set: p.set_name } : {}),
+              ...(p.rarity ? { Rareza: p.rarity } : {}),
+              Status: p.stock > 0 ? 'Disponible' : 'Agotado'
+            },
             colors: p.product_variants && p.product_variants.length > 0 ? p.product_variants.map(v => ({
               id: v.id,
               name: v.title,
