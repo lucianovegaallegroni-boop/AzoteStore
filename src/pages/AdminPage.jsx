@@ -1524,80 +1524,33 @@ export default function AdminPage({ products: initialProducts, onCreateProduct, 
         color: { argb: 'FFFFFFFF' }
       };
 
-      // ==========================================
-      // Hoja 1: Resumen General de Productos
-      // ==========================================
-      const productsSheet = workbook.addWorksheet('Inventario General', {
-        views: [{ state: 'frozen', ySplit: 1 }]
-      });
+      const outOfStockFill = {
+        type: 'pattern',
+        pattern: 'solid',
+        fgColor: { argb: 'FFFFE4E6' } // Rose 100 / Rojo claro suave
+      };
 
-      productsSheet.columns = [
-        { header: 'ID Producto', key: 'id', width: 18 },
-        { header: 'Nombre del Producto', key: 'name', width: 34 },
-        { header: 'Categoría', key: 'category', width: 20 },
-        { header: 'Precio Base', key: 'price', width: 16 },
-        { header: 'Stock Total', key: 'stock', width: 14 },
-        { header: 'Disponibilidad', key: 'status', width: 16 },
-        { header: 'Variantes / Tipos', key: 'typesCount', width: 18 },
-        { header: 'Destacado', key: 'featured', width: 14 },
-        { header: 'Carrusel Hero', key: 'division', width: 16 },
-        { header: 'Descripción', key: 'description', width: 45 }
-      ];
-
-      productsSheet.getRow(1).eachCell(cell => {
-        cell.fill = headerFill;
-        cell.font = headerFont;
-        cell.alignment = { vertical: 'middle', horizontal: 'center' };
-      });
-      productsSheet.getRow(1).height = 28;
-
-      const sortedProducts = [...dbProducts].sort((a, b) => a.name.localeCompare(b.name));
-
-      sortedProducts.forEach(p => {
-        const hasTypes = Boolean(p.colors && p.colors.length > 0);
-        const totalStock = hasTypes
-          ? p.colors.reduce((sum, c) => sum + (c.stock !== undefined ? (parseInt(c.stock, 10) || 0) : (c.inStock ? 20 : 0)), 0)
-          : (p.stock !== undefined ? (parseInt(p.stock, 10) || 0) : (p.specifications?.Stock ? parseInt(p.specifications.Stock, 10) || 0 : (p.inStock ? 20 : 0)));
-
-        const row = productsSheet.addRow({
-          id: p.id,
-          name: p.name,
-          category: p.category,
-          price: Number(p.price) || 0,
-          stock: totalStock,
-          status: totalStock > 0 ? 'En Stock' : 'Agotado',
-          typesCount: hasTypes ? `${p.colors.length} tipos` : '1 tipo (base)',
-          featured: p.featured ? 'Sí' : 'No',
-          division: p.division === 'hero' ? 'En Carrusel' : 'No',
-          description: p.description || ''
-        });
-
-        row.alignment = { vertical: 'middle' };
-        row.getCell('price').numFmt = '"$"#,##0.00';
-        row.getCell('id').alignment = { vertical: 'middle', horizontal: 'center' };
-        row.getCell('stock').alignment = { vertical: 'middle', horizontal: 'center' };
-        row.getCell('status').alignment = { vertical: 'middle', horizontal: 'center' };
-        row.getCell('typesCount').alignment = { vertical: 'middle', horizontal: 'center' };
-        row.getCell('featured').alignment = { vertical: 'middle', horizontal: 'center' };
-        row.getCell('division').alignment = { vertical: 'middle', horizontal: 'center' };
-      });
+      const outOfStockFont = {
+        name: 'Segoe UI',
+        size: 10,
+        color: { argb: 'FF9F1239' } // Rose 800
+      };
 
       // ==========================================
-      // Hoja 2: Detalle Desglosado por Tipo / Variante
+      // Hoja 1: Inventario Desglosado por Tipos / Variantes (Hoja Principal)
       // ==========================================
-      const variantsSheet = workbook.addWorksheet('Desglose por Variante', {
+      const variantsSheet = workbook.addWorksheet('Inventario por Tipos', {
         views: [{ state: 'frozen', ySplit: 1 }]
       });
 
       variantsSheet.columns = [
-        { header: 'ID Producto', key: 'productId', width: 18 },
         { header: 'Producto', key: 'productName', width: 34 },
-        { header: 'Categoría', key: 'category', width: 20 },
-        { header: 'ID Tipo / Variante', key: 'variantId', width: 20 },
-        { header: 'Nombre Variante / Tipo', key: 'variantName', width: 26 },
-        { header: 'Stock Variante', key: 'stock', width: 16 },
-        { header: 'Precio Variante', key: 'price', width: 16 },
-        { header: 'Disponibilidad', key: 'status', width: 16 }
+        { header: 'Categoría', key: 'category', width: 18 },
+        { header: 'Tipo / Variante', key: 'variantName', width: 26 },
+        { header: 'Stock Tipo', key: 'stock', width: 14 },
+        { header: 'Precio Unitario', key: 'price', width: 16 },
+        { header: 'Valor Inventario', key: 'inventoryValue', width: 18 },
+        { header: 'Disponibilidad Tipo', key: 'status', width: 20 }
       ];
 
       variantsSheet.getRow(1).eachCell(cell => {
@@ -1606,6 +1559,8 @@ export default function AdminPage({ products: initialProducts, onCreateProduct, 
         cell.alignment = { vertical: 'middle', horizontal: 'center' };
       });
       variantsSheet.getRow(1).height = 28;
+
+      const sortedProducts = [...dbProducts].sort((a, b) => a.name.localeCompare(b.name));
 
       sortedProducts.forEach(p => {
         const hasTypes = Boolean(p.colors && p.colors.length > 0);
@@ -1621,26 +1576,92 @@ export default function AdminPage({ products: initialProducts, onCreateProduct, 
 
         typesList.forEach(t => {
           const varStock = t.stock !== undefined ? (parseInt(t.stock, 10) || 0) : (t.inStock ? 20 : 0);
-          const varPrice = t.price !== undefined ? parseFloat(t.price) : parseFloat(p.price);
+          const varPrice = t.price !== undefined ? parseFloat(t.price) : parseFloat(p.price || 0);
+          const inventoryVal = varStock * varPrice;
 
           const row = variantsSheet.addRow({
-            productId: p.id,
             productName: p.name,
             category: p.category,
-            variantId: t.id,
-            variantName: hasTypes ? t.name : 'Base / Único',
+            variantName: hasTypes ? t.name : 'Único / Base',
             stock: varStock,
             price: varPrice,
+            inventoryValue: inventoryVal,
             status: varStock > 0 ? 'En Stock' : 'Agotado'
           });
 
           row.alignment = { vertical: 'middle' };
-          row.getCell('price').numFmt = '"$"#,##0.00';
-          row.getCell('productId').alignment = { vertical: 'middle', horizontal: 'center' };
-          row.getCell('variantId').alignment = { vertical: 'middle', horizontal: 'center' };
           row.getCell('stock').alignment = { vertical: 'middle', horizontal: 'center' };
           row.getCell('status').alignment = { vertical: 'middle', horizontal: 'center' };
+          row.getCell('price').numFmt = '"$"#,##0.00';
+          row.getCell('inventoryValue').numFmt = '"$"#,##0.00';
+
+          if (varStock <= 0) {
+            row.eachCell(cell => {
+              cell.fill = outOfStockFill;
+              cell.font = outOfStockFont;
+            });
+          }
         });
+      });
+
+      // ==========================================
+      // Hoja 2: Resumen Consolidado por Producto
+      // ==========================================
+      const productsSheet = workbook.addWorksheet('Resumen por Producto', {
+        views: [{ state: 'frozen', ySplit: 1 }]
+      });
+
+      productsSheet.columns = [
+        { header: 'Nombre del Producto', key: 'name', width: 34 },
+        { header: 'Categoría', key: 'category', width: 20 },
+        { header: 'Precio Base', key: 'price', width: 16 },
+        { header: 'Stock Total', key: 'stock', width: 14 },
+        { header: 'Disponibilidad', key: 'status', width: 16 },
+        { header: 'Cant. Tipos', key: 'typesCount', width: 16 },
+        { header: 'Destacado', key: 'featured', width: 14 },
+        { header: 'Carrusel Hero', key: 'division', width: 16 },
+        { header: 'Descripción', key: 'description', width: 45 }
+      ];
+
+      productsSheet.getRow(1).eachCell(cell => {
+        cell.fill = headerFill;
+        cell.font = headerFont;
+        cell.alignment = { vertical: 'middle', horizontal: 'center' };
+      });
+      productsSheet.getRow(1).height = 28;
+
+      sortedProducts.forEach(p => {
+        const hasTypes = Boolean(p.colors && p.colors.length > 0);
+        const totalStock = hasTypes
+          ? p.colors.reduce((sum, c) => sum + (c.stock !== undefined ? (parseInt(c.stock, 10) || 0) : (c.inStock ? 20 : 0)), 0)
+          : (p.stock !== undefined ? (parseInt(p.stock, 10) || 0) : (p.specifications?.Stock ? parseInt(p.specifications.Stock, 10) || 0 : (p.inStock ? 20 : 0)));
+
+        const row = productsSheet.addRow({
+          name: p.name,
+          category: p.category,
+          price: Number(p.price) || 0,
+          stock: totalStock,
+          status: totalStock > 0 ? 'En Stock' : 'Agotado',
+          typesCount: hasTypes ? `${p.colors.length} tipos` : '1 tipo (base)',
+          featured: p.featured ? 'Sí' : 'No',
+          division: p.division === 'hero' ? 'En Carrusel' : 'No',
+          description: p.description || ''
+        });
+
+        row.alignment = { vertical: 'middle' };
+        row.getCell('price').numFmt = '"$"#,##0.00';
+        row.getCell('stock').alignment = { vertical: 'middle', horizontal: 'center' };
+        row.getCell('status').alignment = { vertical: 'middle', horizontal: 'center' };
+        row.getCell('typesCount').alignment = { vertical: 'middle', horizontal: 'center' };
+        row.getCell('featured').alignment = { vertical: 'middle', horizontal: 'center' };
+        row.getCell('division').alignment = { vertical: 'middle', horizontal: 'center' };
+
+        if (totalStock <= 0) {
+          row.eachCell(cell => {
+            cell.fill = outOfStockFill;
+            cell.font = outOfStockFont;
+          });
+        }
       });
 
       // Generar buffer y descargar archivo
