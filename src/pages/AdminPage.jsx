@@ -297,7 +297,7 @@ export default function AdminPage({ products: initialProducts, onCreateProduct, 
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  const handleFetchTcgPlayerPrice = async (targetCardName = null) => {
+  const handleFetchTcgPlayerPrice = async (targetCardName = null, overrideSetName = null, overrideRarity = null) => {
     const queryCardName = (targetCardName || name || '').trim();
     if (!queryCardName) {
       setTcgPriceStatus({
@@ -314,16 +314,22 @@ export default function AdminPage({ products: initialProducts, onCreateProduct, 
 
     try {
       setPriceSearchFilter('');
+      const effectiveSet = overrideSetName !== null ? overrideSetName : setNameVal;
+      const effectiveRarity = overrideRarity !== null ? overrideRarity : rarity;
+
       const result = await fetchCardPriceFromTcgPlayer({
         cardName: queryCardName,
         tcg,
-        setName: setNameVal,
-        rarity: rarity
+        setName: effectiveSet,
+        rarity: effectiveRarity
       });
 
       if (result.price > 0 || (result.allPrices && result.allPrices.length > 0)) {
         if (result.price > 0) {
           setPrice(result.price.toFixed(2));
+        }
+        if (result.cardName) {
+          setName(result.cardName);
         }
         if (result.matchedSet && result.matchedSet !== 'Precio General' && result.matchedSet !== 'Precio Promedio / Mercado') {
           setSetNameVal(result.matchedSet);
@@ -388,8 +394,14 @@ export default function AdminPage({ products: initialProducts, onCreateProduct, 
     if (suggestion.image && !imageFile) {
       setImagePreview(suggestion.image);
     }
+    if (suggestion.setName) {
+      setSetNameVal(suggestion.setName);
+    }
+    if (suggestion.rarity) {
+      setRarity(suggestion.rarity);
+    }
     // Consultar precio y detalles automáticamente para la carta seleccionada
-    handleFetchTcgPlayerPrice(suggestion.name);
+    handleFetchTcgPlayerPrice(suggestion.name, suggestion.setName || null, suggestion.rarity || null);
   };
 
   // Dynamic TCGs states
@@ -2850,7 +2862,15 @@ export default function AdminPage({ products: initialProducts, onCreateProduct, 
                               if (cardSuggestions.length > 0) setShowSuggestions(true);
                             }}
                             disabled={isSubmitting || isPublished}
-                            placeholder="Ej. Dark Magician (o Mago Oscuro)"
+                            placeholder={
+                              (tcg || '').toLowerCase().includes('yu-gi-oh') || (tcg || '').toLowerCase().includes('yugioh')
+                                ? "Ej. Dark Magician o código (RA02-EN048)"
+                                : (tcg || '').toLowerCase().includes('magic')
+                                ? "Ej. Black Lotus o código (MH3-177)"
+                                : (tcg || '').toLowerCase().includes('pok')
+                                ? "Ej. Charizard o código (swsh1-1)"
+                                : "Ej. Dark Magician o código de edición"
+                            }
                             className="w-full bg-surface-container-low border border-outline-variant/30 rounded-lg p-4 text-body-md transition-all outline-none"
                             autoComplete="off"
                           />

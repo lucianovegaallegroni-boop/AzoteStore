@@ -64,6 +64,27 @@ export async function searchCardSuggestions({ query, tcg }) {
 
   // 1. Yu-Gi-Oh!
   if (cleanTcg.includes('yu-gi-oh') || cleanTcg.includes('yugioh')) {
+    // Si el usuario escribe un código de set (ej. RA02-EN048 o LOB-001)
+    const setCodePattern = /^[A-Za-z0-9]{2,6}[-\s][A-Za-z0-9]{2,6}$/i;
+    if (setCodePattern.test(cleanQ)) {
+      try {
+        const formattedCode = cleanQ.replace(/\s+/g, '-').toUpperCase();
+        const setRes = await fetch(`https://db.ygoprodeck.com/api/v7/cardsetsinfo.php?setcode=${encodeURIComponent(formattedCode)}`);
+        if (setRes.ok) {
+          const setData = await setRes.json();
+          if (setData.name) {
+            return [{
+              name: setData.name,
+              sub: `${setData.set_name} • ${setData.set_code} (${setData.set_rarity})`,
+              setCode: setData.set_code,
+              setName: setData.set_name,
+              rarity: setData.set_rarity
+            }];
+          }
+        }
+      } catch (e) {}
+    }
+
     // Verificar si coincide con diccionario español
     const lowerNorm = cleanQ.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
     const translated = spanishToEnglishYugioh[lowerNorm];
@@ -87,6 +108,29 @@ export async function searchCardSuggestions({ query, tcg }) {
 
   // 2. Magic: The Gathering
   if (cleanTcg.includes('magic')) {
+    // Formato código set y número (ej. mh3-177 o lea-45)
+    const mtgCodePattern = /^[A-Za-z0-9]{3,4}[-\s]\d{1,4}[a-z]?$/i;
+    if (mtgCodePattern.test(cleanQ)) {
+      try {
+        const parts = cleanQ.replace(/\s+/g, '-').split('-');
+        const cardRes = await fetch(`https://api.scryfall.com/cards/${parts[0].toLowerCase()}/${parts[1].toLowerCase()}`, {
+          headers: { 'User-Agent': 'AzoteStore/1.0', Accept: 'application/json' }
+        });
+        if (cardRes.ok) {
+          const c = await cardRes.json();
+          if (c.name) {
+            return [{
+              name: c.name,
+              sub: `${c.set_name} • #${c.collector_number} (${c.rarity})`,
+              setName: c.set_name,
+              rarity: c.rarity ? c.rarity.charAt(0).toUpperCase() + c.rarity.slice(1).toLowerCase() : null,
+              image: c.image_uris?.small || c.image_uris?.normal || null
+            }];
+          }
+        }
+      } catch (e) {}
+    }
+
     try {
       const res = await fetch(`https://api.scryfall.com/cards/autocomplete?q=${encodeURIComponent(cleanQ)}`, {
         headers: { 'User-Agent': 'AzoteStore/1.0', Accept: 'application/json' }
@@ -105,6 +149,27 @@ export async function searchCardSuggestions({ query, tcg }) {
 
   // 3. Pokémon
   if (cleanTcg.includes('pok') || cleanTcg.includes('pokemon')) {
+    // Formato id de carta (ej. swsh1-1)
+    const pokeCodePattern = /^[A-Za-z0-9]{2,6}[-\s]\d{1,4}$/i;
+    if (pokeCodePattern.test(cleanQ)) {
+      try {
+        const cleanId = cleanQ.replace(/\s+/g, '-').toLowerCase();
+        const cardRes = await fetch(`https://api.tcgdex.net/v2/en/cards/${encodeURIComponent(cleanId)}`);
+        if (cardRes.ok) {
+          const c = await cardRes.json();
+          if (c.name) {
+            return [{
+              name: c.name,
+              sub: `${c.set?.name || 'Pokémon'} • #${c.localId || ''} (${c.rarity || 'Normal'})`,
+              setName: c.set?.name || null,
+              rarity: c.rarity || null,
+              image: c.image ? `${c.image}/low.webp` : null
+            }];
+          }
+        }
+      } catch (e) {}
+    }
+
     try {
       const res = await fetch(`https://api.tcgdex.net/v2/en/cards?name=${encodeURIComponent(cleanQ)}`);
       if (res.ok) {
@@ -158,8 +223,31 @@ const spanishToEnglishYugioh = {
  */
 async function fetchYugiohPrices(cardName, targetSetName, targetRarity) {
   const trimmed = (cardName || '').trim();
+
+  // 1. Detectar si el usuario ingresó directamente un código de set (ej. RA02-EN048 o LOB-001)
+  const setCodePattern = /^[A-Za-z0-9]{2,6}[-\s][A-Za-z0-9]{2,6}$/i;
+  let resolvedFromCode = null;
+
+  if (setCodePattern.test(trimmed)) {
+    try {
+      const formattedCode = trimmed.replace(/\s+/g, '-').toUpperCase();
+      const setRes = await fetch(`https://db.ygoprodeck.com/api/v7/cardsetsinfo.php?setcode=${encodeURIComponent(formattedCode)}`);
+      if (setRes.ok) {
+        const setData = await setRes.json();
+        if (setData.name) {
+          resolvedFromCode = setData;
+        }
+      }
+    } catch (e) {}
+  }
+
+  const effectiveCardName = resolvedFromCode ? resolvedFromCode.name : cardName;
+  const effectiveTargetSet = targetSetName || (resolvedFromCode ? resolvedFromCode.set_name : null);
+  const effectiveTargetRarity = targetRarity || (resolvedFromCode ? resolvedFromCode.set_rarity : null);
+  const targetCode = resolvedFromCode ? resolvedFromCode.set_code : null;
+
   // Limpiar sufijos como " - Edición Especial", " (Holo)", etc.
-  const clean = trimmed
+  const clean = (effectiveCardName || '').trim()
     .replace(/\s+[-–—/]\s+.*$/, '')
     .replace(/\s*\(.*?\)/g, '')
     .trim();
@@ -170,7 +258,7 @@ async function fetchYugiohPrices(cardName, targetSetName, targetRarity) {
   const queriesToTry = [];
   if (translated) queriesToTry.push(translated);
   queriesToTry.push(clean);
-  if (trimmed !== clean) queriesToTry.push(trimmed);
+  if (effectiveCardName !== clean) queriesToTry.push(effectiveCardName);
 
   const uniqueQueries = [...new Set(queriesToTry.filter(Boolean))];
 
@@ -192,7 +280,7 @@ async function fetchYugiohPrices(cardName, targetSetName, targetRarity) {
   }
 
   if (!foundCards || foundCards.length === 0) {
-    throw new Error(`No se encontró "${cardName}" en Yu-Gi-Oh!. Intenta con el nombre oficial en inglés.`);
+    throw new Error(`No se encontró "${cardName}" en Yu-Gi-Oh!. Intenta con el nombre oficial o código en inglés.`);
   }
 
   // Priorizar cartas que coincidan exactamente con el nombre (incluyendo variantes de arte)
@@ -201,13 +289,49 @@ async function fetchYugiohPrices(cardName, targetSetName, targetRarity) {
     return (
       cn === clean.toLowerCase() ||
       (translated && cn === translated.toLowerCase()) ||
-      cn === trimmed.toLowerCase()
+      cn === (effectiveCardName || '').toLowerCase()
     );
   });
   const cardsToProcess = matchingCards.length > 0 ? matchingCards : [foundCards[0]];
   const primaryCard = cardsToProcess[0];
 
   const generalMarketPrice = parseFloat(primaryCard.card_prices?.[0]?.tcgplayer_price) || 0;
+
+  // Consultar precios exactos de mercado directo a TCGPlayer vía Supabase Edge Function
+  let tcgDirectResults = [];
+  try {
+    const tcgRes = await fetch('https://xbpwskecvxuixnagizov.supabase.co/functions/v1/tcgplayer-search', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ cardName: primaryCard.name, tcg: 'yugioh' })
+    });
+    if (tcgRes.ok) {
+      const tcgData = await tcgRes.json();
+      if (tcgData.results && tcgData.results.length > 0) {
+        tcgDirectResults = tcgData.results;
+      }
+    }
+  } catch (directErr) {
+    console.warn('Direct TCGPlayer lookup failed, falling back:', directErr);
+  }
+
+  const tcgByCode = new Map();
+  const tcgBySetAndRarity = new Map();
+  const tcgBySet = new Map();
+
+  tcgDirectResults.forEach(r => {
+    if (r.code && r.marketPrice > 0) {
+      tcgByCode.set(r.code.toLowerCase().trim(), r);
+    }
+    if (r.setName && r.marketPrice > 0) {
+      const key = `${r.setName.toLowerCase().trim()}_${(r.rarity || '').toLowerCase().trim()}`;
+      tcgBySetAndRarity.set(key, r);
+      if (!tcgBySet.has(r.setName.toLowerCase().trim())) {
+        tcgBySet.set(r.setName.toLowerCase().trim(), r);
+      }
+    }
+  });
+
   const allPrices = [];
   let resolvedPrice = null;
   let resolvedSet = null;
@@ -215,7 +339,7 @@ async function fetchYugiohPrices(cardName, targetSetName, targetRarity) {
   let isExactSetMatch = false;
   const seenSetEntries = new Set();
 
-  // 1. Procesar todas las ediciones/sets de la carta (incluyendo todas sus rarezas y sets con precio 0)
+  // 1. Procesar todas las ediciones/sets de la carta enriqueciendo con Market Price real de TCGPlayer
   cardsToProcess.forEach((card) => {
     if (card.card_sets && card.card_sets.length > 0) {
       card.card_sets.forEach((s) => {
@@ -223,11 +347,26 @@ async function fetchYugiohPrices(cardName, targetSetName, targetRarity) {
         if (seenSetEntries.has(setKey)) return;
         seenSetEntries.add(setKey);
 
-        const p = parseFloat(s.set_price) || 0;
+        let p = parseFloat(s.set_price) || 0;
+        let directMatch = null;
+        if (s.set_code) {
+          directMatch = tcgByCode.get(s.set_code.toLowerCase().trim());
+        }
+        if (!directMatch && s.set_name) {
+          directMatch = tcgBySetAndRarity.get(`${s.set_name.toLowerCase().trim()}_${(s.set_rarity || '').toLowerCase().trim()}`)
+            || tcgBySet.get(s.set_name.toLowerCase().trim());
+        }
+
+        // Si TCGPlayer directo tiene el Market Price real (> 0), usarlo
+        if (directMatch && directMatch.marketPrice > 0) {
+          p = directMatch.marketPrice;
+        }
+
         const priceVal = p > 0 ? p : (generalMarketPrice > 0 ? generalMarketPrice : 0);
-        const matchesTargetSet = targetSetName && isSetMatch(s.set_name, targetSetName);
-        const matchesTargetRarity = targetRarity && s.set_rarity && isSetMatch(s.set_rarity, targetRarity);
-        const itemImageUrl = card.card_images?.[0]?.image_url || card.card_images?.[0]?.image_url_small || null;
+        const matchesTargetCode = targetCode && s.set_code && s.set_code.toLowerCase() === targetCode.toLowerCase();
+        const matchesTargetSet = (matchesTargetCode || (effectiveTargetSet && isSetMatch(s.set_name, effectiveTargetSet)));
+        const matchesTargetRarity = effectiveTargetRarity && s.set_rarity && isSetMatch(s.set_rarity, effectiveTargetRarity);
+        const itemImageUrl = directMatch?.imageUrl || card.card_images?.[0]?.image_url || card.card_images?.[0]?.image_url_small || null;
 
         const item = {
           setName: s.set_name,
@@ -243,7 +382,7 @@ async function fetchYugiohPrices(cardName, targetSetName, targetRarity) {
         allPrices.push(item);
 
         if (matchesTargetSet) {
-          if (!resolvedPrice || !isExactSetMatch || matchesTargetRarity) {
+          if (!resolvedPrice || !isExactSetMatch || matchesTargetRarity || matchesTargetCode) {
             resolvedPrice = priceVal;
             resolvedSet = s.set_name;
             resolvedRarity = s.set_rarity || null;
@@ -251,6 +390,37 @@ async function fetchYugiohPrices(cardName, targetSetName, targetRarity) {
           }
         }
       });
+    }
+  });
+
+  // Agregar ediciones de TCGPlayer que no estuviesen listadas en la base local
+  tcgDirectResults.forEach(r => {
+    const setKey = `${(r.code || '').trim()}-${(r.rarity || '').trim()}-${(r.setName || '').trim()}`;
+    if (seenSetEntries.has(setKey)) return;
+    seenSetEntries.add(setKey);
+
+    const matchesTargetCode = targetCode && r.code && r.code.toLowerCase() === targetCode.toLowerCase();
+    const matchesTargetSet = (matchesTargetCode || (effectiveTargetSet && isSetMatch(r.setName, effectiveTargetSet)));
+    const matchesTargetRarity = effectiveTargetRarity && r.rarity && isSetMatch(r.rarity, effectiveTargetRarity);
+
+    const item = {
+      setName: r.setName,
+      code: r.code || '',
+      rarity: r.rarity || '',
+      variant: r.rarity ? `Rareza: ${r.rarity}` : 'Normal',
+      price: r.marketPrice,
+      rawPrice: r.marketPrice,
+      isEstimate: false,
+      isMatch: !!matchesTargetSet,
+      imageUrl: r.imageUrl || primaryCard.card_images?.[0]?.image_url
+    };
+    allPrices.push(item);
+
+    if (matchesTargetSet && (!resolvedPrice || !isExactSetMatch || matchesTargetRarity || matchesTargetCode)) {
+      resolvedPrice = r.marketPrice;
+      resolvedSet = r.setName;
+      resolvedRarity = r.rarity || null;
+      isExactSetMatch = true;
     }
   });
 
@@ -301,8 +471,28 @@ async function fetchYugiohPrices(cardName, targetSetName, targetRarity) {
  * Consulta Magic: The Gathering vía Scryfall
  */
 async function fetchMagicPrices(cardName, targetSetName, targetRarity) {
+  const trimmed = (cardName || '').trim();
+  const mtgCodePattern = /^[A-Za-z0-9]{3,4}[-\s]\d{1,4}[a-z]?$/i;
+  let resolvedPrint = null;
+
+  if (mtgCodePattern.test(trimmed)) {
+    try {
+      const parts = trimmed.replace(/\s+/g, '-').split('-');
+      const cardRes = await fetch(`https://api.scryfall.com/cards/${parts[0].toLowerCase()}/${parts[1].toLowerCase()}`, {
+        headers: { 'User-Agent': 'AzoteStore/1.0', Accept: 'application/json' }
+      });
+      if (cardRes.ok) {
+        resolvedPrint = await cardRes.json();
+      }
+    } catch (e) {}
+  }
+
+  const effectiveCardName = resolvedPrint ? resolvedPrint.name : trimmed;
+  const effectiveTargetSet = targetSetName || (resolvedPrint ? resolvedPrint.set_name : null);
+  const effectiveTargetRarity = targetRarity || (resolvedPrint?.rarity ? (resolvedPrint.rarity.charAt(0).toUpperCase() + resolvedPrint.rarity.slice(1).toLowerCase()) : null);
+
   // Buscar todas las impresiones/ediciones de esta carta
-  const searchUrl = `https://api.scryfall.com/cards/search?q=${encodeURIComponent(`!"${cardName}"`)}&unique=prints&order=released`;
+  const searchUrl = `https://api.scryfall.com/cards/search?q=${encodeURIComponent(`!"${effectiveCardName}"`)}&unique=prints&order=released`;
   let res = await fetch(searchUrl, {
     headers: {
       Accept: 'application/json',
@@ -312,7 +502,7 @@ async function fetchMagicPrices(cardName, targetSetName, targetRarity) {
 
   if (!res.ok) {
     // Reintento con búsqueda difusa simple
-    res = await fetch(`https://api.scryfall.com/cards/named?fuzzy=${encodeURIComponent(cardName)}`, {
+    res = await fetch(`https://api.scryfall.com/cards/named?fuzzy=${encodeURIComponent(effectiveCardName)}`, {
       headers: {
         Accept: 'application/json',
         'User-Agent': 'AzoteStore/1.0'
@@ -440,7 +630,25 @@ async function fetchMagicPrices(cardName, targetSetName, targetRarity) {
  * Consulta Pokémon vía Pokémon TCG API y TCGdex
  */
 async function fetchPokemonPrices(cardName, targetSetName, targetRarity) {
-  const cleanQ = (cardName || '').replace(/["*]/g, '').trim();
+  const trimmed = (cardName || '').trim();
+  const pokeCodePattern = /^[A-Za-z0-9]{2,6}[-\s]\d{1,4}$/i;
+  let resolvedPoke = null;
+
+  if (pokeCodePattern.test(trimmed)) {
+    try {
+      const cleanId = trimmed.replace(/\s+/g, '-').toLowerCase();
+      const cardRes = await fetch(`https://api.tcgdex.net/v2/en/cards/${encodeURIComponent(cleanId)}`);
+      if (cardRes.ok) {
+        resolvedPoke = await cardRes.json();
+      }
+    } catch (e) {}
+  }
+
+  const effectiveCardName = resolvedPoke ? resolvedPoke.name : trimmed;
+  const effectiveTargetSet = targetSetName || (resolvedPoke ? resolvedPoke.set?.name : null);
+  const effectiveTargetRarity = targetRarity || (resolvedPoke ? resolvedPoke.rarity : null);
+
+  const cleanQ = effectiveCardName.replace(/["*]/g, '').trim();
   const url = `https://api.pokemontcg.io/v2/cards?q=${encodeURIComponent(`name:"${cleanQ}"`)}&pageSize=250`;
   let cards = [];
 
