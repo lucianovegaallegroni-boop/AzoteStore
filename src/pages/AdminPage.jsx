@@ -286,15 +286,22 @@ export default function AdminPage({ products: initialProducts, onCreateProduct, 
     return () => clearTimeout(timer);
   }, [name, tcg, category]);
 
-  // Click outside to close suggestions
+  // Click outside or scroll to close suggestions
   useEffect(() => {
     const handleClickOutside = (e) => {
       if (suggestionsBoxRef.current && !suggestionsBoxRef.current.contains(e.target)) {
         setShowSuggestions(false);
       }
     };
+    const handleScroll = () => {
+      setShowSuggestions(false);
+    };
     document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      window.removeEventListener('scroll', handleScroll);
+    };
   }, []);
 
   const handleFetchTcgPlayerPrice = async (targetCardName = null, overrideSetName = null, overrideRarity = null) => {
@@ -2793,7 +2800,7 @@ export default function AdminPage({ products: initialProducts, onCreateProduct, 
                     {/* Form */}
                     <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-gutter" id="inventory-form">
                       {/* 1. Categoría (Primer campo del formulario) */}
-                      <div className="md:col-span-2 space-y-base relative z-40 focus-within:z-50">
+                      <div className="md:col-span-2 space-y-base relative z-25 focus-within:z-30">
                         <label className="block font-label-md text-on-surface-variant ml-1">Categoría</label>
                         <CustomDropdown
                           value={category}
@@ -2812,7 +2819,7 @@ export default function AdminPage({ products: initialProducts, onCreateProduct, 
                       </div>
 
                       {/* 2. Nombre del Producto (Columna izquierda) */}
-                      <div className="space-y-base relative z-35 focus-within:z-50" ref={suggestionsBoxRef}>
+                      <div className="space-y-base relative z-20 focus-within:z-30" ref={suggestionsBoxRef}>
                         <div className="flex items-center justify-between ml-1">
                           <label className="block font-label-md text-on-surface-variant font-semibold">Nombre del Producto</label>
                           {['TCG', 'Carta', 'Producto Sellado'].includes(category) && (
@@ -2870,7 +2877,7 @@ export default function AdminPage({ products: initialProducts, onCreateProduct, 
 
                         {/* Menú flotante de autocompletado según el TCG */}
                         {showSuggestions && cardSuggestions.length > 0 && (
-                          <div className="absolute left-0 right-0 top-full mt-1.5 bg-surface-container border border-primary/30 rounded-xl shadow-xl z-50 max-h-72 overflow-y-auto animate-fade-in divide-y divide-outline-variant/20">
+                          <div className="absolute left-0 right-0 top-full mt-1.5 bg-surface-container border border-primary/30 rounded-xl shadow-xl z-30 max-h-72 overflow-y-auto animate-fade-in divide-y divide-outline-variant/20">
                             <div className="px-3 py-1.5 bg-surface-container-high/60 text-[10px] uppercase font-bold tracking-wider text-on-surface-variant flex items-center justify-between">
                               <span>Sugerencias oficiales ({tcg})</span>
                               <span className="text-[9px] font-normal lowercase opacity-75">Clic para autocompletar</span>
@@ -2929,7 +2936,7 @@ export default function AdminPage({ products: initialProducts, onCreateProduct, 
                       {/* Dropdowns condicionales si la categoría es TCG, Carta o Producto Sellado */}
                       {['TCG', 'Carta', 'Producto Sellado'].includes(category) && (
                         <>
-                          <div className="space-y-base animate-fade-in relative z-25 focus-within:z-50">
+                          <div className="space-y-base animate-fade-in relative z-15 focus-within:z-30">
                             <div className="flex items-center justify-between ml-1">
                               <label className="font-label-md text-primary flex items-center gap-1 font-bold">
                                 <span className="material-symbols-outlined text-[18px]">style</span>
@@ -2961,7 +2968,7 @@ export default function AdminPage({ products: initialProducts, onCreateProduct, 
                             />
                           </div>
 
-                          <div className="space-y-base animate-fade-in relative z-20 focus-within:z-50">
+                          <div className="space-y-base animate-fade-in relative z-10 focus-within:z-30">
                             <div className="flex items-center justify-between ml-1">
                               <label className="font-label-md text-primary flex items-center gap-1 font-bold">
                                 <span className="material-symbols-outlined text-[18px]">category</span>
@@ -2994,7 +3001,7 @@ export default function AdminPage({ products: initialProducts, onCreateProduct, 
                           </div>
 
                           {/* Dropdown de Rareza según la API */}
-                          <div className="space-y-base animate-fade-in relative z-15 focus-within:z-50">
+                          <div className="space-y-base animate-fade-in relative z-10 focus-within:z-30">
                             <div className="flex items-center justify-between ml-1">
                               <label className="font-label-md text-primary flex items-center gap-1 font-bold">
                                 <span className="material-symbols-outlined text-[18px]">workspace_premium</span>
@@ -3813,7 +3820,7 @@ export default function AdminPage({ products: initialProducts, onCreateProduct, 
                           />
                         </div>
                         {/* Category Selector */}
-                        <div className="w-full sm:w-48 shrink-0 relative z-20 focus-within:z-50">
+                        <div className="w-full sm:w-48 shrink-0 relative z-20 focus-within:z-30">
                           <CustomDropdown
                             value={featuredCategory}
                             onChange={(val) => setFeaturedCategory(typeof val === 'string' ? val : (val?.target?.value || ''))}
@@ -4069,7 +4076,7 @@ export default function AdminPage({ products: initialProducts, onCreateProduct, 
                             />
                           </div>
                         </div>
-                        <div className="flex-1 min-w-[150px] relative z-20 focus-within:z-50">
+                        <div className="flex-1 min-w-[150px] relative z-20 focus-within:z-30">
                           <CustomDropdown
                             value={restockCategory}
                             onChange={(e) => setRestockCategory(e.target.value)}

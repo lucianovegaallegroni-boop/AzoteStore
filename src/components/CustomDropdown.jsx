@@ -117,7 +117,7 @@ export default function CustomDropdown({
 
   return (
     <div
-      className={`relative inline-block w-full ${isOpen ? 'z-[100]' : 'z-10'} ${isTransparent ? 'w-auto' : ''} ${
+      className={`relative inline-block w-full ${isOpen ? 'z-30' : 'z-1'} ${isTransparent ? 'w-auto' : ''} ${
         disabled ? 'opacity-50 pointer-events-none' : ''
       }`}
       ref={dropdownRef}
@@ -141,7 +141,7 @@ export default function CustomDropdown({
         <div
           className={`absolute ${menuPositionClass} ${
             shouldOpenUp ? 'bottom-full mb-2' : 'top-full mt-2'
-          } bg-surface dark:bg-inverse-surface border border-outline-variant/40 rounded-xl shadow-2xl z-[110] py-2 max-h-60 overflow-y-auto card-shadow animate-fade-in ${
+          } bg-surface dark:bg-inverse-surface border border-outline-variant/40 rounded-xl shadow-2xl z-30 py-2 max-h-60 overflow-y-auto card-shadow animate-fade-in ${
             align === 'full' ? 'w-full' : 'min-w-[160px]'
           } ${menuClassName}`}
         >
