@@ -295,15 +295,29 @@ async function fetchYugiohPrices(cardName, targetSetName, targetRarity) {
   const cardsToProcess = matchingCards.length > 0 ? matchingCards : [foundCards[0]];
   const primaryCard = cardsToProcess[0];
 
-  const generalMarketPrice = parseFloat(primaryCard.card_prices?.[0]?.tcgplayer_price) || 0;
+  const cardmarketEur = parseFloat(primaryCard.card_prices?.[0]?.cardmarket_price) || 0;
+  const cardmarketUsd = cardmarketEur > 0 ? parseFloat((cardmarketEur * 1.08).toFixed(2)) : 0;
+  const coolstuffPrice = parseFloat(primaryCard.card_prices?.[0]?.coolstuffinc_price) || 0;
+  const generalMarketPrice = parseFloat(primaryCard.card_prices?.[0]?.tcgplayer_price) || (coolstuffPrice > 0 ? coolstuffPrice : cardmarketUsd);
 
-  // Consultar precios exactos de mercado directo a TCGPlayer vía Supabase Edge Function
+  // Consultar precios exactos de mercado directo a TCGPlayer vía Supabase Edge Function (TCGCSV)
   let tcgDirectResults = [];
   try {
     const tcgRes = await fetch('https://xbpwskecvxuixnagizov.supabase.co/functions/v1/tcgplayer-search', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ cardName: primaryCard.name, tcg: 'yugioh' })
+      body: JSON.stringify({
+        cardName: primaryCard.name,
+        tcg: 'yugioh',
+        targetSetName: effectiveTargetSet,
+        targetSetCode: targetCode,
+        targetRarity: effectiveTargetRarity,
+        cardSets: (primaryCard.card_sets || []).map(s => ({
+          setName: s.set_name,
+          setCode: s.set_code,
+          rarity: s.set_rarity
+        }))
+      })
     });
     if (tcgRes.ok) {
       const tcgData = await tcgRes.json();
@@ -312,7 +326,7 @@ async function fetchYugiohPrices(cardName, targetSetName, targetRarity) {
       }
     }
   } catch (directErr) {
-    console.warn('Direct TCGPlayer lookup failed, falling back:', directErr);
+    console.warn('Direct TCGCSV/TCGPlayer lookup failed, falling back:', directErr);
   }
 
   const tcgByCode = new Map();
@@ -462,7 +476,7 @@ async function fetchYugiohPrices(cardName, targetSetName, targetRarity) {
     imageUrl: primaryCard.card_images?.[0]?.image_url || primaryCard.card_images?.[0]?.image_url_small || null,
     isExactSetMatch,
     tcg: 'Yu-Gi-Oh!',
-    source: 'TCGPlayer (YGOPRODeck)',
+    source: tcgDirectResults.length > 0 ? 'TCGPlayer (TCGCSV)' : 'TCGPlayer (YGOPRODeck)',
     allPrices
   };
 }

@@ -913,9 +913,11 @@ export default function ProductCatalog({ products }) {
                       >
                         {product.name}
                       </h3>
-                      <p className="text-xs text-on-surface-variant line-clamp-2 mt-1">
-                        {product.description || product.subtitle}
-                      </p>
+                      {(product.description || product.subtitle) && (
+                        <p className="text-xs text-on-surface-variant line-clamp-2 mt-1">
+                          {product.description || product.subtitle}
+                        </p>
+                      )}
                     </div>
 
                     <div className="flex items-center gap-2 mt-2">

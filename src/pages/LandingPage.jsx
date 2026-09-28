@@ -295,7 +295,9 @@ export default function LandingPage({ products }) {
                     <h3 className="font-headline-md text-[18px] text-on-background group-hover:text-primary transition-colors line-clamp-1 mt-1">
                       {product.name}
                     </h3>
-                    <p className="text-sm text-on-surface-variant mt-1 line-clamp-2">{product.description}</p>
+                    {product.description && (
+                      <p className="text-sm text-on-surface-variant mt-1 line-clamp-2">{product.description}</p>
+                    )}
                   </div>
 
                   <div className="flex justify-between items-center mt-4 pt-4 border-t border-outline-variant/20">
@@ -334,7 +336,9 @@ export default function LandingPage({ products }) {
                     <h3 className="font-headline-md text-[18px] text-on-background group-hover:text-primary transition-colors line-clamp-1 mt-1">
                       {product.name}
                     </h3>
-                    <p className="text-sm text-on-surface-variant mt-1 line-clamp-2">{product.description}</p>
+                    {product.description && (
+                      <p className="text-sm text-on-surface-variant mt-1 line-clamp-2">{product.description}</p>
+                    )}
                   </div>
 
                   <div className="flex justify-between items-center mt-4 pt-4 border-t border-outline-variant/20">

@@ -15,8 +15,8 @@ export const searchProducts = (query) => {
   if (!query) return products;
   const lowerQuery = query.toLowerCase();
   return products.filter(p =>
-    p.name.toLowerCase().includes(lowerQuery) ||
-    p.category.toLowerCase().includes(lowerQuery) ||
-    p.description.toLowerCase().includes(lowerQuery)
+    (p.name && p.name.toLowerCase().includes(lowerQuery)) ||
+    (p.category && p.category.toLowerCase().includes(lowerQuery)) ||
+    (p.description && p.description.toLowerCase().includes(lowerQuery))
   );
 };

@@ -1679,8 +1679,8 @@ export default function AdminPage({ products: initialProducts, onCreateProduct, 
 
     if (hasVariants) {
       // Validate variants mode
-      if (!name || !description) {
-        setError('Por favor, completa el nombre y la descripción del producto.');
+      if (!name) {
+        setError('Por favor, completa el nombre del producto.');
         return;
       }
       if (samePrice && (!price || parseFloat(price) <= 0)) {
@@ -1695,8 +1695,8 @@ export default function AdminPage({ products: initialProducts, onCreateProduct, 
       }
     } else {
       // Standard single product validation
-      if (!name || !price || !stock || !description) {
-        setError('Por favor, rellene todos los campos para publicar el artículo.');
+      if (!name || !price || !stock) {
+        setError('Por favor, rellene todos los campos obligatorios para publicar el artículo.');
         return;
       }
       if (!imagePreview) {
@@ -1787,7 +1787,7 @@ export default function AdminPage({ products: initialProducts, onCreateProduct, 
           last_price_sync: new Date().toISOString(),
           price: hasVariants && samePrice ? parseFloat(price) : (!hasVariants ? parseFloat(price) : parseFloat(variants[0].price || 0)),
           stock: hasVariants ? Number(variants.reduce((sum, v) => sum + (parseFloat(v.stock) || 0), 0).toFixed(2)) : parseFloat(stock || 0),
-          description,
+          description: description ? description.trim() : '',
           image: mainImageUrl,
           division: editingProduct ? editingProduct.division : null
         };
@@ -1872,7 +1872,7 @@ export default function AdminPage({ products: initialProducts, onCreateProduct, 
               category,
               price: baseProduct.price,
               stock: baseProduct.stock.toString(),
-              description,
+              description: description ? description.trim() : '',
               image: baseProduct.image,
               variants: uploadedVariants.map(v => ({
                 id: v.title.toLowerCase().trim().replace(/[^a-z0-9]+/g, '-'),
@@ -1890,7 +1890,7 @@ export default function AdminPage({ products: initialProducts, onCreateProduct, 
               category,
               price,
               stock,
-              description,
+              description: description ? description.trim() : '',
               image: imagePreview
             });
           }
@@ -2766,53 +2766,20 @@ export default function AdminPage({ products: initialProducts, onCreateProduct, 
                   {/* Add New Item Section */}
                   <div className="bg-surface-container-lowest border border-outline-variant/30 rounded-xl collector-card-shadow p-md md:p-lg">
 
-                    {/* Header info & Submit button */}
-                    <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-base mb-xl">
-                      <div>
-                        <h2 className="font-headline-lg text-headline-lg text-on-surface">
-                          {editingProduct ? `Editar Producto` : 'Agregar Nuevo Producto'}
-                        </h2>
-                        {editingProduct && (
-                          <div className="text-primary font-bold text-sm mt-1 flex items-center gap-1">
-                            <span className="material-symbols-outlined text-[16px]">edit</span>
-                            Editando: {editingProduct.name}
-                          </div>
-                        )}
-                        <p className="text-on-surface-variant text-body-md mt-1">
-                          {editingProduct ? 'Modifica los campos del artículo de colección.' : 'Completa los campos para publicar un nuevo artículo de colección.'}
-                        </p>
-                      </div>
-                      <div className="flex items-center gap-3">
-                        {editingProduct && (
-                          <button
-                            type="button"
-                            onClick={handleCancelEdit}
-                            disabled={isSubmitting}
-                            className="font-headline-md text-headline-md px-xl py-4 bg-outline-variant/20 hover:bg-outline-variant/35 text-on-surface rounded-lg hover:scale-105 active:scale-95 transition-all flex items-center justify-center gap-2"
-                          >
-                            <span className="material-symbols-outlined text-[18px]">close</span>
-                            Cancelar
-                          </button>
-                        )}
-                        <button
-                          form="inventory-form"
-                          type="submit"
-                          disabled={isSubmitting || isPublished}
-                          className={`font-headline-md text-headline-md px-xl py-4 rounded-lg hover:scale-105 active:scale-95 transition-all shadow-md flex items-center justify-center gap-2 ${isPublished
-                            ? 'bg-tertiary-container text-on-tertiary-container'
-                            : 'bg-primary text-on-primary hover:bg-primary-container'
-                            } disabled:opacity-85`}
-                        >
-                          {isSubmitting && (
-                            <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                            </svg>
-                          )}
-                          {isPublished && <span className="material-symbols-outlined">check_circle</span>}
-                          {editingProduct ? (isPublished ? '¡Guardado!' : (isSubmitting ? 'Guardando...' : 'Guardar Cambios')) : btnText}
-                        </button>
-                      </div>
+                    {/* Header info */}
+                    <div className="mb-xl">
+                      <h2 className="font-headline-lg text-headline-lg text-on-surface">
+                        {editingProduct ? `Editar Producto` : 'Agregar Nuevo Producto'}
+                      </h2>
+                      {editingProduct && (
+                        <div className="text-primary font-bold text-sm mt-1 flex items-center gap-1">
+                          <span className="material-symbols-outlined text-[16px]">edit</span>
+                          Editando: {editingProduct.name}
+                        </div>
+                      )}
+                      <p className="text-on-surface-variant text-body-md mt-1">
+                        {editingProduct ? 'Modifica los campos del artículo de colección.' : 'Completa los campos para publicar un nuevo artículo de colección.'}
+                      </p>
                     </div>
 
                     {/* Error Alert */}
@@ -2825,7 +2792,27 @@ export default function AdminPage({ products: initialProducts, onCreateProduct, 
 
                     {/* Form */}
                     <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-gutter" id="inventory-form">
-                      <div className="space-y-base relative z-35" ref={suggestionsBoxRef}>
+                      {/* 1. Categoría (Primer campo del formulario) */}
+                      <div className="md:col-span-2 space-y-base relative z-40 focus-within:z-50">
+                        <label className="block font-label-md text-on-surface-variant ml-1">Categoría</label>
+                        <CustomDropdown
+                          value={category}
+                          onChange={(e) => {
+                            const newCat = typeof e === 'string' ? e : (e?.target?.value || e?.value || String(e));
+                            setCategory(newCat);
+                            if (['TCG', 'Carta', 'Producto Sellado'].includes(newCat) && !tcg) {
+                              setTcg('Yu-Gi-Oh!');
+                            }
+                          }}
+                          options={categoryOptions}
+                          disabled={isSubmitting || isPublished}
+                          className="w-full bg-surface-container-low border border-outline-variant/30 rounded-lg p-4 text-body-md transition-all outline-none"
+                          align="full"
+                        />
+                      </div>
+
+                      {/* 2. Nombre del Producto (Columna izquierda) */}
+                      <div className="space-y-base relative z-35 focus-within:z-50" ref={suggestionsBoxRef}>
                         <div className="flex items-center justify-between ml-1">
                           <label className="block font-label-md text-on-surface-variant font-semibold">Nombre del Producto</label>
                           {['TCG', 'Carta', 'Producto Sellado'].includes(category) && (
@@ -2924,21 +2911,18 @@ export default function AdminPage({ products: initialProducts, onCreateProduct, 
                         )}
                       </div>
 
-                      <div className="space-y-base relative z-30 focus-within:z-50">
-                        <label className="block font-label-md text-on-surface-variant ml-1">Categoría</label>
-                        <CustomDropdown
-                          value={category}
-                          onChange={(e) => {
-                            const newCat = typeof e === 'string' ? e : (e?.target?.value || e?.value || String(e));
-                            setCategory(newCat);
-                            if (['TCG', 'Carta', 'Producto Sellado'].includes(newCat) && !tcg) {
-                              setTcg('Yu-Gi-Oh!');
-                            }
-                          }}
-                          options={categoryOptions}
+                      {/* 3. Cantidad de Stock (Columna derecha, al lado de Nombre) */}
+                      <div className="space-y-base">
+                        <label className="block font-label-md text-on-surface-variant ml-1 font-semibold">Cantidad de Stock</label>
+                        <input
+                          type="number"
+                          step="any"
+                          min="0"
+                          value={stock}
+                          onChange={(e) => setStock(e.target.value)}
                           disabled={isSubmitting || isPublished}
+                          placeholder="0"
                           className="w-full bg-surface-container-low border border-outline-variant/30 rounded-lg p-4 text-body-md transition-all outline-none"
-                          align="full"
                         />
                       </div>
 
@@ -3038,7 +3022,7 @@ export default function AdminPage({ products: initialProducts, onCreateProduct, 
                         </>
                       )}
 
-                      <div className="space-y-base">
+                      <div className={`space-y-base ${['TCG', 'Carta', 'Producto Sellado'].includes(category) ? '' : 'md:col-span-2'}`}>
                         <div className="flex items-center justify-between ml-1">
                           <label className="block font-label-md text-on-surface-variant font-semibold">Precio (USD)</label>
                         </div>
@@ -3249,20 +3233,6 @@ export default function AdminPage({ products: initialProducts, onCreateProduct, 
                         )}
                       </div>
 
-                      <div className="space-y-base">
-                        <label className="block font-label-md text-on-surface-variant ml-1">Cantidad de Stock</label>
-                        <input
-                          type="number"
-                          step="any"
-                          min="0"
-                          value={stock}
-                          onChange={(e) => setStock(e.target.value)}
-                          disabled={isSubmitting || isPublished}
-                          placeholder="0"
-                          className="w-full bg-surface-container-low border border-outline-variant/30 rounded-lg p-4 text-body-md transition-all outline-none"
-                        />
-                      </div>
-
                       <div className="md:col-span-2 space-y-base animate-fade-in">
                         <label className="block font-label-md text-on-surface-variant text-xs uppercase tracking-wider ml-1 font-semibold">Imagen del Producto</label>
                         <div className="relative">
@@ -3456,15 +3426,49 @@ export default function AdminPage({ products: initialProducts, onCreateProduct, 
                       )}
 
                       <div className="md:col-span-2 space-y-base">
-                        <label className="block font-label-md text-on-surface-variant ml-1">Descripción del Producto</label>
+                        <label className="block font-label-md text-on-surface-variant ml-1">
+                          Descripción del Producto <span className="text-xs text-outline font-normal">(Opcional)</span>
+                        </label>
                         <textarea
                           value={description}
                           onChange={(e) => setDescription(e.target.value)}
                           disabled={isSubmitting || isPublished}
-                          placeholder="Describe la condición, rareza, y detalles únicos del producto..."
+                          placeholder="Describe la condición, rareza, y detalles únicos del producto (opcional)..."
                           rows="4"
                           className="w-full bg-surface-container-low border border-outline-variant/30 rounded-lg p-4 text-body-md transition-all outline-none"
                         ></textarea>
+                      </div>
+
+                      {/* Botón de Publicar / Guardar al final del formulario */}
+                      <div className="md:col-span-2 pt-6 flex flex-col sm:flex-row items-center justify-end gap-3 border-t border-outline-variant/20">
+                        {editingProduct && (
+                          <button
+                            type="button"
+                            onClick={handleCancelEdit}
+                            disabled={isSubmitting}
+                            className="w-full sm:w-auto font-headline-md text-headline-md px-xl py-4 bg-outline-variant/20 hover:bg-outline-variant/35 text-on-surface rounded-lg hover:scale-105 active:scale-95 transition-all flex items-center justify-center gap-2 cursor-pointer"
+                          >
+                            <span className="material-symbols-outlined text-[18px]">close</span>
+                            Cancelar
+                          </button>
+                        )}
+                        <button
+                          type="submit"
+                          disabled={isSubmitting || isPublished}
+                          className={`w-full sm:w-auto font-headline-md text-headline-md px-xl py-4 rounded-lg hover:scale-105 active:scale-95 transition-all shadow-md flex items-center justify-center gap-2 cursor-pointer ${isPublished
+                            ? 'bg-tertiary-container text-on-tertiary-container'
+                            : 'bg-primary text-on-primary hover:bg-primary-container'
+                            } disabled:opacity-85`}
+                        >
+                          {isSubmitting && (
+                            <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                            </svg>
+                          )}
+                          {isPublished && <span className="material-symbols-outlined">check_circle</span>}
+                          {editingProduct ? (isPublished ? '¡Guardado!' : (isSubmitting ? 'Guardando...' : 'Guardar Cambios')) : btnText}
+                        </button>
                       </div>
                     </form>
                   </div>

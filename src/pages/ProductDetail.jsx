@@ -456,9 +456,11 @@ export default function ProductDetail({ products, onAddToCart }) {
           </div>
 
 
-          <p className="font-body-md text-body-md text-on-surface-variant mb-lg leading-relaxed">
-            {product.description}
-          </p>
+          {product.description && (
+            <p className="font-body-md text-body-md text-on-surface-variant mb-lg leading-relaxed">
+              {product.description}
+            </p>
+          )}
 
           {/* Specifications list */}
           {product.specifications && (
