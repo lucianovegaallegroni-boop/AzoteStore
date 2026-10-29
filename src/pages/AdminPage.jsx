@@ -2,14 +2,21 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import CustomDropdown from '../components/CustomDropdown';
 import { fetchCardPriceFromTcgPlayer, searchCardSuggestions } from '../services/tcgPlayerService';
+import {
+  DEFAULT_PRODUCT_CATEGORIES,
+  AVAILABLE_CATEGORY_ICONS,
+  fetchProductCategories,
+  createProductCategory,
+  updateProductCategory,
+  deleteProductCategory,
+  getCategorySlug,
+  getCategoryIcon
+} from '../services/categoryService';
 
-const categoryOptions = [
-  { value: "Sleeve", label: "Sleeve" },
-  { value: "TCG", label: "TCG" },
-  { value: "Producto Sellado", label: "Producto Sellado" },
-  { value: "Accesorios", label: "Accesorios" },
-  { value: "Binder/Folders", label: "Binder/Folders" }
-];
+const defaultCategoryOptions = DEFAULT_PRODUCT_CATEGORIES.map((name) => ({
+  value: name,
+  label: name
+}));
 
 const defaultTcgOptions = [
   { value: "Yu-Gi-Oh!", label: "Yu-Gi-Oh!" },
@@ -415,6 +422,24 @@ export default function AdminPage({ products: initialProducts, onCreateProduct, 
     handleFetchTcgPlayerPrice(suggestion.name, suggestion.setName || null, suggestion.rarity || null);
   };
 
+  // Dynamic Product Categories (Tipos de Producto) states
+  const [dbCategories, setDbCategories] = useState([]);
+  const [isAddingNewCategory, setIsAddingNewCategory] = useState(false);
+  const [newCategoryNameInput, setNewCategoryNameInput] = useState('');
+  const [newCategoryIconInput, setNewCategoryIconInput] = useState('category');
+  const [isEditingCategory, setIsEditingCategory] = useState(false);
+  const [editingCategoryId, setEditingCategoryId] = useState(null);
+  const [editingCategoryOldName, setEditingCategoryOldName] = useState('');
+  const [editingCategoryNameInput, setEditingCategoryNameInput] = useState('');
+  const [editingCategoryIconInput, setEditingCategoryIconInput] = useState('category');
+  const [isSavingCategory, setIsSavingCategory] = useState(false);
+  const [isManageCategoriesModalOpen, setIsManageCategoriesModalOpen] = useState(false);
+  const [modalEditingCategoryId, setModalEditingCategoryId] = useState(null);
+  const [modalEditingCategoryName, setModalEditingCategoryName] = useState('');
+  const [modalEditingCategoryIcon, setModalEditingCategoryIcon] = useState('category');
+  const [modalNewCategoryName, setModalNewCategoryName] = useState('');
+  const [modalNewCategoryIcon, setModalNewCategoryIcon] = useState('category');
+
   // Dynamic TCGs states
   const [dbTcgs, setDbTcgs] = useState([]);
   const [isAddingNewTcg, setIsAddingNewTcg] = useState(false);
@@ -438,6 +463,19 @@ export default function AdminPage({ products: initialProducts, onCreateProduct, 
   const [modalEditingSetId, setModalEditingSetId] = useState(null);
   const [modalEditingSetName, setModalEditingSetName] = useState('');
   const [modalNewSetName, setModalNewSetName] = useState('');
+
+  // Fetch Product Categories from Supabase
+  const loadCategories = async () => {
+    try {
+      const { supabase } = await import('../supabaseClient');
+      const cats = await fetchProductCategories(supabase);
+      if (cats && cats.length > 0) {
+        setDbCategories(cats);
+      }
+    } catch (err) {
+      console.warn('Error cargando categorías de producto:', err);
+    }
+  };
 
   // Fetch TCGs from Supabase
   const loadTcgs = async () => {
@@ -463,6 +501,7 @@ export default function AdminPage({ products: initialProducts, onCreateProduct, 
       const { data, error } = await supabase
         .from('tcg_sets')
         .select('id, tcg, name')
+        .not('tcg', 'like', '__CATEGORY__%')
         .order('name', { ascending: true });
 
       if (!error && data) {
@@ -474,9 +513,176 @@ export default function AdminPage({ products: initialProducts, onCreateProduct, 
   };
 
   useEffect(() => {
+    loadCategories();
     loadTcgs();
     loadTcgSets();
   }, [reloadTrigger]);
+
+  const currentCategoriesList = React.useMemo(() => {
+    if (dbCategories.length > 0) return dbCategories;
+    return defaultCategoryOptions.map((item, idx) => ({
+      id: `default-cat-${idx}`,
+      name: item.value,
+      icon: getCategoryIcon(item.value),
+      slug: getCategorySlug(item.value)
+    }));
+  }, [dbCategories]);
+
+  // Options for the Create/Edit Product Category dropdown (with "+ Agregar nuevo tipo..." at the end)
+  const dynamicCategoryDropdownOptions = React.useMemo(() => {
+    const opts = [];
+    if (category && !currentCategoriesList.some(item => item.name === category)) {
+      opts.push({
+        value: category,
+        label: category,
+        icon: getCategoryIcon(category),
+        id: `custom-${category}`
+      });
+    }
+    currentCategoriesList.forEach(item => {
+      if (!opts.some(o => o.value === item.name)) {
+        opts.push({
+          value: item.name,
+          label: item.name,
+          icon: item.icon || getCategoryIcon(item.name),
+          id: item.id
+        });
+      }
+    });
+    opts.push({
+      value: '__ADD_NEW__',
+      label: 'Agregar nuevo tipo de producto...',
+      icon: 'add_circle',
+      isAction: true
+    });
+    return opts;
+  }, [currentCategoriesList, category]);
+
+  // Dynamic options for Restock and Featured category filters
+  const dynamicRestockCategoryOptions = React.useMemo(() => {
+    const opts = [{ value: "", label: "Todas las Categorías", icon: "grid_view" }];
+    const seen = new Set();
+    currentCategoriesList.forEach(item => {
+      const slug = item.slug || getCategorySlug(item.name);
+      if (slug && !seen.has(slug)) {
+        seen.add(slug);
+        opts.push({
+          value: slug,
+          label: item.name,
+          icon: item.icon || getCategoryIcon(item.name)
+        });
+      }
+    });
+    return opts;
+  }, [currentCategoriesList]);
+
+  const handleSaveNewCategory = async (customName = null, customIcon = null) => {
+    const targetName = (customName !== null ? customName : newCategoryNameInput).trim();
+    const targetIcon = customIcon !== null ? customIcon : newCategoryIconInput;
+    if (!targetName) return;
+
+    setIsSavingCategory(true);
+    try {
+      const { supabase } = await import('../supabaseClient');
+      const created = await createProductCategory(supabase, targetName, targetIcon);
+      setDbCategories(prev => {
+        const filtered = prev.filter(c => c.name.toLowerCase() !== created.name.toLowerCase());
+        return [...filtered, created];
+      });
+      setCategory(created.name);
+      if (['TCG', 'Carta', 'Producto Sellado'].includes(created.name) && !tcg) {
+        setTcg('Yu-Gi-Oh!');
+      }
+      setNewCategoryNameInput('');
+      setNewCategoryIconInput('category');
+      setIsAddingNewCategory(false);
+    } catch (err) {
+      console.error('Error guardando nuevo tipo de producto:', err);
+      const fallbackObj = {
+        id: `local-cat-${Date.now()}`,
+        name: targetName,
+        icon: getCategoryIcon(targetName, targetIcon),
+        slug: getCategorySlug(targetName)
+      };
+      setDbCategories(prev => [...prev, fallbackObj]);
+      setCategory(targetName);
+      setNewCategoryNameInput('');
+      setNewCategoryIconInput('category');
+      setIsAddingNewCategory(false);
+    } finally {
+      setIsSavingCategory(false);
+    }
+  };
+
+  const handleSaveEditCategory = async (id, oldName, newName, newIcon = null) => {
+    const trimmed = (newName || '').trim();
+    const resolvedIcon = getCategoryIcon(trimmed, newIcon);
+    if (!trimmed) {
+      setIsEditingCategory(false);
+      setModalEditingCategoryId(null);
+      setModalEditingCategoryName('');
+      return;
+    }
+
+    setIsSavingCategory(true);
+    try {
+      const { supabase } = await import('../supabaseClient');
+      await updateProductCategory(supabase, id, oldName, trimmed, resolvedIcon);
+
+      const newSlug = getCategorySlug(trimmed);
+      setDbCategories(prev => prev.map(c => (c.id === id || c.name === oldName) ? { ...c, name: trimmed, icon: resolvedIcon, slug: newSlug } : c));
+      if (trimmed !== oldName) {
+        setDbProducts(prev => prev.map(p => {
+          if (p.category === oldName || p.specifications?.Category === oldName) {
+            return {
+              ...p,
+              category: trimmed,
+              categorySlug: newSlug,
+              specifications: { ...p.specifications, Category: trimmed }
+            };
+          }
+          return p;
+        }));
+      }
+
+      if (category === oldName) {
+        setCategory(trimmed);
+      }
+
+      setIsEditingCategory(false);
+      setEditingCategoryId(null);
+      setEditingCategoryOldName('');
+      setEditingCategoryNameInput('');
+      setEditingCategoryIconInput('category');
+      setModalEditingCategoryId(null);
+      setModalEditingCategoryName('');
+      setModalEditingCategoryIcon('category');
+    } catch (err) {
+      console.error('Error al editar tipo de producto:', err);
+      alert('Error al actualizar el tipo de producto: ' + err.message);
+    } finally {
+      setIsSavingCategory(false);
+    }
+  };
+
+  const handleDeleteCategory = async (id, catName) => {
+    if (!confirm(`¿Estás seguro de eliminar el tipo de producto "${catName}"?`)) return;
+
+    try {
+      const { supabase } = await import('../supabaseClient');
+      await deleteProductCategory(supabase, id, catName);
+
+      const remaining = currentCategoriesList.filter(c => c.id !== id && c.name !== catName);
+      setDbCategories(remaining);
+
+      if (category === catName) {
+        setCategory(remaining.length > 0 ? remaining[0].name : 'Sleeve');
+      }
+    } catch (err) {
+      console.error('Error al eliminar tipo de producto:', err);
+      alert('Error al eliminar el tipo de producto: ' + err.message);
+    }
+  };
 
   const currentTcgsList = React.useMemo(() => {
     if (dbTcgs.length > 0) return dbTcgs;
@@ -1028,24 +1234,26 @@ export default function AdminPage({ products: initialProducts, onCreateProduct, 
 
   // Dynamic banner destination options based on products / categories
   const headerBannerDestinationOptions = React.useMemo(() => {
-    // Base categories known
-    const baseKnownCategories = [
-      { name: "Yu-Gi-Oh", slug: "yu-gi-oh" },
-      { name: "Pokemon", slug: "pokemon" },
-      { name: "Magic", slug: "magic" },
-      { name: "Sleeves", slug: "sleeves" },
-      { name: "Accesorios", slug: "accesorios" },
-      { name: "Binder/Folders", slug: "binder/folders" }
-    ];
-
-    // Gather all distinct categories present in dbProducts and initialProducts
-    const allProducts = [...(dbProducts || []), ...(initialProducts || [])];
     const categoryMap = new Map();
 
-    baseKnownCategories.forEach(c => {
-      categoryMap.set(c.slug, c.name);
+    // 1. Dynamic categories from the table
+    currentCategoriesList.forEach(c => {
+      const slug = c.slug || getCategorySlug(c.name);
+      if (slug && !categoryMap.has(slug)) {
+        categoryMap.set(slug, c.name);
+      }
     });
 
+    // 2. Dynamic TCG games
+    currentTcgsList.forEach(t => {
+      const slug = getCategorySlug(t.name);
+      if (slug && !categoryMap.has(slug)) {
+        categoryMap.set(slug, t.name);
+      }
+    });
+
+    // 3. Gather all distinct categories present in dbProducts and initialProducts
+    const allProducts = [...(dbProducts || []), ...(initialProducts || [])];
     allProducts.forEach(p => {
       if (p.category) {
         const slug = p.categorySlug || p.category.toLowerCase().replace(/\s+/g, '-');
@@ -1064,7 +1272,7 @@ export default function AdminPage({ products: initialProducts, onCreateProduct, 
       { value: "/catalog", label: "Catálogo Completo (Todos los productos)" },
       ...dynamicFilterOptions
     ];
-  }, [dbProducts, initialProducts]);
+  }, [currentCategoriesList, currentTcgsList, dbProducts, initialProducts]);
 
   // Normalize string/object link_url safely
   const normalizeBannerLinkUrl = (rawLink) => {
@@ -2805,23 +3013,208 @@ export default function AdminPage({ products: initialProducts, onCreateProduct, 
 
                     {/* Form */}
                     <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-gutter" id="inventory-form">
-                      {/* 1. Categoría (Primer campo del formulario) */}
+                      {/* 1. Categoría / Tipo de Producto (Primer campo del formulario) */}
                       <div className="md:col-span-2 space-y-base relative z-25 focus-within:z-30">
-                        <label className="block font-label-md text-on-surface-variant ml-1">Categoría</label>
-                        <CustomDropdown
-                          value={category}
-                          onChange={(e) => {
-                            const newCat = typeof e === 'string' ? e : (e?.target?.value || e?.value || String(e));
-                            setCategory(newCat);
-                            if (['TCG', 'Carta', 'Producto Sellado'].includes(newCat) && !tcg) {
-                              setTcg('Yu-Gi-Oh!');
-                            }
-                          }}
-                          options={categoryOptions}
-                          disabled={isSubmitting || isPublished}
-                          className="w-full bg-surface-container-low border border-outline-variant/30 rounded-lg p-4 text-body-md transition-all outline-none"
-                          align="full"
-                        />
+                        <div className="flex items-center justify-between ml-1">
+                          <label className="font-label-md text-on-surface-variant font-semibold">Tipo de Producto / Categoría</label>
+                          <button
+                            type="button"
+                            onClick={() => setIsManageCategoriesModalOpen(true)}
+                            className="text-xs font-semibold text-on-surface-variant hover:text-on-surface flex items-center gap-1 hover:bg-surface-container-high px-2.5 py-1 rounded-full transition-all cursor-pointer"
+                            title="Ver, agregar, editar y eliminar tipos de producto"
+                          >
+                            <span className="material-symbols-outlined text-[15px]">tune</span>
+                            Administrar tipos
+                          </button>
+                        </div>
+
+                        {isAddingNewCategory ? (
+                          <div className="p-3.5 bg-surface-container-low border border-primary rounded-xl space-y-3 animate-fade-in">
+                            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+                              <div className="flex items-center gap-2 flex-1 bg-surface border border-outline-variant/40 rounded-lg px-3 py-2 focus-within:border-primary">
+                                <span className="material-symbols-outlined text-[20px] text-primary shrink-0">
+                                  {newCategoryIconInput || 'category'}
+                                </span>
+                                <input
+                                  type="text"
+                                  value={newCategoryNameInput}
+                                  onChange={(e) => setNewCategoryNameInput(e.target.value)}
+                                  placeholder="Escribe el nombre del nuevo tipo de producto..."
+                                  className="flex-1 bg-transparent text-sm text-on-surface outline-none font-semibold"
+                                  autoFocus
+                                  onKeyDown={(e) => {
+                                    if (e.key === 'Enter') {
+                                      e.preventDefault();
+                                      handleSaveNewCategory();
+                                    } else if (e.key === 'Escape') {
+                                      setIsAddingNewCategory(false);
+                                      setNewCategoryNameInput('');
+                                    }
+                                  }}
+                                />
+                              </div>
+                              <div className="flex items-center gap-2 shrink-0">
+                                <button
+                                  type="button"
+                                  disabled={!newCategoryNameInput.trim() || isSavingCategory}
+                                  onClick={() => handleSaveNewCategory()}
+                                  className="px-4 py-2.5 bg-primary text-on-primary rounded-lg text-xs font-bold hover:bg-primary/90 disabled:opacity-50 transition-all flex items-center gap-1 cursor-pointer shadow-xs"
+                                >
+                                  <span className="material-symbols-outlined text-[16px]">check</span>
+                                  {isSavingCategory ? 'Guardando...' : 'Guardar'}
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setIsAddingNewCategory(false);
+                                    setNewCategoryNameInput('');
+                                    setNewCategoryIconInput('category');
+                                  }}
+                                  className="px-3 py-2.5 border border-outline-variant/40 text-on-surface-variant hover:text-on-surface rounded-lg text-xs font-bold transition-all cursor-pointer"
+                                >
+                                  Cancelar
+                                </button>
+                              </div>
+                            </div>
+
+                            {/* Icon Selector */}
+                            <div>
+                              <span className="block text-[11px] font-bold text-on-surface-variant uppercase tracking-wider mb-1.5">
+                                Selecciona un icono:
+                              </span>
+                              <div className="flex flex-wrap gap-1.5">
+                                {AVAILABLE_CATEGORY_ICONS.map((ic) => {
+                                  const isSelectedIcon = newCategoryIconInput === ic.value;
+                                  return (
+                                    <button
+                                      key={ic.value}
+                                      type="button"
+                                      onClick={() => setNewCategoryIconInput(ic.value)}
+                                      title={ic.label}
+                                      className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold border transition-all cursor-pointer ${
+                                        isSelectedIcon
+                                          ? 'bg-primary text-on-primary border-primary shadow-xs scale-105'
+                                          : 'bg-surface border-outline-variant/30 text-on-surface-variant hover:border-primary/50 hover:text-on-surface'
+                                      }`}
+                                    >
+                                      <span className="material-symbols-outlined text-[18px]">{ic.value}</span>
+                                      <span className="text-[11px] hidden sm:inline">{ic.label}</span>
+                                    </button>
+                                  );
+                                })}
+                              </div>
+                            </div>
+                          </div>
+                        ) : isEditingCategory ? (
+                          <div className="p-3.5 bg-surface-container-low border border-secondary rounded-xl space-y-3 animate-fade-in">
+                            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+                              <div className="flex items-center gap-2 flex-1 bg-surface border border-outline-variant/40 rounded-lg px-3 py-2 focus-within:border-secondary">
+                                <span className="material-symbols-outlined text-[20px] text-secondary shrink-0">
+                                  {editingCategoryIconInput || 'category'}
+                                </span>
+                                <input
+                                  type="text"
+                                  value={editingCategoryNameInput}
+                                  onChange={(e) => setEditingCategoryNameInput(e.target.value)}
+                                  placeholder="Nuevo nombre para el tipo de producto..."
+                                  className="flex-1 bg-transparent text-sm text-on-surface outline-none font-semibold"
+                                  autoFocus
+                                  onKeyDown={(e) => {
+                                    if (e.key === 'Enter') {
+                                      e.preventDefault();
+                                      handleSaveEditCategory(editingCategoryId, editingCategoryOldName, editingCategoryNameInput, editingCategoryIconInput);
+                                    } else if (e.key === 'Escape') {
+                                      setIsEditingCategory(false);
+                                      setEditingCategoryNameInput('');
+                                    }
+                                  }}
+                                />
+                              </div>
+                              <div className="flex items-center gap-2 shrink-0">
+                                <button
+                                  type="button"
+                                  disabled={!editingCategoryNameInput.trim() || isSavingCategory}
+                                  onClick={() => handleSaveEditCategory(editingCategoryId, editingCategoryOldName, editingCategoryNameInput, editingCategoryIconInput)}
+                                  className="px-4 py-2.5 bg-secondary text-on-secondary rounded-lg text-xs font-bold hover:bg-secondary/90 disabled:opacity-50 transition-all flex items-center gap-1 cursor-pointer shadow-xs"
+                                >
+                                  <span className="material-symbols-outlined text-[16px]">check</span>
+                                  {isSavingCategory ? 'Guardando...' : 'Actualizar'}
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setIsEditingCategory(false);
+                                    setEditingCategoryNameInput('');
+                                  }}
+                                  className="px-3 py-2.5 border border-outline-variant/40 text-on-surface-variant hover:text-on-surface rounded-lg text-xs font-bold transition-all cursor-pointer"
+                                >
+                                  Cancelar
+                                </button>
+                              </div>
+                            </div>
+
+                            {/* Icon Selector */}
+                            <div>
+                              <span className="block text-[11px] font-bold text-on-surface-variant uppercase tracking-wider mb-1.5">
+                                Icono del tipo de producto:
+                              </span>
+                              <div className="flex flex-wrap gap-1.5">
+                                {AVAILABLE_CATEGORY_ICONS.map((ic) => {
+                                  const isSelectedIcon = editingCategoryIconInput === ic.value;
+                                  return (
+                                    <button
+                                      key={ic.value}
+                                      type="button"
+                                      onClick={() => setEditingCategoryIconInput(ic.value)}
+                                      title={ic.label}
+                                      className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold border transition-all cursor-pointer ${
+                                        isSelectedIcon
+                                          ? 'bg-secondary text-on-secondary border-secondary shadow-xs scale-105'
+                                          : 'bg-surface border-outline-variant/30 text-on-surface-variant hover:border-secondary/50 hover:text-on-surface'
+                                      }`}
+                                    >
+                                      <span className="material-symbols-outlined text-[18px]">{ic.value}</span>
+                                      <span className="text-[11px] hidden sm:inline">{ic.label}</span>
+                                    </button>
+                                  );
+                                })}
+                              </div>
+                            </div>
+                          </div>
+                        ) : (
+                          <CustomDropdown
+                            value={category}
+                            onChange={(e) => {
+                              const newCat = typeof e === 'string' ? e : (e?.target?.value || e?.value || String(e));
+                              if (newCat === '__ADD_NEW__') {
+                                setIsAddingNewCategory(true);
+                                setNewCategoryNameInput('');
+                                setNewCategoryIconInput('category');
+                                return;
+                              }
+                              setCategory(newCat);
+                              if (['TCG', 'Carta', 'Producto Sellado'].includes(newCat) && !tcg) {
+                                setTcg('Yu-Gi-Oh!');
+                              }
+                            }}
+                            onEditOption={(opt) => {
+                              const matched = currentCategoriesList.find(c => c.name === opt.value);
+                              setEditingCategoryId(matched?.id || opt.id || null);
+                              setEditingCategoryOldName(opt.value);
+                              setEditingCategoryNameInput(opt.value);
+                              setEditingCategoryIconInput(matched?.icon || opt.icon || getCategoryIcon(opt.value));
+                              setIsEditingCategory(true);
+                            }}
+                            onDeleteOption={(opt) => {
+                              const matched = currentCategoriesList.find(c => c.name === opt.value);
+                              handleDeleteCategory(matched?.id || opt.id || null, opt.value);
+                            }}
+                            options={dynamicCategoryDropdownOptions}
+                            disabled={isSubmitting || isPublished}
+                            className="w-full bg-surface-container-low border border-outline-variant/30 rounded-lg p-4 text-body-md transition-all outline-none"
+                            align="full"
+                          />
+                        )}
                       </div>
 
                       {/* 2. Nombre del Producto (Columna izquierda) */}
@@ -3830,7 +4223,7 @@ export default function AdminPage({ products: initialProducts, onCreateProduct, 
                           <CustomDropdown
                             value={featuredCategory}
                             onChange={(val) => setFeaturedCategory(typeof val === 'string' ? val : (val?.target?.value || ''))}
-                            options={restockCategoryOptions}
+                            options={dynamicRestockCategoryOptions}
                             placeholder="Filtrar por Categoría"
                           />
                         </div>
@@ -4086,7 +4479,7 @@ export default function AdminPage({ products: initialProducts, onCreateProduct, 
                           <CustomDropdown
                             value={restockCategory}
                             onChange={(e) => setRestockCategory(e.target.value)}
-                            options={restockCategoryOptions}
+                            options={dynamicRestockCategoryOptions}
                             className="w-full bg-surface border border-outline-variant/35 rounded-lg px-3 py-2 text-xs outline-none focus:border-primary font-bold text-on-surface"
                             align="full"
                           />
@@ -5313,6 +5706,263 @@ export default function AdminPage({ products: initialProducts, onCreateProduct, 
                   setIsManageTcgsModalOpen(false);
                   setModalEditingTcgId(null);
                   setModalEditingTcgName('');
+                }}
+                className="px-5 py-2.5 rounded-xl bg-primary text-on-primary text-xs font-bold hover:bg-primary/90 transition-all cursor-pointer shadow-xs"
+              >
+                Listo
+              </button>
+            </div>
+
+          </div>
+        </div>
+      )}
+
+      {/* Modal para Administrar, Editar y Eliminar Tipos de Producto / Categorías */}
+      {isManageCategoriesModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-fade-in">
+          <div className="w-full max-w-lg bg-surface dark:bg-inverse-surface border border-outline-variant/30 rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[85vh]">
+            
+            {/* Header */}
+            <div className="p-4 sm:p-5 border-b border-outline-variant/20 flex items-center justify-between">
+              <div>
+                <h3 className="font-bold text-base sm:text-lg text-on-surface flex items-center gap-2">
+                  <span className="material-symbols-outlined text-primary text-[22px]">category</span>
+                  Administrar Tipos de Producto
+                </h3>
+                <p className="text-xs text-on-surface-variant mt-0.5">
+                  Agrega nuevos tipos de producto, edita sus nombres o elimínalos de la tabla.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setIsManageCategoriesModalOpen(false);
+                  setModalEditingCategoryId(null);
+                  setModalEditingCategoryName('');
+                }}
+                className="p-1.5 rounded-full hover:bg-surface-container-high text-on-surface-variant transition-colors"
+              >
+                <span className="material-symbols-outlined text-[20px]">close</span>
+              </button>
+            </div>
+
+            {/* Quick Add Bar */}
+            <div className="p-4 bg-surface-container-low border-b border-outline-variant/20 space-y-3">
+              <label className="block text-xs font-bold text-primary flex items-center gap-1">
+                <span className="material-symbols-outlined text-[16px]">add_circle</span>
+                Agregar Nuevo Tipo de Producto
+              </label>
+              <div className="flex gap-2">
+                <div className="flex items-center gap-2 flex-1 px-3 py-2 rounded-xl bg-surface border border-outline-variant/40 focus-within:border-primary">
+                  <span className="material-symbols-outlined text-[18px] text-primary shrink-0">
+                    {modalNewCategoryIcon || 'category'}
+                  </span>
+                  <input
+                    type="text"
+                    value={modalNewCategoryName}
+                    onChange={(e) => setModalNewCategoryName(e.target.value)}
+                    placeholder="Ej. Playmats, Deck Boxes, Figuras..."
+                    className="flex-1 text-xs bg-transparent text-on-surface focus:outline-hidden font-medium"
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        if (modalNewCategoryName.trim()) {
+                          handleSaveNewCategory(modalNewCategoryName, modalNewCategoryIcon);
+                          setModalNewCategoryName('');
+                          setModalNewCategoryIcon('category');
+                        }
+                      }
+                    }}
+                  />
+                </div>
+                <button
+                  type="button"
+                  disabled={!modalNewCategoryName.trim() || isSavingCategory}
+                  onClick={() => {
+                    if (modalNewCategoryName.trim()) {
+                      handleSaveNewCategory(modalNewCategoryName, modalNewCategoryIcon);
+                      setModalNewCategoryName('');
+                      setModalNewCategoryIcon('category');
+                    }
+                  }}
+                  className="px-4 py-2 bg-primary text-on-primary rounded-xl text-xs font-bold hover:bg-primary/90 disabled:opacity-50 transition-all flex items-center gap-1 shrink-0 cursor-pointer shadow-xs"
+                >
+                  <span className="material-symbols-outlined text-[16px]">add</span>
+                  Agregar
+                </button>
+              </div>
+
+              {/* Icon Picker for Modal New Category */}
+              <div>
+                <span className="block text-[10px] font-bold text-outline uppercase tracking-wider mb-1">
+                  Icono para el nuevo tipo:
+                </span>
+                <div className="flex flex-wrap gap-1">
+                  {AVAILABLE_CATEGORY_ICONS.map((ic) => {
+                    const isSelectedIcon = modalNewCategoryIcon === ic.value;
+                    return (
+                      <button
+                        key={ic.value}
+                        type="button"
+                        onClick={() => setModalNewCategoryIcon(ic.value)}
+                        title={ic.label}
+                        className={`p-1.5 rounded-lg border transition-all flex items-center justify-center cursor-pointer ${
+                          isSelectedIcon
+                            ? 'bg-primary text-on-primary border-primary shadow-xs scale-105'
+                            : 'bg-surface border-outline-variant/30 text-on-surface-variant hover:border-primary/50 hover:text-on-surface'
+                        }`}
+                      >
+                        <span className="material-symbols-outlined text-[17px] block">{ic.value}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+
+            {/* Categories List */}
+            <div className="p-4 sm:p-5 overflow-y-auto flex-1 space-y-2">
+              <div className="text-[11px] font-bold text-outline uppercase tracking-wider mb-1 flex items-center justify-between">
+                <span>Tipos Registrados ({currentCategoriesList.length})</span>
+                <span className="text-[10px] text-outline font-normal">Haz clic en el lápiz para editar nombre e icono</span>
+              </div>
+
+              {currentCategoriesList.length === 0 ? (
+                <div className="py-8 text-center text-outline text-xs">
+                  No hay tipos de producto registrados aún.
+                </div>
+              ) : (
+                currentCategoriesList.map((c) => {
+                  const isEditingThis = modalEditingCategoryId === c.id;
+                  const isSelectedInForm = category === c.name;
+                  const itemIcon = c.icon || getCategoryIcon(c.name);
+
+                  return (
+                    <div
+                      key={c.id || c.name}
+                      className={`p-2.5 rounded-xl border transition-all flex items-center justify-between gap-2 ${
+                        isSelectedInForm
+                          ? 'border-primary/50 bg-primary/5'
+                          : 'border-outline-variant/30 hover:border-outline-variant/60 bg-surface-container-low/40'
+                      }`}
+                    >
+                      {isEditingThis ? (
+                        <div className="flex-1 space-y-2.5">
+                          <div className="flex items-center gap-2">
+                            <div className="flex items-center gap-2 flex-1 px-2.5 py-1.5 rounded-lg bg-surface border border-secondary">
+                              <span className="material-symbols-outlined text-[18px] text-secondary shrink-0">
+                                {modalEditingCategoryIcon || 'category'}
+                              </span>
+                              <input
+                                type="text"
+                                value={modalEditingCategoryName}
+                                onChange={(e) => setModalEditingCategoryName(e.target.value)}
+                                className="flex-1 text-xs bg-transparent text-on-surface focus:outline-hidden font-semibold"
+                                autoFocus
+                                onKeyDown={(e) => {
+                                  if (e.key === 'Enter') {
+                                    e.preventDefault();
+                                    handleSaveEditCategory(c.id, c.name, modalEditingCategoryName, modalEditingCategoryIcon);
+                                  }
+                                }}
+                              />
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => handleSaveEditCategory(c.id, c.name, modalEditingCategoryName, modalEditingCategoryIcon)}
+                              className="px-2.5 py-1.5 bg-secondary text-on-secondary rounded-lg text-xs font-bold hover:bg-secondary/90 transition-all flex items-center gap-1 cursor-pointer shrink-0"
+                              title="Guardar cambios"
+                            >
+                              <span className="material-symbols-outlined text-[15px]">check</span>
+                              Guardar
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setModalEditingCategoryId(null);
+                                setModalEditingCategoryName('');
+                              }}
+                              className="px-2 py-1.5 border border-outline-variant/40 text-outline hover:text-on-surface rounded-lg text-xs transition-all cursor-pointer shrink-0"
+                            >
+                              Cancelar
+                            </button>
+                          </div>
+
+                          <div className="flex flex-wrap gap-1 pt-1">
+                            {AVAILABLE_CATEGORY_ICONS.map((ic) => {
+                              const isSelectedIcon = modalEditingCategoryIcon === ic.value;
+                              return (
+                                <button
+                                  key={ic.value}
+                                  type="button"
+                                  onClick={() => setModalEditingCategoryIcon(ic.value)}
+                                  title={ic.label}
+                                  className={`p-1.5 rounded-lg border transition-all flex items-center justify-center cursor-pointer ${
+                                    isSelectedIcon
+                                      ? 'bg-secondary text-on-secondary border-secondary shadow-xs scale-105'
+                                      : 'bg-surface border-outline-variant/30 text-on-surface-variant hover:border-secondary/50 hover:text-on-surface'
+                                  }`}
+                                >
+                                  <span className="material-symbols-outlined text-[16px] block">{ic.value}</span>
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      ) : (
+                        <>
+                          <div className="flex items-center gap-2 min-w-0 flex-1">
+                            <span className="material-symbols-outlined text-[18px] text-primary shrink-0">
+                              {itemIcon}
+                            </span>
+                            <span className="text-xs font-semibold text-on-surface truncate">
+                              {c.name}
+                            </span>
+                            {isSelectedInForm && (
+                              <span className="text-[10px] bg-primary/10 text-primary px-2 py-0.5 rounded-full font-bold shrink-0">
+                                Activo en formulario
+                              </span>
+                            )}
+                          </div>
+
+                          <div className="flex items-center gap-1 shrink-0">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setModalEditingCategoryId(c.id);
+                                setModalEditingCategoryName(c.name);
+                                setModalEditingCategoryIcon(itemIcon);
+                              }}
+                              className="p-1.5 rounded-lg hover:bg-surface-container-high text-secondary hover:text-secondary-fixed-dim transition-colors cursor-pointer"
+                              title="Editar nombre e icono de este tipo de producto"
+                            >
+                              <span className="material-symbols-outlined text-[16px]">edit</span>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteCategory(c.id, c.name)}
+                              className="p-1.5 rounded-lg hover:bg-error/10 text-outline hover:text-error transition-colors cursor-pointer"
+                              title="Eliminar tipo de producto"
+                            >
+                              <span className="material-symbols-outlined text-[16px]">delete</span>
+                            </button>
+                          </div>
+                        </>
+                      )}
+                    </div>
+                  );
+                })
+              )}
+            </div>
+
+            {/* Footer */}
+            <div className="p-4 border-t border-outline-variant/20 bg-surface-container-low flex items-center justify-end">
+              <button
+                type="button"
+                onClick={() => {
+                  setIsManageCategoriesModalOpen(false);
+                  setModalEditingCategoryId(null);
+                  setModalEditingCategoryName('');
                 }}
                 className="px-5 py-2.5 rounded-xl bg-primary text-on-primary text-xs font-bold hover:bg-primary/90 transition-all cursor-pointer shadow-xs"
               >

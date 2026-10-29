@@ -1,5 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { useSearchParams, useNavigate, useLocation } from 'react-router-dom';
+import { useSearchParams, useNavigate } from 'react-router-dom';
+import {
+  DEFAULT_PRODUCT_CATEGORIES,
+  fetchProductCategories,
+  getCategorySlug,
+  getCategoryIcon,
+  isTcgOrSealedCategory
+} from '../services/categoryService';
 
 const sortOptions = [
   { value: "featured", label: "Mejor Coincidencia" },
@@ -23,6 +30,7 @@ export default function ProductCatalog({ products }) {
   const [openTcg, setOpenTcg] = useState(null); // string | null (name of open TCG game)
   const [allGames, setAllGames] = useState([]);
   const [allSets, setAllSets] = useState([]);
+  const [dbCategories, setDbCategories] = useState([]);
   const [sortBy, setSortBy] = useState('featured');
   const [searchQuery, setSearchQuery] = useState('');
 
@@ -46,25 +54,33 @@ export default function ProductCatalog({ products }) {
     }
   }, [products]);
 
-  // Load TCG games and sets for filter dropdowns
+  // Load TCG games, sets, and dynamic product categories for filter dropdowns
   useEffect(() => {
     let isMounted = true;
-    (async () => {
+    const loadCatalogFilters = async () => {
       try {
         const { supabase } = await import('../supabaseClient');
-        const [gamesRes, setsRes] = await Promise.all([
+        const [gamesRes, setsRes, catsList] = await Promise.all([
           supabase.from('tcg_games').select('id, name').order('name', { ascending: true }),
-          supabase.from('tcg_sets').select('id, name, tcg').order('name', { ascending: true })
+          supabase.from('tcg_sets').select('id, name, tcg').not('tcg', 'like', '__CATEGORY__%').order('name', { ascending: true }),
+          fetchProductCategories(supabase)
         ]);
         if (isMounted) {
           if (!gamesRes.error && gamesRes.data) setAllGames(gamesRes.data);
           if (!setsRes.error && setsRes.data) setAllSets(setsRes.data);
+          if (catsList && catsList.length > 0) setDbCategories(catsList);
         }
       } catch (err) {
-        console.warn('Error cargando juegos y sets:', err);
+        console.warn('Error cargando juegos, sets y categorías:', err);
       }
-    })();
-    return () => { isMounted = false; };
+    };
+    loadCatalogFilters();
+    const handleCategoriesUpdate = () => loadCatalogFilters();
+    window.addEventListener('product_categories_updated', handleCategoriesUpdate);
+    return () => {
+      isMounted = false;
+      window.removeEventListener('product_categories_updated', handleCategoriesUpdate);
+    };
   }, []);
 
   // Sync state with URL Search Params
@@ -164,30 +180,44 @@ export default function ProductCatalog({ products }) {
   // Use DB products if available, fallback to props
   const activeProducts = dbProducts.length > 0 ? dbProducts : products;
 
-  // Categories list dynamically derived from products
+  // Categories list dynamically derived from table + products
   const categories = React.useMemo(() => {
-    const baseCats = [
-      { name: "Todos", slug: "" },
-      { name: "Sleeve", slug: "sleeve" },
-      { name: "TCG", slug: "tcg" },
-      { name: "Producto Sellado", slug: "producto-sellado" },
-      { name: "Accesorios", slug: "accesorios" },
-      { name: "Binder/Folders", slug: "binder/folders" }
-    ];
     const catMap = new Map();
-    baseCats.forEach(c => catMap.set(c.slug, c.name));
+    const sourceCats = dbCategories.length > 0
+      ? dbCategories
+      : DEFAULT_PRODUCT_CATEGORIES.map((name, idx) => ({
+          id: `default-${idx}`,
+          name,
+          icon: getCategoryIcon(name),
+          slug: getCategorySlug(name)
+        }));
+
+    sourceCats.forEach(c => {
+      const slug = c.slug || getCategorySlug(c.name);
+      if (slug && !catMap.has(slug)) {
+        catMap.set(slug, {
+          slug,
+          name: c.name,
+          icon: c.icon || getCategoryIcon(c.name)
+        });
+      }
+    });
 
     activeProducts.forEach(p => {
       if (p.category) {
-        const slug = p.categorySlug || p.category.toLowerCase().replace(/\s+/g, '-');
-        if (!catMap.has(slug)) {
-          catMap.set(slug, p.category);
+        const slug = p.categorySlug || getCategorySlug(p.category);
+        if (slug && !catMap.has(slug)) {
+          catMap.set(slug, {
+            slug,
+            name: p.category,
+            icon: getCategoryIcon(p.category)
+          });
         }
       }
     });
 
-    return Array.from(catMap.entries()).map(([slug, name]) => ({ slug, name }));
-  }, [activeProducts]);
+    return Array.from(catMap.values());
+  }, [dbCategories, activeProducts]);
 
   // Available games derived from DB and active products
   const availableGames = React.useMemo(() => {
@@ -402,20 +432,26 @@ export default function ProductCatalog({ products }) {
 
   const hasActiveFilters = selectedCategory || selectedTcg || selectedSet || searchQuery || sortBy !== 'featured';
 
+  const getDisplayCategoryLabel = React.useCallback((slugOrName) => {
+    if (!slugOrName) return '';
+    const norm = getCategorySlug(slugOrName);
+    const matched = categories.find(c => c.slug === norm || c.name.toLowerCase() === slugOrName.toLowerCase());
+    if (matched) return matched.name;
+    if (norm === 'tcg') return 'TCG';
+    if (norm === 'producto-sellado') return 'Producto Sellado';
+    if (norm === 'sleeve' || norm === 'sleeves') return 'Sleeve';
+    return slugOrName;
+  }, [categories]);
+
   const currentCategoryName = React.useMemo(() => {
     let parts = [];
     if (selectedCategory) {
-      if (selectedCategory === 'tcg') parts.push('TCG');
-      else if (selectedCategory === 'producto-sellado') parts.push('Producto Sellado');
-      else if (selectedCategory === 'sleeve' || selectedCategory === 'sleeves') parts.push('Sleeves');
-      else if (selectedCategory === 'accesorios') parts.push('Accesorios');
-      else if (selectedCategory === 'binder/folders' || selectedCategory === 'binder-folders') parts.push('Binder/Folders');
-      else parts.push(selectedCategory);
+      parts.push(getDisplayCategoryLabel(selectedCategory));
     }
     if (selectedTcg) parts.push(selectedTcg);
     if (selectedSet) parts.push(selectedSet);
     return parts.length > 0 ? parts.join(' • ') : 'Coleccionables';
-  }, [selectedCategory, selectedTcg, selectedSet]);
+  }, [selectedCategory, selectedTcg, selectedSet, getDisplayCategoryLabel]);
 
   return (
     <div className="w-full max-w-[1440px] mx-auto px-4 sm:px-6 lg:px-8 py-6 md:py-8">
@@ -444,15 +480,7 @@ export default function ProductCatalog({ products }) {
               <div className="mb-3.5 pb-2.5 border-b border-outline-variant/20 flex flex-wrap gap-1.5 items-center">
                 {selectedCategory && (
                   <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-primary/10 text-primary">
-                    {selectedCategory === 'tcg'
-                      ? 'TCG'
-                      : selectedCategory === 'producto-sellado'
-                      ? 'Producto Sellado'
-                      : selectedCategory === 'accesorios'
-                      ? 'Accesorios'
-                      : selectedCategory === 'binder/folders' || selectedCategory === 'binder-folders'
-                      ? 'Binder/Folders'
-                      : selectedCategory}
+                    {getDisplayCategoryLabel(selectedCategory)}
                   </span>
                 )}
                 {selectedTcg && (
@@ -489,266 +517,139 @@ export default function ProductCatalog({ products }) {
                 )}
               </button>
 
-              {/* 2. Sleeve */}
-              <button
-                type="button"
-                onClick={handleSelectSleeve}
-                className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs font-semibold transition-all ${
-                  selectedCategory === 'sleeve' || selectedCategory === 'sleeves'
-                    ? 'bg-primary text-on-primary shadow-xs'
-                    : 'text-on-surface hover:bg-surface-container text-left'
-                }`}
-              >
-                <div className="flex items-center gap-2">
-                  <span className="material-symbols-outlined text-[16px]">layers</span>
-                  <span>Sleeves</span>
-                </div>
-                {(selectedCategory === 'sleeve' || selectedCategory === 'sleeves') && (
-                  <span className="material-symbols-outlined text-[14px]">check</span>
-                )}
-              </button>
+              {/* Dynamic Categories from Table */}
+              {categories.map((cat) => {
+                const catSlug = cat.slug;
+                const isExpandableTcgCategory = isTcgOrSealedCategory(cat.name) || isTcgOrSealedCategory(catSlug);
+                const isSelected = selectedCategory.toLowerCase() === catSlug.toLowerCase() ||
+                  (catSlug === 'sleeve' && selectedCategory.toLowerCase() === 'sleeves');
 
-              {/* 3. TCG (Button with Dropdown) */}
-              <div className="border border-outline-variant/30 rounded-lg overflow-hidden bg-surface">
-                <div className={`flex items-center justify-between transition-colors ${
-                  selectedCategory === 'tcg' ? 'bg-primary/10 text-primary font-bold' : 'hover:bg-surface-container text-on-surface'
-                }`}>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      handleSelectCategoryOnly('tcg');
-                      if (openCategory !== 'tcg') setOpenCategory('tcg');
-                    }}
-                    className="flex-1 flex items-center gap-2 px-3 py-2 text-xs font-semibold text-left cursor-pointer"
-                  >
-                    <span className="material-symbols-outlined text-[16px]">playing_cards</span>
-                    <span>TCG</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleToggleCategory('tcg')}
-                    className="p-2 text-outline hover:text-on-surface cursor-pointer"
-                    aria-label="Desplegar juegos TCG"
-                  >
-                    <span className={`material-symbols-outlined text-[16px] transition-transform duration-200 ${
-                      openCategory === 'tcg' ? 'rotate-180' : ''
-                    }`}>
-                      expand_more
-                    </span>
-                  </button>
-                </div>
-
-                {/* Sub-dropdown: TCG Games */}
-                {openCategory === 'tcg' && (
-                  <div className="bg-surface-container-lowest border-t border-outline-variant/20 p-1.5 space-y-1">
-                    {availableGames.map((gameName) => {
-                      const isTcgSelected = selectedCategory === 'tcg' && selectedTcg.toLowerCase() === gameName.toLowerCase();
-                      const isTcgOpen = openTcg === gameName;
-                      const sets = getSetsForGame(gameName);
-
-                      return (
-                        <div key={gameName} className="rounded-md overflow-hidden border border-outline-variant/20 bg-surface">
-                          <div className={`flex items-center justify-between text-xs transition-colors ${
-                            isTcgSelected ? 'bg-secondary-container/50 text-on-secondary-container font-bold' : 'hover:bg-surface-container-low text-on-surface'
+                if (isExpandableTcgCategory) {
+                  return (
+                    <div key={catSlug} className="border border-outline-variant/30 rounded-lg overflow-hidden bg-surface">
+                      <div className={`flex items-center justify-between transition-colors ${
+                        isSelected ? 'bg-primary/10 text-primary font-bold' : 'hover:bg-surface-container text-on-surface'
+                      }`}>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            handleSelectCategoryOnly(catSlug);
+                            if (openCategory !== catSlug) setOpenCategory(catSlug);
+                          }}
+                          className="flex-1 flex items-center gap-2 px-3 py-2 text-xs font-semibold text-left cursor-pointer"
+                        >
+                          <span className="material-symbols-outlined text-[16px]">{getCategoryIcon(cat.name, cat.icon)}</span>
+                          <span>{cat.name}</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleToggleCategory(catSlug)}
+                          className="p-2 text-outline hover:text-on-surface cursor-pointer"
+                          aria-label={`Desplegar juegos de ${cat.name}`}
+                        >
+                          <span className={`material-symbols-outlined text-[16px] transition-transform duration-200 ${
+                            openCategory === catSlug ? 'rotate-180' : ''
                           }`}>
-                            <button
-                              type="button"
-                              onClick={() => {
-                                handleSelectTcg('tcg', gameName);
-                                if (openTcg !== gameName) setOpenTcg(gameName);
-                              }}
-                              className="flex-1 flex items-center gap-2 px-2.5 py-1.5 text-left font-medium truncate cursor-pointer"
-                            >
-                              <span className="material-symbols-outlined text-[14px] text-outline shrink-0">style</span>
-                              <span className="truncate">{gameName}</span>
-                            </button>
-                            {sets.length > 0 && (
-                              <button
-                                type="button"
-                                onClick={() => handleToggleTcg(gameName)}
-                                className="p-1.5 text-outline hover:text-on-surface cursor-pointer shrink-0"
-                                aria-label={`Sets de ${gameName}`}
-                              >
-                                <span className={`material-symbols-outlined text-[14px] transition-transform duration-200 ${
-                                  isTcgOpen ? 'rotate-180' : ''
+                            expand_more
+                          </span>
+                        </button>
+                      </div>
+
+                      {/* Sub-dropdown: TCG Games */}
+                      {openCategory === catSlug && (
+                        <div className="bg-surface-container-lowest border-t border-outline-variant/20 p-1.5 space-y-1">
+                          {availableGames.map((gameName) => {
+                            const isTcgSelected = isSelected && selectedTcg.toLowerCase() === gameName.toLowerCase();
+                            const isTcgOpen = openTcg === gameName;
+                            const sets = getSetsForGame(gameName);
+
+                            return (
+                              <div key={gameName} className="rounded-md overflow-hidden border border-outline-variant/20 bg-surface">
+                                <div className={`flex items-center justify-between text-xs transition-colors ${
+                                  isTcgSelected ? 'bg-secondary-container/50 text-on-secondary-container font-bold' : 'hover:bg-surface-container-low text-on-surface'
                                 }`}>
-                                  expand_more
-                                </span>
-                              </button>
-                            )}
-                          </div>
-
-                          {/* Nested Sub-dropdown: Sets for this TCG */}
-                          {isTcgOpen && sets.length > 0 && (
-                            <div className="bg-surface-container-lowest border-t border-outline-variant/20 py-1 pl-3 pr-1 space-y-0.5 max-h-48 overflow-y-auto scrollbar-thin">
-                              {sets.map((setName) => {
-                                const isSetSelected = isTcgSelected && selectedSet.toLowerCase() === setName.toLowerCase();
-                                return (
                                   <button
-                                    key={setName}
                                     type="button"
-                                    onClick={() => handleSelectSet('tcg', gameName, setName)}
-                                    className={`w-full text-left px-2 py-1 rounded text-[11px] flex items-center justify-between transition-colors cursor-pointer ${
-                                      isSetSelected
-                                        ? 'bg-primary text-on-primary font-bold'
-                                        : 'text-on-surface-variant hover:bg-surface-container hover:text-on-surface'
-                                    }`}
+                                    onClick={() => {
+                                      handleSelectTcg(catSlug, gameName);
+                                      if (openTcg !== gameName) setOpenTcg(gameName);
+                                    }}
+                                    className="flex-1 flex items-center gap-2 px-2.5 py-1.5 text-left font-medium truncate cursor-pointer"
                                   >
-                                    <span className="truncate">{setName}</span>
-                                    {isSetSelected && (
-                                      <span className="material-symbols-outlined text-[12px] shrink-0">check</span>
-                                    )}
+                                    <span className="material-symbols-outlined text-[14px] text-outline shrink-0">style</span>
+                                    <span className="truncate">{gameName}</span>
                                   </button>
-                                );
-                              })}
-                            </div>
-                          )}
+                                  {sets.length > 0 && (
+                                    <button
+                                      type="button"
+                                      onClick={() => handleToggleTcg(gameName)}
+                                      className="p-1.5 text-outline hover:text-on-surface cursor-pointer shrink-0"
+                                      aria-label={`Sets de ${gameName}`}
+                                    >
+                                      <span className={`material-symbols-outlined text-[14px] transition-transform duration-200 ${
+                                        isTcgOpen ? 'rotate-180' : ''
+                                      }`}>
+                                        expand_more
+                                      </span>
+                                    </button>
+                                  )}
+                                </div>
+
+                                {/* Nested Sub-dropdown: Sets for this TCG */}
+                                {isTcgOpen && sets.length > 0 && (
+                                  <div className="bg-surface-container-lowest border-t border-outline-variant/20 py-1 pl-3 pr-1 space-y-0.5 max-h-48 overflow-y-auto scrollbar-thin">
+                                    {sets.map((setName) => {
+                                      const isSetSelected = isTcgSelected && selectedSet.toLowerCase() === setName.toLowerCase();
+                                      return (
+                                        <button
+                                          key={setName}
+                                          type="button"
+                                          onClick={() => handleSelectSet(catSlug, gameName, setName)}
+                                          className={`w-full text-left px-2 py-1 rounded text-[11px] flex items-center justify-between transition-colors cursor-pointer ${
+                                            isSetSelected
+                                              ? 'bg-primary text-on-primary font-bold'
+                                              : 'text-on-surface-variant hover:bg-surface-container hover:text-on-surface'
+                                          }`}
+                                        >
+                                          <span className="truncate">{setName}</span>
+                                          {isSetSelected && (
+                                            <span className="material-symbols-outlined text-[12px] shrink-0">check</span>
+                                          )}
+                                        </button>
+                                      );
+                                    })}
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })}
                         </div>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
+                      )}
+                    </div>
+                  );
+                }
 
-              {/* 4. Producto Sellado (Button with Dropdown) */}
-              <div className="border border-outline-variant/30 rounded-lg overflow-hidden bg-surface">
-                <div className={`flex items-center justify-between transition-colors ${
-                  selectedCategory === 'producto-sellado' ? 'bg-primary/10 text-primary font-bold' : 'hover:bg-surface-container text-on-surface'
-                }`}>
+                return (
                   <button
+                    key={catSlug}
                     type="button"
-                    onClick={() => {
-                      handleSelectCategoryOnly('producto-sellado');
-                      if (openCategory !== 'producto-sellado') setOpenCategory('producto-sellado');
-                    }}
-                    className="flex-1 flex items-center gap-2 px-3 py-2 text-xs font-semibold text-left cursor-pointer"
+                    onClick={() => handleSelectSimpleCategory(catSlug)}
+                    className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                      isSelected
+                        ? 'bg-primary text-on-primary shadow-xs'
+                        : 'text-on-surface hover:bg-surface-container text-left'
+                    }`}
                   >
-                    <span className="material-symbols-outlined text-[16px]">inventory_2</span>
-                    <span>Producto Sellado</span>
+                    <div className="flex items-center gap-2">
+                      <span className="material-symbols-outlined text-[16px]">{getCategoryIcon(cat.name, cat.icon)}</span>
+                      <span>{cat.name}</span>
+                    </div>
+                    {isSelected && (
+                      <span className="material-symbols-outlined text-[14px]">check</span>
+                    )}
                   </button>
-                  <button
-                    type="button"
-                    onClick={() => handleToggleCategory('producto-sellado')}
-                    className="p-2 text-outline hover:text-on-surface cursor-pointer"
-                    aria-label="Desplegar juegos de Producto Sellado"
-                  >
-                    <span className={`material-symbols-outlined text-[16px] transition-transform duration-200 ${
-                      openCategory === 'producto-sellado' ? 'rotate-180' : ''
-                    }`}>
-                      expand_more
-                    </span>
-                  </button>
-                </div>
-
-                {/* Sub-dropdown: TCG Games for Producto Sellado */}
-                {openCategory === 'producto-sellado' && (
-                  <div className="bg-surface-container-lowest border-t border-outline-variant/20 p-1.5 space-y-1">
-                    {availableGames.map((gameName) => {
-                      const isTcgSelected = selectedCategory === 'producto-sellado' && selectedTcg.toLowerCase() === gameName.toLowerCase();
-                      const isTcgOpen = openTcg === gameName;
-                      const sets = getSetsForGame(gameName);
-
-                      return (
-                        <div key={gameName} className="rounded-md overflow-hidden border border-outline-variant/20 bg-surface">
-                          <div className={`flex items-center justify-between text-xs transition-colors ${
-                            isTcgSelected ? 'bg-secondary-container/50 text-on-secondary-container font-bold' : 'hover:bg-surface-container-low text-on-surface'
-                          }`}>
-                            <button
-                              type="button"
-                              onClick={() => {
-                                handleSelectTcg('producto-sellado', gameName);
-                                if (openTcg !== gameName) setOpenTcg(gameName);
-                              }}
-                              className="flex-1 flex items-center gap-2 px-2.5 py-1.5 text-left font-medium truncate cursor-pointer"
-                            >
-                              <span className="material-symbols-outlined text-[14px] text-outline shrink-0">style</span>
-                              <span className="truncate">{gameName}</span>
-                            </button>
-                            {sets.length > 0 && (
-                              <button
-                                type="button"
-                                onClick={() => handleToggleTcg(gameName)}
-                                className="p-1.5 text-outline hover:text-on-surface cursor-pointer shrink-0"
-                                aria-label={`Sets de ${gameName}`}
-                              >
-                                <span className={`material-symbols-outlined text-[14px] transition-transform duration-200 ${
-                                  isTcgOpen ? 'rotate-180' : ''
-                                }`}>
-                                  expand_more
-                                </span>
-                              </button>
-                            )}
-                          </div>
-
-                          {/* Nested Sub-dropdown: Sets for this TCG */}
-                          {isTcgOpen && sets.length > 0 && (
-                            <div className="bg-surface-container-lowest border-t border-outline-variant/20 py-1 pl-3 pr-1 space-y-0.5 max-h-48 overflow-y-auto scrollbar-thin">
-                              {sets.map((setName) => {
-                                const isSetSelected = isTcgSelected && selectedSet.toLowerCase() === setName.toLowerCase();
-                                return (
-                                  <button
-                                    key={setName}
-                                    type="button"
-                                    onClick={() => handleSelectSet('producto-sellado', gameName, setName)}
-                                    className={`w-full text-left px-2 py-1 rounded text-[11px] flex items-center justify-between transition-colors cursor-pointer ${
-                                      isSetSelected
-                                        ? 'bg-primary text-on-primary font-bold'
-                                        : 'text-on-surface-variant hover:bg-surface-container hover:text-on-surface'
-                                    }`}
-                                  >
-                                    <span className="truncate">{setName}</span>
-                                    {isSetSelected && (
-                                      <span className="material-symbols-outlined text-[12px] shrink-0">check</span>
-                                    )}
-                                  </button>
-                                );
-                              })}
-                            </div>
-                          )}
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
-
-              {/* 5. Accesorios */}
-              <button
-                type="button"
-                onClick={() => handleSelectSimpleCategory('accesorios')}
-                className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs font-semibold transition-all ${
-                  selectedCategory === 'accesorios'
-                    ? 'bg-primary text-on-primary shadow-xs'
-                    : 'text-on-surface hover:bg-surface-container text-left'
-                }`}
-              >
-                <div className="flex items-center gap-2">
-                  <span className="material-symbols-outlined text-[16px]">extension</span>
-                  <span>Accesorios</span>
-                </div>
-                {selectedCategory === 'accesorios' && (
-                  <span className="material-symbols-outlined text-[14px]">check</span>
-                )}
-              </button>
-
-              {/* 6. Binder/Folders */}
-              <button
-                type="button"
-                onClick={() => handleSelectSimpleCategory('binder/folders')}
-                className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs font-semibold transition-all ${
-                  selectedCategory === 'binder/folders' || selectedCategory === 'binder-folders'
-                    ? 'bg-primary text-on-primary shadow-xs'
-                    : 'text-on-surface hover:bg-surface-container text-left'
-                }`}
-              >
-                <div className="flex items-center gap-2">
-                  <span className="material-symbols-outlined text-[16px]">menu_book</span>
-                  <span>Binder/Folders</span>
-                </div>
-                {(selectedCategory === 'binder/folders' || selectedCategory === 'binder-folders') && (
-                  <span className="material-symbols-outlined text-[14px]">check</span>
-                )}
-              </button>
+                );
+              })}
 
               {/* Reset button inside sidebar if active */}
               {hasActiveFilters && (

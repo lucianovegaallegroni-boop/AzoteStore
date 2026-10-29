@@ -1,6 +1,12 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate, Outlet } from 'react-router-dom';
 import logo from '../assets/logo.webp';
+import {
+  DEFAULT_PRODUCT_CATEGORIES,
+  fetchProductCategories,
+  getCategorySlug,
+  getCategoryIcon
+} from '../services/categoryService';
 
 const defaultHeaderBanners = [
   {
@@ -69,33 +75,56 @@ export default function Layout({ cartCount, currentUser, onLogout, onOpenCart })
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const [tcgOpen, setTcgOpen] = useState(false);
   const [tcgGames, setTcgGames] = useState([]);
+  const [categories, setCategories] = useState([]);
   const [banners, setBanners] = useState(defaultHeaderBanners);
   const [currentBannerIndex, setCurrentBannerIndex] = useState(0);
   const navigate = useNavigate();
   const userMenuRef = useRef(null);
 
-  // Fetch TCG games for navigation
+  // Fetch TCG games and Product Categories for navigation
   useEffect(() => {
     let isMounted = true;
-    const loadTcgGames = async () => {
+    const loadMenuData = async () => {
       try {
         const { supabase } = await import('../supabaseClient');
-        const { data, error } = await supabase
-          .from('tcg_games')
-          .select('id, name')
-          .order('name', { ascending: true });
-        if (!error && data && data.length > 0 && isMounted) {
-          setTcgGames(data);
+        const [gamesRes, catsList] = await Promise.all([
+          supabase.from('tcg_games').select('id, name').order('name', { ascending: true }),
+          fetchProductCategories(supabase)
+        ]);
+        if (isMounted) {
+          if (!gamesRes.error && gamesRes.data && gamesRes.data.length > 0) {
+            setTcgGames(gamesRes.data);
+          }
+          if (catsList && catsList.length > 0) {
+            setCategories(catsList);
+          }
         }
       } catch (e) {
-        console.warn('Error cargando tcg_games:', e);
+        console.warn('Error cargando datos del menú:', e);
       }
     };
-    loadTcgGames();
-    return () => { isMounted = false; };
+
+    loadMenuData();
+
+    const handleCategoriesUpdate = () => {
+      loadMenuData();
+    };
+    window.addEventListener('product_categories_updated', handleCategoriesUpdate);
+
+    return () => {
+      isMounted = false;
+      window.removeEventListener('product_categories_updated', handleCategoriesUpdate);
+    };
   }, []);
 
   const displayedTcgGames = tcgGames.length > 0 ? tcgGames : defaultTcgGames;
+  const displayedCategories = categories.length > 0
+    ? categories
+    : DEFAULT_PRODUCT_CATEGORIES.map((name, idx) => ({
+        id: `default-cat-${idx}`,
+        name,
+        slug: getCategorySlug(name)
+      }));
 
   // Fetch banners from Supabase
   useEffect(() => {
@@ -435,83 +464,67 @@ export default function Layout({ cartCount, currentUser, onLogout, onOpenCart })
             <nav className="flex-1 overflow-y-auto pr-1 flex flex-col gap-2 scrollbar-thin">
               <div className="text-[10px] text-outline uppercase tracking-wider font-bold mb-2 ml-3">Categorías</div>
 
-              {/* TCG Accordion */}
-              <div>
-                <button
-                  type="button"
-                  onClick={() => setTcgOpen(!tcgOpen)}
-                  className="w-full py-2.5 px-3 rounded-lg text-on-surface font-body-md hover:bg-surface-container-low transition-colors flex items-center justify-between font-semibold cursor-pointer"
-                >
-                  <div className="flex items-center gap-3">
-                    <span className="material-symbols-outlined text-outline">playing_cards</span>
-                    <span>TCG</span>
-                  </div>
-                  <span className={`material-symbols-outlined text-[18px] text-outline transition-transform duration-200 ${tcgOpen ? 'rotate-180' : ''}`}>
-                    expand_more
-                  </span>
-                </button>
+              {displayedCategories.map((cat) => {
+                const catSlug = cat.slug || getCategorySlug(cat.name);
+                const isTcgCat = catSlug === 'tcg' || cat.name.toLowerCase() === 'tcg';
 
-                {/* Sub-items */}
-                <div className={`overflow-hidden transition-all duration-200 ${tcgOpen ? 'max-h-[380px] opacity-100' : 'max-h-0 opacity-0'}`}>
-                  <div className="flex flex-col gap-1 pl-4 pb-2 border-l-2 border-outline-variant/30 ml-5 mt-1 overflow-y-auto max-h-[360px] scrollbar-thin">
-                    {displayedTcgGames.map((game) => {
-                      const logoUrl = getTcgLogo(game.name);
-                      const slug = getTcgSlug(game.name);
-                      return (
-                        <Link
-                          key={game.id || game.name}
-                          to={`/catalog?category=${slug}`}
-                          onClick={() => { setMobileMenuOpen(false); setTcgOpen(false); }}
-                          className="py-2 px-3 rounded-lg text-on-surface-variant font-semibold text-sm hover:bg-surface-container-low hover:text-primary transition-colors flex items-center gap-2.5"
-                        >
-                          {logoUrl ? (
-                            <img src={logoUrl} alt={game.name} className="w-[27px] h-[27px] object-contain shrink-0" />
-                          ) : (
-                            <span className="material-symbols-outlined text-[18px] text-outline">style</span>
-                          )}
-                          {game.name}
-                        </Link>
-                      );
-                    })}
-                  </div>
-                </div>
-              </div>
+                if (isTcgCat) {
+                  return (
+                    <div key={cat.id || cat.name}>
+                      <button
+                        type="button"
+                        onClick={() => setTcgOpen(!tcgOpen)}
+                        className="w-full py-2.5 px-3 rounded-lg text-on-surface font-body-md hover:bg-surface-container-low transition-colors flex items-center justify-between font-semibold cursor-pointer"
+                      >
+                        <div className="flex items-center gap-3">
+                          <span className="material-symbols-outlined text-outline">{getCategoryIcon(cat.name, cat.icon)}</span>
+                          <span>{cat.name}</span>
+                        </div>
+                        <span className={`material-symbols-outlined text-[18px] text-outline transition-transform duration-200 ${tcgOpen ? 'rotate-180' : ''}`}>
+                          expand_more
+                        </span>
+                      </button>
 
-              <Link
-                to="/catalog?category=sleeve"
-                onClick={() => setMobileMenuOpen(false)}
-                className="py-2.5 px-3 rounded-lg text-on-surface font-body-md hover:bg-surface-container-low transition-colors flex items-center gap-3 font-semibold"
-              >
-                <span className="material-symbols-outlined text-outline">layers</span>
-                Sleeves
-              </Link>
+                      {/* Sub-items */}
+                      <div className={`overflow-hidden transition-all duration-200 ${tcgOpen ? 'max-h-[380px] opacity-100' : 'max-h-0 opacity-0'}`}>
+                        <div className="flex flex-col gap-1 pl-4 pb-2 border-l-2 border-outline-variant/30 ml-5 mt-1 overflow-y-auto max-h-[360px] scrollbar-thin">
+                          {displayedTcgGames.map((game) => {
+                            const logoUrl = getTcgLogo(game.name);
+                            const slug = getTcgSlug(game.name);
+                            return (
+                              <Link
+                                key={game.id || game.name}
+                                to={`/catalog?category=${slug}`}
+                                onClick={() => { setMobileMenuOpen(false); setTcgOpen(false); }}
+                                className="py-2 px-3 rounded-lg text-on-surface-variant font-semibold text-sm hover:bg-surface-container-low hover:text-primary transition-colors flex items-center gap-2.5"
+                              >
+                                {logoUrl ? (
+                                  <img src={logoUrl} alt={game.name} className="w-[27px] h-[27px] object-contain shrink-0" />
+                                ) : (
+                                  <span className="material-symbols-outlined text-[18px] text-outline">style</span>
+                                )}
+                                {game.name}
+                              </Link>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                }
 
-              <Link
-                to="/catalog?category=producto-sellado"
-                onClick={() => setMobileMenuOpen(false)}
-                className="py-2.5 px-3 rounded-lg text-on-surface font-body-md hover:bg-surface-container-low transition-colors flex items-center gap-3 font-semibold"
-              >
-                <span className="material-symbols-outlined text-outline">inventory_2</span>
-                Producto Sellado
-              </Link>
-
-              <Link
-                to="/catalog?category=accesorios"
-                onClick={() => setMobileMenuOpen(false)}
-                className="py-2.5 px-3 rounded-lg text-on-surface font-body-md hover:bg-surface-container-low transition-colors flex items-center gap-3 font-semibold"
-              >
-                <span className="material-symbols-outlined text-outline">extension</span>
-                Accesorios
-              </Link>
-
-              <Link
-                to="/catalog?category=binder/folders"
-                onClick={() => setMobileMenuOpen(false)}
-                className="py-2.5 px-3 rounded-lg text-on-surface font-body-md hover:bg-surface-container-low transition-colors flex items-center gap-3 font-semibold"
-              >
-                <span className="material-symbols-outlined text-outline">menu_book</span>
-                Binder/Folders
-              </Link>
+                return (
+                  <Link
+                    key={cat.id || cat.name}
+                    to={`/catalog?category=${encodeURIComponent(catSlug)}`}
+                    onClick={() => setMobileMenuOpen(false)}
+                    className="py-2.5 px-3 rounded-lg text-on-surface font-body-md hover:bg-surface-container-low transition-colors flex items-center gap-3 font-semibold"
+                  >
+                    <span className="material-symbols-outlined text-outline">{getCategoryIcon(cat.name, cat.icon)}</span>
+                    {cat.name}
+                  </Link>
+                );
+              })}
 
 
               {currentUser && (

@@ -13,7 +13,9 @@ export default function CustomDropdown({
   disabled = false,
   placeholder = 'Seleccione una opción',
   align = 'left', // 'left' | 'right' | 'full'
-  openDirection = 'auto' // 'auto' | 'down' | 'up'
+  openDirection = 'auto', // 'auto' | 'down' | 'up'
+  onEditOption = null,
+  onDeleteOption = null
 }) {
   const [isOpen, setIsOpen] = useState(false);
   const [shouldOpenUp, setShouldOpenUp] = useState(false);
@@ -128,7 +130,14 @@ export default function CustomDropdown({
         disabled={disabled}
         className={buttonStyles}
       >
-        <span className="truncate">{selectedOption ? selectedOption.label : placeholder}</span>
+        <div className="flex items-center gap-2.5 min-w-0">
+          {selectedOption?.icon && (
+            <span className="material-symbols-outlined text-[18px] text-primary shrink-0">
+              {selectedOption.icon}
+            </span>
+          )}
+          <span className="truncate">{selectedOption ? selectedOption.label : placeholder}</span>
+        </div>
         <span
           className="material-symbols-outlined text-[18px] text-on-surface-variant transition-transform duration-200 shrink-0"
           style={{ transform: isOpen ? 'rotate(180deg)' : 'none' }}
@@ -147,24 +156,76 @@ export default function CustomDropdown({
         >
           {options.map((opt) => {
             const isSelected = opt.value === value;
+            const isSpecialAction = opt.isAction || opt.value === '__ADD_NEW__';
+            const canEdit = Boolean(onEditOption && !isSpecialAction && opt.value !== '');
+            const canDelete = Boolean(onDeleteOption && !isSpecialAction && opt.value !== '');
+
             return (
-              <button
+              <div
                 key={opt.value}
-                type="button"
-                onClick={() => handleSelect(opt.value)}
-                className={`w-full text-left px-4 py-3 md:py-2.5 text-sm transition-colors flex items-center justify-between font-semibold ${
-                  isSelected
+                className={`w-full flex items-center justify-between transition-colors ${
+                  isSpecialAction
+                    ? 'border-t border-outline-variant/30 mt-1 pt-1 bg-primary/5 hover:bg-primary/15 text-primary font-bold'
+                    : isSelected
                     ? 'bg-primary/10 text-primary font-bold dark:bg-primary/20 dark:text-primary-fixed'
                     : 'text-on-surface dark:text-inverse-on-surface hover:bg-surface-container-high dark:hover:bg-surface-container-low'
                 }`}
               >
-                <span className="truncate pr-4">{opt.label}</span>
-                {isSelected && (
-                  <span className="material-symbols-outlined text-[16px] text-primary dark:text-primary-fixed shrink-0">
-                    check
-                  </span>
+                <button
+                  type="button"
+                  onClick={() => handleSelect(opt.value)}
+                  className="flex-1 text-left px-4 py-3 md:py-2.5 text-sm flex items-center justify-between font-semibold min-w-0 cursor-pointer"
+                >
+                  <div className="flex items-center gap-2.5 min-w-0 pr-2">
+                    {opt.icon && (
+                      <span className={`material-symbols-outlined text-[18px] shrink-0 ${
+                        isSelected || isSpecialAction ? 'text-primary' : 'text-on-surface-variant'
+                      }`}>
+                        {opt.icon}
+                      </span>
+                    )}
+                    <span className="truncate">{opt.label}</span>
+                  </div>
+                  {isSelected && !isSpecialAction && (
+                    <span className="material-symbols-outlined text-[16px] text-primary dark:text-primary-fixed shrink-0">
+                      check
+                    </span>
+                  )}
+                </button>
+
+                {(canEdit || canDelete) && (
+                  <div className="flex items-center gap-0.5 pr-2 shrink-0">
+                    {canEdit && (
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setIsOpen(false);
+                          onEditOption(opt);
+                        }}
+                        className="p-1.5 rounded-lg hover:bg-secondary/15 text-on-surface-variant hover:text-secondary transition-colors cursor-pointer"
+                        title={`Editar "${opt.label}"`}
+                      >
+                        <span className="material-symbols-outlined text-[16px] block">edit</span>
+                      </button>
+                    )}
+                    {canDelete && (
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setIsOpen(false);
+                          onDeleteOption(opt);
+                        }}
+                        className="p-1.5 rounded-lg hover:bg-error/15 text-on-surface-variant hover:text-error transition-colors cursor-pointer"
+                        title={`Eliminar "${opt.label}"`}
+                      >
+                        <span className="material-symbols-outlined text-[16px] block">delete</span>
+                      </button>
+                    )}
+                  </div>
                 )}
-              </button>
+              </div>
             );
           })}
         </div>
