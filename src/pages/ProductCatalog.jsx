@@ -170,7 +170,9 @@ export default function ProductCatalog({ products }) {
       { name: "Todos", slug: "" },
       { name: "Sleeve", slug: "sleeve" },
       { name: "TCG", slug: "tcg" },
-      { name: "Producto Sellado", slug: "producto-sellado" }
+      { name: "Producto Sellado", slug: "producto-sellado" },
+      { name: "Accesorios", slug: "accesorios" },
+      { name: "Binder/Folders", slug: "binder/folders" }
     ];
     const catMap = new Map();
     baseCats.forEach(c => catMap.set(c.slug, c.name));
@@ -237,14 +239,18 @@ export default function ProductCatalog({ products }) {
     setOpenTcg(null);
   };
 
-  const handleSelectSleeve = () => {
+  const handleSelectSimpleCategory = (slug) => {
     const params = new URLSearchParams(searchParams);
-    params.set('category', 'sleeve');
+    params.set('category', slug);
     params.delete('tcg');
     params.delete('set');
     setSearchParams(params);
     setOpenCategory(null);
     setOpenTcg(null);
+  };
+
+  const handleSelectSleeve = () => {
+    handleSelectSimpleCategory('sleeve');
   };
 
   const handleToggleCategory = (catKey) => {
@@ -326,6 +332,10 @@ export default function ProductCatalog({ products }) {
       let matchCategory = false;
       if (targetCategory === 'sleeve' || targetCategory === 'sleeves') {
         matchCategory = ['sleeve', 'sleeves'].includes(productSlug);
+      } else if (targetCategory === 'accesorios' || targetCategory === 'accesorio') {
+        matchCategory = ['accesorios', 'accesorio'].includes(productSlug) || (product.category?.toLowerCase() === 'accesorios');
+      } else if (targetCategory === 'binder/folders' || targetCategory === 'binder-folders' || targetCategory === 'binders' || targetCategory === 'folders') {
+        matchCategory = ['binder/folders', 'binder-folders', 'binders', 'folders'].includes(productSlug) || (product.category?.toLowerCase() === 'binder/folders');
       } else if (targetCategory === 'tcg') {
         matchCategory = ['tcg', 'carta', 'cartas'].includes(productSlug) || (product.category?.toLowerCase() === 'tcg') || !!product.tcg;
       } else if (targetCategory === 'producto-sellado') {
@@ -398,6 +408,8 @@ export default function ProductCatalog({ products }) {
       if (selectedCategory === 'tcg') parts.push('TCG');
       else if (selectedCategory === 'producto-sellado') parts.push('Producto Sellado');
       else if (selectedCategory === 'sleeve' || selectedCategory === 'sleeves') parts.push('Sleeves');
+      else if (selectedCategory === 'accesorios') parts.push('Accesorios');
+      else if (selectedCategory === 'binder/folders' || selectedCategory === 'binder-folders') parts.push('Binder/Folders');
       else parts.push(selectedCategory);
     }
     if (selectedTcg) parts.push(selectedTcg);
@@ -432,7 +444,15 @@ export default function ProductCatalog({ products }) {
               <div className="mb-3.5 pb-2.5 border-b border-outline-variant/20 flex flex-wrap gap-1.5 items-center">
                 {selectedCategory && (
                   <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-primary/10 text-primary">
-                    {selectedCategory === 'tcg' ? 'TCG' : selectedCategory === 'producto-sellado' ? 'Producto Sellado' : selectedCategory}
+                    {selectedCategory === 'tcg'
+                      ? 'TCG'
+                      : selectedCategory === 'producto-sellado'
+                      ? 'Producto Sellado'
+                      : selectedCategory === 'accesorios'
+                      ? 'Accesorios'
+                      : selectedCategory === 'binder/folders' || selectedCategory === 'binder-folders'
+                      ? 'Binder/Folders'
+                      : selectedCategory}
                   </span>
                 )}
                 {selectedTcg && (
@@ -691,6 +711,44 @@ export default function ProductCatalog({ products }) {
                   </div>
                 )}
               </div>
+
+              {/* 5. Accesorios */}
+              <button
+                type="button"
+                onClick={() => handleSelectSimpleCategory('accesorios')}
+                className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs font-semibold transition-all ${
+                  selectedCategory === 'accesorios'
+                    ? 'bg-primary text-on-primary shadow-xs'
+                    : 'text-on-surface hover:bg-surface-container text-left'
+                }`}
+              >
+                <div className="flex items-center gap-2">
+                  <span className="material-symbols-outlined text-[16px]">extension</span>
+                  <span>Accesorios</span>
+                </div>
+                {selectedCategory === 'accesorios' && (
+                  <span className="material-symbols-outlined text-[14px]">check</span>
+                )}
+              </button>
+
+              {/* 6. Binder/Folders */}
+              <button
+                type="button"
+                onClick={() => handleSelectSimpleCategory('binder/folders')}
+                className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs font-semibold transition-all ${
+                  selectedCategory === 'binder/folders' || selectedCategory === 'binder-folders'
+                    ? 'bg-primary text-on-primary shadow-xs'
+                    : 'text-on-surface hover:bg-surface-container text-left'
+                }`}
+              >
+                <div className="flex items-center gap-2">
+                  <span className="material-symbols-outlined text-[16px]">menu_book</span>
+                  <span>Binder/Folders</span>
+                </div>
+                {(selectedCategory === 'binder/folders' || selectedCategory === 'binder-folders') && (
+                  <span className="material-symbols-outlined text-[14px]">check</span>
+                )}
+              </button>
 
               {/* Reset button inside sidebar if active */}
               {hasActiveFilters && (

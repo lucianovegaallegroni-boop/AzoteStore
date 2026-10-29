@@ -6,7 +6,9 @@ import { fetchCardPriceFromTcgPlayer, searchCardSuggestions } from '../services/
 const categoryOptions = [
   { value: "Sleeve", label: "Sleeve" },
   { value: "TCG", label: "TCG" },
-  { value: "Producto Sellado", label: "Producto Sellado" }
+  { value: "Producto Sellado", label: "Producto Sellado" },
+  { value: "Accesorios", label: "Accesorios" },
+  { value: "Binder/Folders", label: "Binder/Folders" }
 ];
 
 const defaultTcgOptions = [
@@ -115,7 +117,9 @@ const restockCategoryOptions = [
   { value: "", label: "Todas las Categorías" },
   { value: "sleeve", label: "Sleeve" },
   { value: "tcg", label: "TCG" },
-  { value: "producto-sellado", label: "Producto Sellado" }
+  { value: "producto-sellado", label: "Producto Sellado" },
+  { value: "accesorios", label: "Accesorios" },
+  { value: "binder/folders", label: "Binder/Folders" }
 ];
 
 const orderStatusOptions = [
@@ -1029,7 +1033,9 @@ export default function AdminPage({ products: initialProducts, onCreateProduct, 
       { name: "Yu-Gi-Oh", slug: "yu-gi-oh" },
       { name: "Pokemon", slug: "pokemon" },
       { name: "Magic", slug: "magic" },
-      { name: "Sleeves", slug: "sleeves" }
+      { name: "Sleeves", slug: "sleeves" },
+      { name: "Accesorios", slug: "accesorios" },
+      { name: "Binder/Folders", slug: "binder/folders" }
     ];
 
     // Gather all distinct categories present in dbProducts and initialProducts

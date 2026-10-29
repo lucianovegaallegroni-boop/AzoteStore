@@ -495,6 +495,24 @@ export default function Layout({ cartCount, currentUser, onLogout, onOpenCart })
                 Producto Sellado
               </Link>
 
+              <Link
+                to="/catalog?category=accesorios"
+                onClick={() => setMobileMenuOpen(false)}
+                className="py-2.5 px-3 rounded-lg text-on-surface font-body-md hover:bg-surface-container-low transition-colors flex items-center gap-3 font-semibold"
+              >
+                <span className="material-symbols-outlined text-outline">extension</span>
+                Accesorios
+              </Link>
+
+              <Link
+                to="/catalog?category=binder/folders"
+                onClick={() => setMobileMenuOpen(false)}
+                className="py-2.5 px-3 rounded-lg text-on-surface font-body-md hover:bg-surface-container-low transition-colors flex items-center gap-3 font-semibold"
+              >
+                <span className="material-symbols-outlined text-outline">menu_book</span>
+                Binder/Folders
+              </Link>
+
 
               {currentUser && (
                 <>
